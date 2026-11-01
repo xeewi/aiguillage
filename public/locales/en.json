@@ -74,7 +74,13 @@
     "turns_one": "{{count}} turn",
     "turns_other": "{{count}} turns",
     "agentExited": "claude stopped (code {{code}}).\n{{stderr}}",
-    "settings": "Model, effort and permissions for the next message"
+    "settings": "Model, effort and permissions for the next message",
+    "attach": "Attach files",
+    "dropTitle": "Drop to attach",
+    "dropHint": "Any file: images, PDFs, code, documents, data… up to 100 MB each.",
+    "remove": "Remove {{name}}",
+    "noFolders": "Folders can't be attached: drop the files inside them.",
+    "tooLarge": "{{name}} is over 100 MB."
   },
   "notify": {
     "done": "{{name}} finished",
@@ -154,7 +160,9 @@
     "gitBusy": "A git operation is in progress.",
     "tooLarge": "Request too large.",
     "notFound": "Not found.",
-    "initRefused": "Pick a project folder, not your whole home folder."
+    "initRefused": "Pick a project folder, not your whole home folder.",
+    "fileTooLarge": "File too large (100 MB max).",
+    "emptyMessage": "Write a message or attach a file."
   },
   "messages": {
     "committed": "Commit created.",

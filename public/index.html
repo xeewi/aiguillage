@@ -90,8 +90,11 @@
           <div id="thread"></div>
           <div id="perms"></div>
           <form id="composer">
+            <div id="atts" hidden></div>
             <textarea id="input" rows="3" placeholder="Ask the agent something…" data-i18n-placeholder="chat.placeholder"></textarea>
             <div class="row">
+              <input type="file" id="fileInput" multiple hidden>
+              <button type="button" id="attach" class="ghost icon" data-i18n-title="chat.attach" data-i18n-aria-label="chat.attach"></button>
               <button type="button" id="optsBtn" popovertarget="opts" data-i18n-title="chat.settings"></button>
               <span id="opts" popover>
                 <select id="model" data-i18n-title="head.model">
@@ -162,6 +165,7 @@
   <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
   <div id="toast" hidden></div>
   <div id="usagePop" role="tooltip" hidden></div>
+  <div id="drop" hidden><div><b data-i18n="chat.dropTitle">Drop to attach</b><span data-i18n="chat.dropHint"></span></div></div>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

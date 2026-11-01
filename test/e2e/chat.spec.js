@@ -73,3 +73,23 @@ test('an agent crash is shown as an error and the next message works', async ({ 
   await expect(page.locator('#thread .msg.ai').last()).toHaveText('ok: still alive?')
   await expect(page.locator('.wsItem.on .pill.err')).toHaveCount(0)
 })
+
+test('attachments: paperclip and window-wide drop add chips; sent files show in the bubble and reach the agent', async ({ open, page }) => {
+  await open()
+  await page.locator('#fileInput').setInputFiles({ name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# hi') })
+  await expect(page.locator('#atts .att')).toHaveText('notes.md')
+  // A file dragged over any part of the window shows the full-window zone; dropping attaches it.
+  const dt = await page.evaluateHandle(() => { const d = new DataTransfer(); d.items.add(new File(['x'], 'shot.png', { type: 'image/png' })); return d })
+  await page.locator('#thread').dispatchEvent('dragenter', { dataTransfer: dt })
+  await expect(page.locator('#drop')).toBeVisible()
+  await page.locator('#thread').dispatchEvent('drop', { dataTransfer: dt })
+  await expect(page.locator('#drop')).toBeHidden()
+  await expect(page.locator('#atts .att')).toHaveText(['notes.md', 'shot.png'])
+  await expect(page.locator('#atts .att img')).toHaveCount(1) // images get a thumbnail
+  await page.locator('#atts .att', { hasText: 'shot.png' }).locator('.rm').click()
+  await say(page, 'read this')
+  await expect(page.locator('#thread .msg.me .att')).toHaveText('notes.md')
+  await expect(page.locator('#atts')).toBeHidden()
+  await expect(page.locator('#thread .msg.ai').last()).toContainText('Attached files')
+  await expect(page.locator('#thread .msg.ai').last()).toContainText('notes.md')
+})

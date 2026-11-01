@@ -74,7 +74,13 @@
     "turns_one": "{{count}} tour",
     "turns_other": "{{count}} tours",
     "agentExited": "claude s'est arrêté (code {{code}}).\n{{stderr}}",
-    "settings": "Modèle, effort et permissions du prochain message"
+    "settings": "Modèle, effort et permissions du prochain message",
+    "attach": "Joindre des fichiers",
+    "dropTitle": "Dépose pour joindre",
+    "dropHint": "N'importe quel fichier : images, PDF, code, documents, données… jusqu'à 100 Mo chacun.",
+    "remove": "Retirer {{name}}",
+    "noFolders": "Un dossier ne peut pas être joint : dépose les fichiers qu'il contient.",
+    "tooLarge": "{{name}} dépasse 100 Mo."
   },
   "notify": {
     "done": "{{name}} a terminé",
@@ -154,7 +160,9 @@
     "gitBusy": "Une opération git est en cours.",
     "tooLarge": "Requête trop grosse.",
     "notFound": "Introuvable.",
-    "initRefused": "Choisis un dossier de projet, pas tout ton dossier personnel."
+    "initRefused": "Choisis un dossier de projet, pas tout ton dossier personnel.",
+    "fileTooLarge": "Fichier trop gros (100 Mo max).",
+    "emptyMessage": "Écris un message ou joins un fichier."
   },
   "messages": {
     "committed": "Commit créé.",

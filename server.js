@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import http from 'node:http'
-import { readFileSync, existsSync, statSync, readdirSync, copyFileSync, mkdirSync, createWriteStream } from 'node:fs'
+import { readFileSync, existsSync, statSync, readdirSync, copyFileSync, mkdirSync, createWriteStream, createReadStream, rmSync } from 'node:fs'
+import { pipeline } from 'node:stream/promises'
 import { join, extname, basename, resolve, dirname, sep } from 'node:path'
 import { homedir, platform } from 'node:os'
 import { execFile, spawn } from 'node:child_process'
@@ -8,7 +9,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
 import pty from 'node-pty'
-import { state, save, readLog, newId, WORKTREES, runLogPath } from './lib/store.js'
+import { state, save, readLog, newId, WORKTREES, runLogPath, ATTACHMENTS, attachDir } from './lib/store.js'
 import { config as readConfig, defaultRun } from './lib/config.js'
 import * as G from './lib/git.js'
 import * as A from './lib/agent.js'
@@ -212,6 +213,37 @@ async function pickFolder() {
   return { path: stdout.trim().replace(/(.)\/$/, '$1') || null }
 }
 
+// ---------- chat attachments: any file type, stored per workspace outside the worktree ----------
+const MAX_UPLOAD = 100e6
+// Only these come back to the page (thumbnails); never SVG or HTML, which could run script in the app's origin.
+const IMAGES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' }
+const fileInfo = path => {
+  const name = basename(path)
+  const url = IMAGES[extname(name).toLowerCase()] && '/attachments/' + path.slice(ATTACHMENTS.length + 1).split(sep).map(encodeURIComponent).join('/')
+  return { name, path, url }
+}
+async function upload(ws, name, req) {
+  // One folder per upload: the agent sees the file under its own name, and same-name files don't collide.
+  const dir = join(attachDir(ws.id), newId())
+  const path = join(dir, basename(String(name ?? '')).replace(/[\x00-\x1f\\:]/g, '_').replace(/^\.+/, '').slice(-150) || 'file')
+  mkdirSync(dir, { recursive: true })
+  let n = 0
+  try {
+    await pipeline(req, async function* (src) { for await (const c of src) { if ((n += c.length) > MAX_UPLOAD) throw fail('errors.fileTooLarge'); yield c } }, createWriteStream(path))
+  } catch (e) { rmSync(dir, { recursive: true, force: true }); throw e }
+  return fileInfo(path)
+}
+// What the page sends back: only paths of this workspace's own uploads.
+const attached = (ws, paths) => (Array.isArray(paths) ? paths : []).map(p => resolve(String(p)))
+  .filter(p => p.startsWith(attachDir(ws.id) + sep) && existsSync(p)).map(fileInfo)
+function serveAttachment(pathname, res) {
+  const file = resolve(ATTACHMENTS, '.' + decodeURIComponent(pathname.slice('/attachments'.length)))
+  const type = IMAGES[extname(file).toLowerCase()]
+  if (!type || !file.startsWith(ATTACHMENTS + sep) || !existsSync(file)) { res.writeHead(404); return res.end('not found') }
+  res.writeHead(200, { 'content-type': type, 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'", 'cache-control': 'private, max-age=86400' })
+  createReadStream(file).pipe(res)
+}
+
 // ---------- HTTP API ----------
 const routes = {
   'GET /api/state': () => view(),
@@ -255,10 +287,15 @@ const routes = {
     if (typeof body.title === 'string') ws.title = body.title.replace(/\s+/g, ' ').trim().slice(0, 80)
     A.configure(ws, body); changed(); return {}
   },
-  'POST /api/workspaces/:id/send': async ({ ws, body }) => { await A.send(ws, String(body.text)); return {} },
+  'POST /api/workspaces/:id/upload': ({ ws, req, query }) => upload(ws, query.get('name'), req),
+  'POST /api/workspaces/:id/send': async ({ ws, body }) => {
+    const text = String(body.text ?? ''), files = attached(ws, body.files)
+    if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
+    await A.send(ws, text, files); return {}
+  },
   'POST /api/workspaces/:id/interrupt': ({ ws }) => { A.interrupt(ws); return {} },
   'POST /api/workspaces/:id/permission': ({ ws, body }) => { A.answer(ws, body.id, !!body.allow, body.message && String(body.message)); return {} },
-  'POST /api/workspaces/:id/revert': async ({ ws, body }) => ({ text: await A.revert(ws, body.msgId) }),
+  'POST /api/workspaces/:id/revert': ({ ws, body }) => A.revert(ws, body.msgId),
   'POST /api/workspaces/:id/archive': async ({ ws }) => { await archive(ws); return {} },
   'POST /api/workspaces/:id/unarchive': async ({ ws }) => { await unarchive(ws); return {} },
   'DELETE /api/workspaces/:id': async ({ ws }) => {
@@ -266,6 +303,7 @@ const routes = {
     const repo = state.repos.find(r => r.id === ws.repoId)
     await G.git(repo.path, ['branch', '-D', ws.branch]).catch(() => {})
     await G.dropRefs(repo.path, `refs/aiguillage/${ws.id}/`).catch(() => {})
+    rmSync(attachDir(ws.id), { recursive: true, force: true })
     state.workspaces = state.workspaces.filter(w => w !== ws); save(); changed(); return {}
   },
   'GET /api/workspaces/:id/scripts': ({ ws }) => { const c = config(ws); return { run: c.run, default: defaultRun(c) } },
@@ -330,11 +368,13 @@ const server = http.createServer(async (req, res) => {
   if (!sameOrigin(req)) { res.writeHead(403); return res.end('forbidden') }
   const url = new URL(req.url, 'http://x')
   if (!url.pathname.startsWith('/api/')) {
-    try { return serveStatic(url.pathname, res) } catch { res.writeHead(500); return res.end() }
+    try { return url.pathname.startsWith('/attachments/') ? serveAttachment(url.pathname, res) : serveStatic(url.pathname, res) } catch { res.writeHead(500); return res.end() }
   }
-  if (req.method !== 'GET' && req.headers['content-type'] !== 'application/json') { res.writeHead(415); return res.end() }
   const parts = url.pathname.split('/') // ['', 'api', kind, id, action]
   const key = `${req.method} ${parts.length > 3 ? ['', 'api', parts[2], ':id', ...parts.slice(4)].join('/') : url.pathname}`
+  // Uploads are the one raw body: still not a type a cross-site form can send without a preflight.
+  const raw = key === 'POST /api/workspaces/:id/upload'
+  if (req.method !== 'GET' && req.headers['content-type'] !== (raw ? 'application/octet-stream' : 'application/json')) { res.writeHead(415); return res.end() }
   const route = routes[key]
   if (!route) { res.writeHead(404); return res.end() }
   // Too big: answer 413 and close right away (an unread body would otherwise keep the client hanging).
@@ -342,11 +382,11 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(413, { 'content-type': 'application/json', connection: 'close' })
     res.end(JSON.stringify({ error: 'Request too large.', key: 'errors.tooLarge' }), () => req.destroy())
   }
-  if (Number(req.headers['content-length']) > 1e6) return tooBig()
+  if (Number(req.headers['content-length']) > (raw ? MAX_UPLOAD : 1e6)) return tooBig()
   try {
-    let raw = ''
-    for await (const c of req) { raw += c; if (raw.length > 1e6) return tooBig() }
-    const ctx = { body: raw ? JSON.parse(raw) : {} }
+    let json = ''
+    if (!raw) for await (const c of req) { json += c; if (json.length > 1e6) return tooBig() }
+    const ctx = { body: json ? JSON.parse(json) : {}, req, query: url.searchParams }
     if (parts[3]) {
       ctx.ws = state.workspaces.find(w => w.id === parts[3])
       ctx.repo = state.repos.find(r => r.id === parts[3])

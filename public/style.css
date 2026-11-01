@@ -222,6 +222,27 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 @container (max-width: 759px) { /* narrow: the spinner alone says it, the text stays for screen readers */
   #busy > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+#attach { flex: none; }
+
+/* attachments: chips in the composer and in sent messages; the whole window as drop zone */
+#atts, .msg .atts { display: flex; flex-wrap: wrap; gap: 6px; }
+#atts { margin-bottom: 8px; }
+.msg .atts { white-space: normal; }
+.msg .body:not(:empty) > .atts:not(:first-child) { margin-top: 8px; }
+.att { display: inline-flex; align-items: center; gap: 6px; max-width: 260px; height: 36px; padding: 0 10px 0 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: 12.5px; white-space: nowrap; }
+.att > svg { flex: none; margin-left: 4px; color: var(--muted); }
+.att img { flex: none; width: 28px; height: 28px; object-fit: cover; border-radius: 5px; }
+.att .name { overflow: hidden; text-overflow: ellipsis; }
+.att .rm { flex: none; min-width: 22px; padding: 2px; margin-right: -6px; }
+.att.loading { color: var(--muted); }
+.att.loading > svg { animation: pulse 1s ease-in-out infinite alternate; }
+@keyframes pulse { to { opacity: .3; } }
+/* Same white on a dark scrim in both themes: it floats above whatever is under it. */
+#drop { position: fixed; inset: 0; z-index: 100; padding: 16px; background: rgb(0 0 0 / .78); backdrop-filter: blur(4px); pointer-events: none; }
+#drop > div { height: 100%; display: grid; place-content: center; gap: 6px; padding: 24px; text-align: center; border: 2px dashed #fff; border-radius: 16px; color: #fff; }
+#drop b { font-size: 20px; font-weight: 800; }
+#drop span { opacity: .85; }
+@media (prefers-reduced-motion: reduce) { .att.loading > svg { animation: none; } }
 .spin { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--fg); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 

@@ -21,6 +21,8 @@ const ICONS = {
   side: '<rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M6 2.5v11"/>',
   panelBelow: '<rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M2 9h12"/>',
   panelRight: '<rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M9.5 2.5v11"/>',
+  clip: '<path d="M13 7.5 8.2 12.3a3.3 3.3 0 0 1-4.7-4.7l5-5a2.2 2.2 0 0 1 3.1 3.1l-5 5a1.1 1.1 0 0 1-1.6-1.6L9.5 4.6"/>',
+  file: '<path d="M9 1.75H4.5a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5.25z"/><path d="M9 1.75v3.5h3.5"/>',
   gear: '<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
 }
 const svg = n => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`
@@ -322,7 +324,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && settingsOpen && !$(
 function select(id) {
   active = id; unread.delete(id); settingsOpen = false
   history.replaceState(null, '', '#ws=' + id); localStorage.setItem('aig.ws', id)
-  renderSide(); renderHead(); renderPerms(); loadThread(); showTab(tab)
+  renderSide(); renderHead(); renderPerms(); renderAtts(); loadThread(); showTab(tab)
   if (tab !== 'diff') loadDiff() // the Diff tab's counts and the git bar, whatever tab is open
 }
 
@@ -401,13 +403,16 @@ function toolSummary(name, i = {}) {
 
 function renderEv(ev) {
   if (ev.type === 'cg_user') {
-    const m = h('div', 'msg me'); m.append(h('div', 'body', ev.text))
+    const m = h('div', 'msg me'), body = h('div', 'body', ev.text)
+    if (ev.files?.length) { const l = h('div', 'atts'); l.append(...ev.files.map(fileChip)); body.append(l) }
+    m.append(body)
     if (ev.cp) {
       const b = ibtn('undo', t('chat.revert'), 'revert'); b.title = t('chat.revertTitle')
       b.onclick = guard(async () => {
         if (!confirm(t('chat.confirmRevert'))) return
         const r = await api('POST', `/workspaces/${active}/revert`, { msgId: ev.id })
-        $('#input').value = r.text; $('#input').focus(); loadDiff()
+        $('#input').value = r.text; atts.set(active, r.files.map(f => ({ ...f, ready: null }))); renderAtts()
+        $('#input').focus(); loadDiff()
       })
       m.append(b)
     }
@@ -494,12 +499,79 @@ function renderPerms() {
 
 $('#composer').onsubmit = guard(async e => {
   e.preventDefault()
-  const text = $('#input').value.trim(); if (!text || !active) return
+  const id = active, text = $('#input').value.trim(), list = attsOf(id)
+  if (!id || (!text && !list.length)) return
   if (Notification.permission === 'default') Notification.requestPermission()
-  $('#input').value = ''
-  try { await api('POST', `/workspaces/${active}/send`, { text }) } catch (err) { $('#input').value = text; throw err }
+  // Cleared right away so a second Enter can't send twice; uploads still running are awaited.
+  $('#input').value = ''; atts.set(id, []); renderAtts()
+  await Promise.all(list.map(f => f.ready))
+  const files = list.filter(f => f.path)
+  if (!text && !files.length) return
+  try { await api('POST', `/workspaces/${id}/send`, { text, files: files.map(f => f.path) }) } catch (err) {
+    $('#input').value = text; atts.set(id, files); renderAtts(); throw err
+  }
 })
 $('#input').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#composer').requestSubmit() } }
+
+// ---------- attachments: drop anywhere on the window, paste, or the paperclip. Any file type. ----------
+const MAX_FILE = 100e6 // same cap as the server
+const atts = new Map() // workspace id -> [{ name, path, url?, ready }] (path once uploaded)
+const attsOf = id => atts.get(id) ?? atts.set(id, []).get(id)
+function fileChip(f) {
+  const c = h('span', 'att'); c.title = f.name
+  if (f.url) { const i = h('img'); i.src = f.url; i.alt = ''; c.append(i) } else c.innerHTML = svg('file')
+  c.append(h('span', 'name', f.name))
+  return c
+}
+function renderAtts() {
+  const list = active ? attsOf(active) : [], box = $('#atts')
+  box.hidden = !list.length
+  box.replaceChildren(...list.map(f => {
+    const c = fileChip(f); c.classList.toggle('loading', !f.path)
+    const x = ibtn('x', t('chat.remove', { name: f.name }), 'rm')
+    x.onclick = () => { list.splice(list.indexOf(f), 1); renderAtts(); $('#input').focus() }
+    c.append(x); return c
+  }))
+}
+// Uploaded as soon as attached, like other chat apps: sending is then instant.
+function addFiles(files) {
+  const id = active; if (!id) return
+  for (const file of files) {
+    if (file.size > MAX_FILE) { toast(t('chat.tooLarge', { name: file.name }), true); continue }
+    const f = { name: file.name }
+    f.ready = fetch(`/api/workspaces/${id}/upload?name=${encodeURIComponent(file.name)}`, { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file })
+      .then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.key ? t(j.key, j.vars) : j.error || r.statusText); Object.assign(f, j) })
+      .catch(e => { const l = attsOf(id); if (l.includes(f)) l.splice(l.indexOf(f), 1); toast(`${file.name}: ${e.message}`, true) })
+      .finally(() => { if (id === active) renderAtts() })
+    attsOf(id).push(f)
+  }
+  renderAtts()
+}
+$('#attach').innerHTML = svg('clip')
+$('#attach').onclick = () => $('#fileInput').click()
+$('#fileInput').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; $('#input').focus() }
+// Screenshots pasted in the composer. Cells copied from a spreadsheet also carry a picture: text wins.
+$('#input').onpaste = e => {
+  const d = e.clipboardData
+  if (!d.files.length || d.types.includes('text/plain')) return
+  e.preventDefault(); addFiles([...d.files])
+}
+// The whole window is the drop zone. Dragover is always cancelled for files, so a miss never opens the file in the window.
+const dragsFiles = e => e.dataTransfer?.types.includes('Files')
+const canDrop = () => !!active && !$('#ws').hidden
+addEventListener('dragenter', e => { if (dragsFiles(e) && canDrop()) $('#drop').hidden = false })
+addEventListener('dragover', e => { if (dragsFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = canDrop() ? 'copy' : 'none' } })
+addEventListener('dragleave', e => { if (!e.relatedTarget) $('#drop').hidden = true })
+addEventListener('drop', e => {
+  if (!dragsFiles(e)) return
+  e.preventDefault(); $('#drop').hidden = true
+  if (!canDrop()) return
+  const items = [...e.dataTransfer.items].filter(i => i.kind === 'file')
+  const isDir = i => items[i]?.webkitGetAsEntry?.()?.isDirectory
+  const files = [...e.dataTransfer.files].filter((_, i) => !isDir(i))
+  if (files.length < e.dataTransfer.files.length) toast(t('chat.noFolders'), true)
+  addFiles(files); $('#input').focus()
+})
 
 // ---------- right panel ----------
 function showTab(t) {
