@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "public/index.html"
+        ],
+        "createdAt": "2026-11-01T20:28:33.849Z",
+        "reason": "Claude: static-parse false positive on #panel (layout column; its tabs and views carry their own insets); a scan of the rendered page reports no cramped padding"
+      }
+    ]
+  }
+}

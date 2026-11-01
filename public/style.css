@@ -14,6 +14,8 @@
   --add: light-dark(#006b41, #6fd3a0); --add-bg: light-dark(#e6f3ed, #12261c); --del: light-dark(#b80016, #ff8b95); --del-bg: light-dark(#fbe7e9, #2c1519); --hunk: var(--muted);
   /* red and trunk are the same in both themes: white text on them stays >= 4.5:1 and they read >= 3:1 on either ground */
   --ask: #e3051c; --trunk: #6b737c; --ok: var(--fg);
+  /* Signal Red as text: the fill colour reads at only 3.8:1 on the dark ground, so dark mode uses the diff red. */
+  --ask-text: light-dark(var(--ask), var(--del));
   --scrim: light-dark(rgb(0 0 0 / .35), rgb(0 0 0 / .6));
   /* RATP-like line palette, by line number (1-8, then it loops). Dark lifts 2, 4, 7 to >= 3:1 on the ground, white numerals still >= 4.5:1. */
   --l1: #ffcd00; --l2: light-dark(#003ca6, #3468d8); --l3: #00814f; --l4: light-dark(#8d5e2a, #9c6b36); --l5: #ff7e2e; --l6: #6eca97; --l7: light-dark(#a0006e, #c42f8f); --l8: #e19bdf;
@@ -61,7 +63,7 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 .pill.new i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
 .pill.script { border: 1px solid var(--line); color: var(--muted); font-family: var(--mono); font-weight: 500; gap: 4px; }
 .pill.script svg { width: 10px; height: 10px; }
-.pill.err { border: 1px solid var(--ask); color: var(--ask); gap: 4px; }
+.pill.err { border: 1px solid var(--ask); color: var(--ask-text); gap: 4px; }
 .pill.err svg { width: 10px; height: 10px; }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none !important; } }
 
@@ -314,7 +316,7 @@ dialog .row { margin-top: 16px; }
 #usage .track i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--fg); }
 #usage .track s { position: absolute; top: -3px; width: 2px; height: 10px; margin-left: -1px; border-radius: 1px; background: var(--trunk); }
 #usage .when { font-size: 12px; color: var(--muted); }
-.lane.hot .laneHead b { color: var(--ask); }
+.lane.hot .laneHead b { color: var(--ask-text); }
 .lane.hot .track i { background: var(--ask); }
 #usagePop { position: fixed; z-index: 10; width: 300px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .2); font-size: 13px; }
 #usagePop table { width: 100%; border-collapse: collapse; }
