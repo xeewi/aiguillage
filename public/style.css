@@ -209,6 +209,8 @@ dialog::backdrop { background: var(--scrim); }
 dialog h3 { margin: 0 0 8px; font-size: 18px; font-weight: 800; }
 dialog label { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; font-weight: 700; }
 dialog label button { align-self: flex-start; }
+dialog label.check { flex-direction: row; align-items: center; gap: 8px; }
+dialog label.check .muted { margin-left: auto; font-weight: 500; }
 dialog .row { margin-top: 16px; }
 .suggest { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
 .suggest button { text-align: left; border: 0; padding: 4px 8px; }
@@ -228,4 +230,7 @@ dialog .row { margin-top: 16px; }
 #wsBranch::before { content: attr(data-n); width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--c, var(--trunk)); color: #fff; font: 800 12px Figtree, system-ui, sans-serif; }
 .ln1 #wsBranch::before, .ln5 #wsBranch::before, .ln6 #wsBranch::before, .ln8 #wsBranch::before { color: #1a1a1a; }
 .prefs { display: flex; gap: 8px; }
+#update { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 13px; }
+#update a { font-size: 12px; color: var(--muted); }
+#update a:hover { color: var(--fg); }
 .prefs select, #defaults { font-size: 12px; padding: 4px 8px; }

@@ -144,5 +144,25 @@
   "app": {
     "startFailed": "Aiguillage could not start",
     "portInUse": "Port {{port}} is already used by another program."
+  },
+  "update": {
+    "check": "Check for Updates…",
+    "availableTitle": "Aiguillage {{version}} is available",
+    "readyTitle": "Aiguillage {{version}} is ready",
+    "readyDetail": "Restart to finish updating. Your workspaces, conversations and running scripts come back as they were.",
+    "restart": "Restart to update",
+    "restarting": "Restarting…",
+    "later": "Later",
+    "download": "Download",
+    "manualDetail": "This copy can't update itself (it isn't in Applications, or that folder isn't writable). Download the new version and replace the app.",
+    "downloading": "Downloading Aiguillage {{version}}… You'll be offered a restart when it's ready.",
+    "failed": "Couldn't check for updates",
+    "upToDate": "You're up to date",
+    "upToDateDetail": "Aiguillage {{version}} is the latest version.",
+    "busyWarning_one": "1 agent is working: restarting stops it. Its conversation is kept.",
+    "busyWarning_other": "{{count}} agents are working: restarting stops them. Their conversations are kept.",
+    "notes": "What's new",
+    "auto": "Check for updates automatically",
+    "version": "Version {{version}}"
   }
 }

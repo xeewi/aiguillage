@@ -7,7 +7,7 @@ Un chef d'orchestre **100 % local** pour faire tourner plusieurs agents Claude C
 Un agent = une branche isolée, et on en pilote 5 à la fois. Aiguillage offre cette boucle de travail sans compte, sans app propriétaire ni service distant : sur ta machine uniquement.
 
 ## Les 5 gènes (non négociables)
-1. **Local d'abord** : serveur sur `127.0.0.1`, état dans `~/.aiguillage/`, aucune requête réseau à part celles du CLI `claude` que tu utilises déjà. Aucune dépendance chargée depuis un CDN.
+1. **Local d'abord** : serveur sur `127.0.0.1`, état dans `~/.aiguillage/`, aucune requête réseau à part celles du CLI `claude` que tu utilises déjà (seule exception : l'app de bureau cherche ses mises à jour sur les releases GitHub, désactivable). Aucune dépendance chargée depuis un CDN.
 2. **Un workspace = un worktree = une branche** : chaque agent travaille isolé (`~/.aiguillage/worktrees/<repo>/<nom>`, branche `aig/<nom>`). Le repo principal n'est jamais modifié.
 3. **On pilote le vrai `claude`** : on lance le CLI officiel en mode `stream-json`. L'authentification, les modèles, les MCP, les hooks et les skills restent ceux de l'utilisateur. Les sessions reprennent avec `--resume`.
 4. **Relire avant de fusionner** : le diff contre la branche de base est toujours à un clic, et le terminal du worktree aussi.

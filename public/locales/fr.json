@@ -144,5 +144,25 @@
   "app": {
     "startFailed": "Aiguillage n'a pas pu démarrer",
     "portInUse": "Le port {{port}} est déjà utilisé par un autre programme."
+  },
+  "update": {
+    "check": "Rechercher des mises à jour…",
+    "availableTitle": "Aiguillage {{version}} est disponible",
+    "readyTitle": "Aiguillage {{version}} est prêt",
+    "readyDetail": "Redémarrez pour terminer la mise à jour. Vos workspaces, conversations et scripts en cours reviennent tels quels.",
+    "restart": "Redémarrer pour mettre à jour",
+    "restarting": "Redémarrage…",
+    "later": "Plus tard",
+    "download": "Télécharger",
+    "manualDetail": "Cette copie ne peut pas se mettre à jour seule (elle n'est pas dans Applications, ou ce dossier n'est pas modifiable). Téléchargez la nouvelle version et remplacez l'app.",
+    "downloading": "Téléchargement d'Aiguillage {{version}}… Un redémarrage vous sera proposé dès qu'il est prêt.",
+    "failed": "Impossible de vérifier les mises à jour",
+    "upToDate": "Vous êtes à jour",
+    "upToDateDetail": "Aiguillage {{version}} est la dernière version.",
+    "busyWarning_one": "1 agent travaille : le redémarrage l'arrête. Sa conversation est conservée.",
+    "busyWarning_other": "{{count}} agents travaillent : le redémarrage les arrête. Leurs conversations sont conservées.",
+    "notes": "Nouveautés",
+    "auto": "Rechercher les mises à jour automatiquement",
+    "version": "Version {{version}}"
   }
 }

@@ -23,8 +23,9 @@ const svg = n => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" st
 const ibtn = (n, label, cls = '') => { const b = h('button', 'ghost icon ' + cls); b.innerHTML = svg(n); b.title = label; b.setAttribute('aria-label', label); return b }
 
 let S = { repos: [], workspaces: [] }
-let active = new URLSearchParams(location.hash.slice(1)).get('ws')
-let tab = 'diff'
+// The last workspace and tab come back when the app restarts (an update, a quit).
+let active = new URLSearchParams(location.hash.slice(1)).get('ws') || localStorage.getItem('aig.ws')
+let tab = ['diff', 'term', 'run'].includes(localStorage.getItem('aig.tab')) ? localStorage.getItem('aig.tab') : 'diff'
 const unread = new Set()
 const wsById = id => S.workspaces.find(w => w.id === id)
 // Shown name: the task name (Claude's summary of the first message, or the user's rename), else the city.
@@ -55,7 +56,7 @@ function connect() {
 const send = m => sock?.readyState === 1 && sock.send(JSON.stringify(m))
 
 function onMsg(m) {
-  if (m.t === 'state') { S = m; renderSide(); renderHead(); renderPerms() }
+  if (m.t === 'state') { S = m; renderSide(); renderHead(); renderPerms(); renderUpdate() }
   else if (m.t === 'ev') {
     if (m.ws === active) { dropDraft(); renderEv(m.ev); scroll() }
     if (m.ev.type === 'result') {
@@ -108,6 +109,23 @@ function renderSide() {
   }))
   $('#empty').hidden = !!wsById(active) && !wsById(active).archived
   if (!S.repos.length || !ready) $('#empty').hidden = false
+}
+
+// ---------- desktop app update (lib/update.js): downloaded in the background, one click to restart into it ----------
+function renderUpdate() {
+  const u = S.update ?? {}, box = $('#update')
+  box.hidden = !['ready', 'manual'].includes(u.state)
+  if (box.hidden) return
+  const notes = h('a', null, t('update.notes')); notes.href = u.url; notes.target = '_blank'; notes.rel = 'noopener'
+  const b = h('button', null, t(u.state === 'ready' ? 'update.restart' : 'update.download'))
+  b.onclick = () => {
+    if (u.state === 'manual') return open(u.url)
+    const n = S.workspaces.filter(w => w.busy).length
+    if (n && !confirm(t('update.busyWarning', { count: n }))) return
+    b.disabled = true; b.textContent = t('update.restarting')
+    api('POST', '/update').catch(() => {}) // the app quits before answering
+  }
+  box.replaceChildren(h('b', null, t('update.availableTitle', { version: u.latest })), notes, b)
 }
 
 // ---------- first run: git, then claude, then its login; one button at a time ----------
@@ -235,6 +253,10 @@ function defaultsDialog() {
   }
   f.append(h('h3', null, t('dialog.defaults')), h('p', 'muted', t('dialog.defaultsHint')))
   const model = pick('#model', t('head.model'), S.defaults?.model), effort = pick('#effort', t('head.effort'), S.defaults?.effort)
+  const auto = h('input'); auto.type = 'checkbox'; auto.checked = S.defaults?.autoUpdate !== false
+  if (S.update?.state && S.update.state !== 'off') {
+    const lab = h('label', 'check'); lab.append(auto, h('span', null, t('update.auto')), h('span', 'muted', t('update.version', { version: S.update.version }))); f.append(lab)
+  }
   const row = h('div', 'row')
   const cancel = h('button', 'ghost', t('dialog.cancel')); cancel.value = 'cancel'
   const ok = h('button', null, t('dialog.ok')); ok.value = 'ok'
@@ -242,7 +264,7 @@ function defaultsDialog() {
   $('#dlg').returnValue = ''
   $('#dlg').showModal()
   $('#dlg').onclose = guard(async () => {
-    if ($('#dlg').returnValue === 'ok') await api('PATCH', '/defaults', { model: model.value, effort: effort.value })
+    if ($('#dlg').returnValue === 'ok') await api('PATCH', '/defaults', { model: model.value, effort: effort.value, autoUpdate: auto.checked })
   })
 }
 $('#defaults').onclick = defaultsDialog
@@ -250,7 +272,7 @@ $('#defaults').onclick = defaultsDialog
 // ---------- workspace ----------
 function select(id) {
   active = id; unread.delete(id)
-  history.replaceState(null, '', '#ws=' + id)
+  history.replaceState(null, '', '#ws=' + id); localStorage.setItem('aig.ws', id)
   renderSide(); renderHead(); renderPerms(); loadThread(); showTab(tab)
 }
 
@@ -418,7 +440,7 @@ $('#input').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComp
 
 // ---------- right panel ----------
 function showTab(t) {
-  tab = t
+  tab = t; localStorage.setItem('aig.tab', t)
   for (const b of document.querySelectorAll('#tabs [data-tab]')) b.classList.toggle('on', b.dataset.tab === t)
   $('#diffView').hidden = t !== 'diff'; $('#termView').hidden = t !== 'term'; $('#runView').hidden = t !== 'run'
   $('#refresh').hidden = t !== 'diff'

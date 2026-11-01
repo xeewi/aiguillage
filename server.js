@@ -13,6 +13,7 @@ import { config as readConfig, defaultRun } from './lib/config.js'
 import * as G from './lib/git.js'
 import * as A from './lib/agent.js'
 import { fail, notice } from './lib/i18n.js'
+import * as U from './lib/update.js'
 
 const exec = promisify(execFile)
 const ROOT = dirname(fileURLToPath(import.meta.url))
@@ -26,6 +27,7 @@ const broadcast = msg => { const s = JSON.stringify(msg); for (const c of client
 const view = () => ({
   repos: state.repos,
   defaults: state.defaults ?? {},
+  update: U.info(),
   workspaces: state.workspaces.map(w => ({ ...w, ...A.runtime(w.id), scriptRunning: terms.get(w.id + ':script')?.alive ? terms.get(w.id + ':script').label : null })),
 })
 let pendingState = null
@@ -221,9 +223,11 @@ const routes = {
   },
   // Model and effort given to new workspaces ('' = the CLI's own default).
   'PATCH /api/defaults': ({ body }) => {
-    state.defaults = { model: String(body.model ?? ''), effort: String(body.effort ?? '') }
+    state.defaults = { model: String(body.model ?? ''), effort: String(body.effort ?? ''), autoUpdate: body.autoUpdate !== false }
     save(); changed(); return state.defaults
   },
+  // Desktop app: restart into the downloaded update (lib/update.js).
+  'POST /api/update': () => { U.install(); return {} },
   'POST /api/repos': async ({ body }) => {
     const dir = resolve(String(body.path).replace(/^~(?=$|\/)/, homedir()))
     let path = await G.isRepo(dir)
@@ -379,6 +383,23 @@ wss.on('connection', sock => {
 })
 
 // The desktop app (electron/main.js) imports this module: it waits on `ready` and calls `shutdown` on quit.
+// Desktop app updates. Before the restart, running scripts are noted so they start again after it;
+// conversations need nothing: they resume with --resume, and the UI reopens the same workspace and tab.
+if (process.versions.electron) U.start({
+  changed,
+  enabled: () => state.defaults?.autoUpdate !== false,
+  busy: () => state.workspaces.filter(w => A.runtime(w.id).busy).length,
+  beforeInstall: () => {
+    state.resumeScripts = state.workspaces.filter(w => terms.get(w.id + ':script')?.alive).map(w => ({ ws: w.id, id: terms.get(w.id + ':script').label }))
+    save()
+  },
+})
+for (const r of state.resumeScripts ?? []) {
+  const ws = state.workspaces.find(w => w.id === r.ws && !w.archived), run = ws && existsSync(ws.path) && config(ws).run[r.id]
+  if (run) openTerm(ws.id + ':script', ws, run.command, r.id)
+}
+if (state.resumeScripts) { delete state.resumeScripts; save() }
+
 export const ready = new Promise((ok, fail) => {
   server.once('error', fail)
   server.listen(PORT, '127.0.0.1', () => {
