@@ -340,7 +340,7 @@ function renderHead() {
   $('#model').value = w.model || ''
   $('#mode').value = ['default', 'acceptEdits', 'plan'].includes(w.permissionMode) ? w.permissionMode : 'auto'
   $('#effort').value = w.effort || ''
-  optsSummary()
+  optsSummary(); renderCtx(w.context)
   $('#busy').hidden = $('#stop').hidden = !w.busy; $('#composer').classList.toggle('busy', !!w.busy)
   $("#runPort").textContent = `http://localhost:${w.port}`; $("#runPort").href = `http://localhost:${w.port}`; $('#runPort').title = t('head.portTitle')
   document.title = (w.busy ? '● ' : '') + label(w) + ' · Aiguillage'
@@ -354,6 +354,19 @@ function optsSummary() {
   $('#optsBtn').replaceChildren(text); $('#optsBtn').insertAdjacentHTML('beforeend', svg('down'))
 }
 for (const k of ['model', 'effort', 'mode']) $('#' + k).addEventListener('change', optsSummary)
+
+// Context of the session as the terminal shows it (lib/agent.js parseContext): « 72 % until auto-compact », or
+// « 28 % context used » when auto-compact is off. The ring shows that same number. Known after a first turn.
+function renderCtx(c) {
+  const el = $('#ctx'); el.hidden = !c?.limit // c.limit: older saved shapes wait for the next turn
+  if (el.hidden) return
+  const n = new Intl.NumberFormat(lang(), { notation: 'compact' }), shown = c.auto ? 100 - c.pct : c.pct
+  el.style.setProperty('--p', shown); el.classList.toggle('hot', c.pct >= 90)
+  el.querySelector('b').textContent = pct(shown)
+  el.querySelector('span').textContent = ' ' + t(c.auto ? 'chat.contextLeft' : 'chat.contextUsed')
+  el.title = t(c.auto ? 'chat.contextTokensAuto' : 'chat.contextTokens', { used: n.format(c.used), limit: n.format(c.limit) })
+  el.setAttribute('aria-label', el.textContent + ' · ' + el.title); el.setAttribute('aria-valuenow', c.pct)
+}
 $('#model').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { model: $('#model').value }))
 $('#effort').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { effort: $('#effort').value }))
 $('#mode').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { permissionMode: $('#mode').value }))

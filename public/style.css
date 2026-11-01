@@ -220,6 +220,9 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 /* fold below ~540px, or ~640px while Stop takes room (thresholds sized on the French labels, the longest) */
 @container (max-width: 539px) { #optsBtn { display: inline-flex; } #opts:not(:popover-open) { display: none; } }
 @container (max-width: 639px) { #composer.busy #optsBtn { display: inline-flex; } #composer.busy #opts:not(:popover-open) { display: none; } }
+/* while the context meter shows (measured in French, content box): idle the row needs 634px, busy 825px (« L'agent travaille… » shows from 760px) */
+@container (max-width: 639px) { #composer:has(#ctx:not([hidden])) #optsBtn { display: inline-flex; } #composer:has(#ctx:not([hidden])) #opts:not(:popover-open) { display: none; } }
+@container (max-width: 829px) { #composer.busy:has(#ctx:not([hidden])) #optsBtn { display: inline-flex; } #composer.busy:has(#ctx:not([hidden])) #opts:not(:popover-open) { display: none; } }
 #opts:popover-open { position: fixed; position-anchor: --opts-btn; position-area: top span-right; margin: 0 0 4px; display: grid; gap: 4px; min-width: 240px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .2); }
 #opts:popover-open select { field-sizing: fixed; width: 100%; background: var(--soft); border-color: var(--line); color: var(--fg); padding: 6px 10px; }
 #busy { color: var(--muted); font-size: 12.5px; font-weight: 700; display: flex; gap: 8px; align-items: center; flex: none; }
@@ -227,6 +230,16 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   #busy > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 #attach { flex: none; }
+/* session context, as the terminal words it: the ring is the shown % (room left before auto-compact), red in its last 10 %; tokens in the tooltip */
+#ctx { flex: none; display: inline-flex; align-items: center; padding: 4px 6px; color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: default; white-space: pre; }
+#ctx b { font-weight: inherit; }
+#ctx i { margin-right: 6px; }
+/* the words need 760px beside the three selects; busy, « The agent is working… » has that room. The % alone keeps them in the tooltip. */
+@container (max-width: 769px) { #ctx > span { display: none; } }
+#composer.busy #ctx > span { display: none; }
+#ctx i { --fill: var(--fg); width: 13px; height: 13px; border-radius: 50%; background: conic-gradient(var(--fill) calc(var(--p) * 1%), var(--line) 0); mask: radial-gradient(circle, transparent 3px, #000 3.5px); }
+#ctx.hot { color: var(--ask-text); }
+#ctx.hot i { --fill: var(--ask); }
 
 /* attachments: chips in the composer and in sent messages; the whole window as drop zone */
 #atts, .msg .atts { display: flex; flex-wrap: wrap; gap: 6px; }

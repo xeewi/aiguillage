@@ -116,6 +116,17 @@ test('store: state.json is reloaded from disk on start', async () => {
   assert.equal(out.trim(), 'keep')
 })
 
+test('parseContext(): counts toward auto-compact like the terminal, the whole window when it is off; null when unusable', () => {
+  const buffer = { id: 'autocompact_buffer', tokens: 40_000, kind: 'buffer' }
+  assert.deepEqual(A.parseContext({ totalTokens: 52_000, maxTokens: 200_000, percentage: 26, categories: [{ id: 'messages', tokens: 50_000 }, buffer] }),
+    { used: 52_000, limit: 160_000, pct: 33, auto: true })
+  assert.deepEqual(A.parseContext({ totalTokens: 52_000, maxTokens: 200_000, categories: [{ id: 'compact_buffer', tokens: 3_000 }] }),
+    { used: 52_000, limit: 200_000, pct: 26, auto: false })
+  assert.equal(A.parseContext({ totalTokens: 999_999, maxTokens: 200_000, categories: [buffer] }).pct, 100)
+  assert.equal(A.parseContext({ totalTokens: 1, maxTokens: 0, percentage: 0 }), null)
+  assert.equal(A.parseContext(undefined), null)
+})
+
 test('parseUsage(): keeps the plan limits /usage shows, null when there are none', () => {
   const r = { subscription_type: 'max', rate_limits_available: true, rate_limits: { limits: [
     { kind: 'session', percent: 38, resets_at: '2026-11-01T20:09:59.5+00:00', scope: null },

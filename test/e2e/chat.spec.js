@@ -9,6 +9,19 @@ test('Enter sends: user bubble, reply, result meta line', async ({ open, page })
   await expect(page.locator('#input')).toHaveValue('')
 })
 
+test('context: unknown before a turn, then « X% until auto-compact » like the terminal, counting down turn by turn', async ({ open, page }) => {
+  await open()
+  const ctx = page.locator('#ctx')
+  await expect(ctx).toBeHidden()
+  await say(page, 'one')
+  await expect(ctx).toHaveText('80% until auto-compact') // fake CLI: 10 % of the auto-compact limit per stored message
+  await expect(ctx).toHaveAttribute('title', '32K of 160K tokens before auto-compact')
+  await say(page, 'two')
+  await expect(ctx).toHaveText('60% until auto-compact')
+  await page.reload()
+  await expect(ctx).toHaveText('60% until auto-compact')
+})
+
 test('Shift+Enter inserts a newline instead of sending', async ({ open, page }) => {
   await open()
   await page.locator('#input').fill('line one')

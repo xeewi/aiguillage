@@ -204,6 +204,9 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     }
     if (q.subtype === 'set_model') model = q.model
     if (q.subtype === 'set_permission_mode') mode = q.mode
-    out({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: {} } })
+    // Context fill: 16 000 tokens per stored message; auto-compact at 200 000 - 40 000, so 10 % of it each.
+    const ctx = q.subtype === 'get_context_usage' && { totalTokens: 16_000 * messages.length, maxTokens: 200_000, percentage: 8 * messages.length,
+      categories: [{ id: 'messages', tokens: 16_000 * messages.length, kind: 'used' }, { id: 'autocompact_buffer', tokens: 40_000, kind: 'buffer' }] }
+    out({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: ctx || {} } })
   }
 }).on('close', () => { closed = true; if (!running) process.exit(0) })
