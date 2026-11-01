@@ -41,6 +41,13 @@ test('naming: when the CLI fails, the truncated first message stays', async () =
   assert.equal((await srv.ws(w.id)).title, 'crash')
 })
 
+test('naming: titles are capped at 5 words, the provisional one marks the cut', async () => {
+  const { words } = await import('../../lib/agent.js')
+  assert.equal(words('  fix   the login page '), 'fix the login page')
+  assert.equal(words('Lorsque je vais dans l\'onglet run et que je clique', '…'), 'Lorsque je vais dans l\'onglet…')
+  assert.equal(words('Named: when I open the run tab'), 'Named: when I open the')
+})
+
 test('chat: one process per workspace, resumed with the same session after a restart', async () => {
   const { w } = await setup(srv)
   await srv.turn(w.id, 'first')
