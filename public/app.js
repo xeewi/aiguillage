@@ -295,8 +295,14 @@ function renderSettings() {
   const d = S.defaults ?? {}
   $('#defModel').value = d.model || ''; $('#defEffort').value = d.effort || ''; $('#defMode').value = d.permissionMode || 'auto'
   // Desktop app only (lib/update.js): in the browser there is nothing to update.
-  $('#setUpdates').hidden = (S.update?.state ?? 'off') === 'off'
-  $('#autoUpdate').checked = d.autoUpdate !== false; $('#appVersion').textContent = t('update.version', { version: S.update?.version })
+  const u = S.update ?? {}
+  $('#setUpdates').hidden = (u.state ?? 'off') === 'off'
+  $('#autoUpdate').checked = d.autoUpdate !== false
+  // What the last check found; « up to date » only after a check asked here (idle also means « not checked yet »).
+  const note = { checking: t('update.checking'), downloading: t('update.downloading', { version: u.latest }), ready: t('update.readyTitle', { version: u.latest }),
+    manual: t('update.availableTitle', { version: u.latest }), error: t('update.failed'), idle: checkAsked && t('update.upToDate') }[u.state]
+  $('#updateNote').textContent = [t('update.version', { version: u.version }), note].filter(Boolean).join(' · ')
+  $('#checkUpdate').disabled = ['checking', 'downloading', 'ready'].includes(u.state)
   // Rebuilt only when repos change: state arrives often, and rebuilding would close an open select.
   const key = S.repos.map(r => r.id + r.base).join()
   if (key === renderSettings.key) return
@@ -316,6 +322,8 @@ function renderSettings() {
 }
 const saveDefaults = guard(() => api('PATCH', '/defaults', { model: $('#defModel').value, effort: $('#defEffort').value, permissionMode: $('#defMode').value, autoUpdate: $('#autoUpdate').checked }))
 $('#defModel').onchange = $('#defEffort').onchange = $('#defMode').onchange = $('#autoUpdate').onchange = saveDefaults
+let checkAsked = false
+$('#checkUpdate').onclick = guard(async () => { checkAsked = true; $('#checkUpdate').disabled = true; await api('POST', '/check-update') })
 $('#openSettings').onclick = () => showSettings(true)
 $('#closeSettings').onclick = () => showSettings(false)
 addEventListener('keydown', e => { if (e.key === 'Escape' && settingsOpen && !$('#dlg').open) showSettings(false) })

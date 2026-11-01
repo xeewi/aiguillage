@@ -353,7 +353,7 @@ dialog .row { margin-top: 16px; }
 .setBody > p { margin: -4px 0 10px; font-size: 13px; }
 .setRow, .setRepo { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .setRow > span { flex: 1; font-weight: 700; }
-.setRow > #appVersion { flex: none; font-weight: 500; font-size: 13px; }
+.setRow > #updateNote { font-weight: 500; font-size: 13px; }
 .setRow select { min-width: 220px; }
 .setRepo .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setRepo select { max-width: 200px; }

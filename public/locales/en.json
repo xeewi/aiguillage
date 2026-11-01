@@ -179,6 +179,8 @@
   },
   "update": {
     "check": "Check for Updates…",
+    "checkNow": "Check now",
+    "checking": "Checking…",
     "availableTitle": "Aiguillage {{version}} is available",
     "readyTitle": "Aiguillage {{version}} is ready",
     "readyDetail": "Restart to finish updating. Your workspaces, conversations and running scripts come back as they were.",

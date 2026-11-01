@@ -179,6 +179,8 @@
   },
   "update": {
     "check": "Rechercher des mises à jour…",
+    "checkNow": "Vérifier maintenant",
+    "checking": "Vérification…",
     "availableTitle": "Aiguillage {{version}} est disponible",
     "readyTitle": "Aiguillage {{version}} est prêt",
     "readyDetail": "Redémarrez pour terminer la mise à jour. Vos workspaces, conversations et scripts en cours reviennent tels quels.",

@@ -262,6 +262,8 @@ const routes = {
   },
   // Desktop app: restart into the downloaded update (lib/update.js).
   'POST /api/update': () => { U.install(); return {} },
+  // Same as the app menu's « Check for updates… »; progress comes back through the state broadcasts.
+  'POST /api/check-update': () => { U.check(true); return {} },
   'POST /api/repos': async ({ body }) => {
     const dir = resolve(String(body.path).replace(/^~(?=$|\/)/, homedir()))
     let path = await G.isRepo(dir)

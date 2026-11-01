@@ -150,6 +150,33 @@ test('Settings page: defaults preselect new workspaces, repo base branch is edit
   await expect(page.locator('#mode')).toHaveValue('plan')
 })
 
+test('Settings, desktop app: « Check now » asks for a check and shows what it finds', async ({ srv, page }) => {
+  // Tests run unpackaged (updates off): the state broadcasts are proxied to play the updater's states.
+  let update = { state: 'idle', version: '0.3.0' }, last, push
+  await page.routeWebSocket(/./, ws => {
+    const server = ws.connectToServer()
+    const patch = m => { const j = JSON.parse(m); if (j.t === 'state') j.update = update; return JSON.stringify(j) }
+    server.onMessage(m => { if (JSON.parse(m).t === 'state') last = m; ws.send(patch(m)) })
+    push = u => { update = u; if (last) ws.send(patch(last)) }
+  })
+  let asked = 0
+  // The real route answers (a 404 here would mean the router can't reach it); the proxy then plays « checking ».
+  await page.route('**/api/check-update', async r => { const res = await r.fetch(); if (res.ok()) asked++; push({ ...update, state: 'checking' }); return r.fulfill({ response: res }) })
+  await page.goto(srv.base + '/#settings')
+  const note = page.locator('#updateNote'), btn = page.getByRole('button', { name: 'Check now' })
+  await expect(note).toHaveText('Version 0.3.0') // idle at launch: not « up to date » until a check says so
+  await btn.click()
+  await expect(note).toHaveText('Version 0.3.0 · Checking…')
+  await expect(btn).toBeDisabled()
+  push({ ...update, state: 'idle' })
+  await expect(note).toHaveText("Version 0.3.0 · You're up to date")
+  await expect(btn).toBeEnabled()
+  push({ ...update, state: 'downloading', latest: '0.4.0' })
+  await expect(note).toContainText('Downloading Aiguillage 0.4.0')
+  await expect(btn).toBeDisabled()
+  expect(asked).toBe(1)
+})
+
 test('plan usage: session and week lanes over Settings, red past 90 %, every limit on hover', async ({ srv, page }) => {
   await page.goto(srv.base)
   const lanes = page.locator('#usage .lane')
