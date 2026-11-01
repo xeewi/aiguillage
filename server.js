@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import http from 'node:http'
-import { readFileSync, existsSync, readdirSync, copyFileSync, mkdirSync, createWriteStream } from 'node:fs'
+import { readFileSync, existsSync, statSync, readdirSync, copyFileSync, mkdirSync, createWriteStream } from 'node:fs'
 import { join, extname, basename, resolve, dirname, sep } from 'node:path'
 import { homedir, platform } from 'node:os'
 import { execFile, spawn } from 'node:child_process'
@@ -38,7 +38,7 @@ function openTerm(key, ws, cmd, label) {
   if (old?.alive && !cmd) return old
   if (old?.alive) old.p.kill()
   const args = cmd ? ['-lc', cmd] : ['-l']
-  const p = pty.spawn(SHELL, args, { name: 'xterm-256color', cols: 100, rows: 30, cwd: ws.path, env: A.envFor(ws) })
+  const p = pty.spawn(SHELL, args, { name: 'xterm-256color', cols: 100, rows: 30, cwd: ws?.path ?? homedir(), env: ws ? A.envFor(ws) : A.cleanEnv() })
   const t = { p, buf: cmd ? `\x1b[2m$ ${cmd}\x1b[0m\r\n` : '', alive: true, label }
   terms.set(key, t)
   // Script output also goes to a plain-text file the agent is told about.
@@ -57,6 +57,7 @@ function openTerm(key, ws, cmd, label) {
     const end = cmd ? `\r\n\x1b[2m[exited, code ${exitCode}]\x1b[0m\r\n` : ''
     t.buf += end
     broadcast({ t: 'term:data', key, data: end })
+    broadcast({ t: 'term:exit', key, code: exitCode })
     changed()
   })
   changed()
@@ -64,6 +65,25 @@ function openTerm(key, ws, cmd, label) {
 }
 function killTerms(wsId) {
   for (const [k, t] of terms) if (k.startsWith(wsId + ':')) { if (t.alive) t.p.kill(); terms.delete(k) }
+}
+
+// ---------- first-run setup: what a newcomer still has to install ----------
+// The native installer puts `claude` in ~/.local/bin, often not yet on PATH (and never on the Finder app's).
+const LOCAL_BIN = join(homedir(), '.local/bin')
+if (!process.env.PATH.split(':').includes(LOCAL_BIN)) process.env.PATH += ':' + LOCAL_BIN
+const CLAUDE = () => process.env.AIGUILLAGE_CLAUDE || 'claude'
+const sh = (cmd, args) => exec(cmd, args, { env: A.cleanEnv(), timeout: 15_000 }).then(r => r.stdout.trim(), () => null)
+async function doctor() {
+  const [git, claude] = await Promise.all([sh('git', ['--version']), sh(CLAUDE(), ['--version'])])
+  let loggedIn = false
+  if (claude) try { loggedIn = JSON.parse(await sh(CLAUDE(), ['auth', 'status'])).loggedIn === true } catch {}
+  return { git: !!git, claude: !!claude, loggedIn }
+}
+// Fixed commands only: the page picks a step, never the command.
+const SETUP = {
+  git: 'xcode-select --install',
+  claude: 'curl -fsSL https://claude.ai/install.sh | bash',
+  login: `${CLAUDE()} auth login`,
 }
 
 // ---------- repo config (see lib/config.js) ----------
@@ -168,12 +188,40 @@ async function suggestRepos() {
   return out.slice(0, 50)
 }
 
+// A plain folder becomes a repo, its current files in a first commit (worktrees start from HEAD).
+async function initRepo(dir) {
+  if (dir === homedir() || dir === dirname(dir) || !statSync(dir, { throwIfNoEntry: false })?.isDirectory()) throw fail('errors.initRefused')
+  await G.git(dir, ['init', '-q'])
+  await G.git(dir, ['add', '-A'])
+  await G.git(dir, ['commit', '-q', '--allow-empty', '-m', 'Start'])
+  return G.isRepo(dir)
+}
+
+// Native folder picker: Electron's when the server runs inside the app, AppleScript's in browser mode.
+async function pickFolder() {
+  if (process.versions.electron) {
+    const { dialog, BrowserWindow } = await import('electron')
+    const r = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow(), { properties: ['openDirectory', 'createDirectory'] })
+    return { path: r.canceled ? null : r.filePaths[0] }
+  }
+  const { stdout } = await exec('osascript', ['-e', 'POSIX path of (choose folder)']).catch(() => ({ stdout: '' }))
+  return { path: stdout.trim().replace(/(.)\/$/, '$1') || null }
+}
+
 // ---------- HTTP API ----------
 const routes = {
   'GET /api/state': () => view(),
   'GET /api/suggest': suggestRepos,
+  'GET /api/doctor': doctor,
+  'POST /api/pick': pickFolder,
+  'POST /api/setup': ({ body }) => {
+    if (!Object.hasOwn(SETUP, body.step)) throw fail('errors.notFound')
+    openTerm('setup', null, SETUP[body.step], body.step); return {}
+  },
   'POST /api/repos': async ({ body }) => {
-    const path = await G.isRepo(resolve(String(body.path).replace(/^~(?=$|\/)/, homedir())))
+    const dir = resolve(String(body.path).replace(/^~(?=$|\/)/, homedir()))
+    let path = await G.isRepo(dir)
+    if (!path && body.init) path = await initRepo(dir)
     if (!path) throw fail('errors.notRepo')
     const existing = state.repos.find(r => r.path === path)
     if (existing) return existing
@@ -312,7 +360,7 @@ wss.on('connection', sock => {
     try { m = JSON.parse(raw) } catch { return }
     if (!m || typeof m !== 'object') return
     const ws = state.workspaces.find(w => w.id === String(m.key).split(':')[0])
-    if (!ws || ws.archived) return
+    if (m.key !== 'setup' && (!ws || ws.archived)) return
     if (m.t === 'term:open') {
       const t = m.key.endsWith(':shell') ? openTerm(m.key, ws) : terms.get(m.key)
       sock.send(JSON.stringify({ t: 'term:reset', key: m.key, data: t?.buf ?? '' }))
