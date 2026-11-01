@@ -1,0 +1,122 @@
+{
+  "side": {
+    "addRepo": "Add a repo",
+    "archived": "Archived",
+    "newWorkspace": "New workspace",
+    "newWorkspaceFrom": "New workspace from {{base}}",
+    "repoOptions": "Repo options",
+    "restore": "Restore",
+    "delete": "Delete",
+    "deleteTitle": "Delete (branch included)",
+    "confirmDelete": "Delete {{name}} and branch {{branch}}?",
+    "language": "Language"
+  },
+  "status": {
+    "ask": "Needs you",
+    "run": "Working",
+    "err": "Failed",
+    "new": "New",
+    "script": "Script running · port {{port}}"
+  },
+  "empty": {
+    "title": "Several Claude Code agents, in parallel, on your machine.",
+    "body": "Add a git repo, then create a workspace: an isolated worktree, a branch, an agent."
+  },
+  "head": {
+    "model": "Model",
+    "modelDefault": "Default model",
+    "effort": "Thinking effort",
+    "effortDefault": "Default effort",
+    "effortLevel": "Effort: {{level}}",
+    "permissions": "Permissions",
+    "modeAuto": "Auto (worktree only)",
+    "modeAsk": "Ask",
+    "modeEdits": "Auto edits",
+    "modePlan": "Plan",
+    "code": "Code",
+    "codeTitle": "Open in VS Code",
+    "folder": "Folder",
+    "folderTitle": "Open the folder",
+    "commit": "Commit",
+    "commitPrompt": "Commit message",
+    "merge": "Merge",
+    "mergeTitle": "Merge into the base branch, locally",
+    "confirmMerge": "Merge {{branch}} into {{base}} (main repo)?",
+    "pr": "PR",
+    "prTitle": "Push + gh pr create",
+    "archive": "Archive",
+    "confirmArchive": "Archive {{name}}? The worktree is removed, branch {{branch}} is kept.",
+    "portTitle": "AIGUILLAGE_PORT (10 reserved ports)"
+  },
+  "chat": {
+    "placeholder": "Ask the agent something…  (Enter to send, Shift+Enter for a new line)",
+    "busy": "The agent is working…",
+    "stop": "Stop",
+    "send": "Send",
+    "ready": "Worktree ready in <code>{{path}}</code>. Describe the task to the agent.",
+    "revert": "Go back to before this message",
+    "revertTitle": "Go back to before this message (files + conversation)",
+    "confirmRevert": "Restore files and conversation to before this message? Later changes are lost.",
+    "turns_one": "{{count}} turn",
+    "turns_other": "{{count}} turns",
+    "agentExited": "claude stopped (code {{code}}).\n{{stderr}}"
+  },
+  "notify": {
+    "done": "{{name}} finished",
+    "failed": "{{name}} failed"
+  },
+  "perm": {
+    "wantsTool": "The agent wants to use {{tool}}",
+    "proposesPlan": "The agent proposes this plan:",
+    "deny": "Deny",
+    "denyPlan": "Reject with a comment…",
+    "allow": "Allow",
+    "approvePlan": "Approve the plan (switches to Auto)",
+    "planFeedback": "What's wrong with this plan?"
+  },
+  "panel": {
+    "diff": "Diff",
+    "terminal": "Terminal",
+    "run": "Run",
+    "refresh": "Refresh the diff",
+    "runScript": "Run script (.aiguillage/settings.toml)",
+    "start": "Start",
+    "stop": "Stop",
+    "noChanges": "No changes compared to the base branch.",
+    "uncommitted": "Uncommitted changes included."
+  },
+  "dialog": {
+    "baseBranch": "Base branch for new workspaces",
+    "removeRepo": "Remove repo",
+    "ok": "OK",
+    "addRepo": "Add a repo",
+    "repoPath": "Git repo path",
+    "pathPlaceholder": "~/code/my-project",
+    "cancel": "Cancel",
+    "add": "Add"
+  },
+  "errors": {
+    "notRepo": "This folder is not a git repo.",
+    "unknownRepo": "Unknown repo.",
+    "noCommit": "This repo has no commit yet: make a first commit before creating a workspace.",
+    "archiveWorkspacesFirst": "Archive its workspaces first.",
+    "uncommittedWorkspace": "The workspace has uncommitted changes. Commit first (Commit button, or ask the agent).",
+    "uncommittedMain": "The main repo ({{base}}) has uncommitted changes.",
+    "mergeConflict": "Conflict: merge aborted, {{base}} is untouched. Ask the agent to rebase on {{base}}.\n{{detail}}",
+    "noRunScript": "No run script: add .aiguillage/settings.toml (or aiguillage.json) at the repo root.",
+    "interruptFirst": "Interrupt the agent before going back.",
+    "noCheckpoint": "No checkpoint for this message.",
+    "gitBusy": "A git operation is in progress.",
+    "tooLarge": "Request too large.",
+    "notFound": "Not found."
+  },
+  "messages": {
+    "committed": "Commit created.",
+    "merged": "Merged into {{base}} (merge commit).",
+    "fastForward": "{{base}} fast-forwarded to {{branch}}."
+  },
+  "app": {
+    "startFailed": "Aiguillage could not start",
+    "portInUse": "Port {{port}} is already used by another program."
+  }
+}

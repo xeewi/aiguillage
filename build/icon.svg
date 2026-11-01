@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Aiguillage app icon: the grey trunk (base branch) from a hollow terminus, and line 1 switching off it at 45° to its station. -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="#1a1a1a"/>
+  <path d="M384 784 V236" stroke="#a3a9b0" stroke-width="60" stroke-linecap="round" fill="none"/>
+  <path d="M384 676 L600 460 Q640 420 640 364 V320" stroke="#ffcd00" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="384" cy="784" r="48" fill="#1a1a1a" stroke="#ffffff" stroke-width="28"/>
+  <circle cx="640" cy="296" r="80" fill="#ffcd00"/>
+</svg>

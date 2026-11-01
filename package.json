@@ -1,0 +1,65 @@
+{
+  "name": "aiguillage",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Local-only orchestrator for parallel Claude Code agents in git worktrees",
+  "type": "module",
+  "main": "electron/main.js",
+  "bin": {
+    "aiguillage": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js test/integration/*.test.js",
+    "postinstall": "find node_modules/node-pty/prebuilds -name spawn-helper -exec chmod +x {} + 2>/dev/null || true",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e",
+    "app": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "dompurify": "^3.4.17",
+    "i18next": "^26.6.0",
+    "i18next-browser-languagedetector": "^8.2.4",
+    "marked": "^18.1.2",
+    "node-pty": "^1.1.0",
+    "smol-toml": "^1.9.1",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "dev.aiguillage.app",
+    "productName": "Aiguillage",
+    "files": [
+      "server.js",
+      "lib/**",
+      "public/**",
+      "electron/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ],
+    "npmRebuild": false,
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png"
+    }
+  }
+}

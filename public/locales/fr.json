@@ -1,0 +1,122 @@
+{
+  "side": {
+    "addRepo": "Ajouter un repo",
+    "archived": "Archivés",
+    "newWorkspace": "Nouveau workspace",
+    "newWorkspaceFrom": "Nouveau workspace depuis {{base}}",
+    "repoOptions": "Options du repo",
+    "restore": "Restaurer",
+    "delete": "Supprimer",
+    "deleteTitle": "Supprimer (branche comprise)",
+    "confirmDelete": "Supprimer {{name}} et la branche {{branch}} ?",
+    "language": "Langue"
+  },
+  "status": {
+    "ask": "Attend ta réponse",
+    "run": "En cours",
+    "err": "Échec",
+    "new": "Nouveau",
+    "script": "Script en cours · port {{port}}"
+  },
+  "empty": {
+    "title": "Plusieurs agents Claude Code, en parallèle, sur ta machine.",
+    "body": "Ajoute un repo git, puis crée un workspace : un worktree isolé, une branche, un agent."
+  },
+  "head": {
+    "model": "Modèle",
+    "modelDefault": "Modèle par défaut",
+    "effort": "Effort de réflexion",
+    "effortDefault": "Effort par défaut",
+    "effortLevel": "Effort : {{level}}",
+    "permissions": "Permissions",
+    "modeAuto": "Auto (limité au worktree)",
+    "modeAsk": "Demander",
+    "modeEdits": "Éditions auto",
+    "modePlan": "Plan",
+    "code": "Code",
+    "codeTitle": "Ouvrir dans VS Code",
+    "folder": "Dossier",
+    "folderTitle": "Ouvrir le dossier",
+    "commit": "Commit",
+    "commitPrompt": "Message de commit",
+    "merge": "Merge",
+    "mergeTitle": "Fusionner dans la branche de base, en local",
+    "confirmMerge": "Fusionner {{branch}} dans {{base}} (repo principal) ?",
+    "pr": "PR",
+    "prTitle": "Push + gh pr create",
+    "archive": "Archiver",
+    "confirmArchive": "Archiver {{name}} ? Le worktree est supprimé, la branche {{branch}} est gardée.",
+    "portTitle": "AIGUILLAGE_PORT (10 ports réservés)"
+  },
+  "chat": {
+    "placeholder": "Demande quelque chose à l'agent…  (Entrée pour envoyer, Maj+Entrée pour une ligne)",
+    "busy": "L'agent travaille…",
+    "stop": "Stop",
+    "send": "Envoyer",
+    "ready": "Worktree prêt dans <code>{{path}}</code>. Décris la tâche à l'agent.",
+    "revert": "Revenir à avant ce message",
+    "revertTitle": "Revenir à avant ce message (fichiers + conversation)",
+    "confirmRevert": "Restaurer les fichiers et la conversation à avant ce message ? Les changements suivants sont perdus.",
+    "turns_one": "{{count}} tour",
+    "turns_other": "{{count}} tours",
+    "agentExited": "claude s'est arrêté (code {{code}}).\n{{stderr}}"
+  },
+  "notify": {
+    "done": "{{name}} a terminé",
+    "failed": "{{name}} a échoué"
+  },
+  "perm": {
+    "wantsTool": "L'agent veut utiliser {{tool}}",
+    "proposesPlan": "L'agent propose ce plan :",
+    "deny": "Refuser",
+    "denyPlan": "Refuser avec un commentaire…",
+    "allow": "Autoriser",
+    "approvePlan": "Valider le plan (passe en Auto)",
+    "planFeedback": "Qu'est-ce qui ne va pas dans ce plan ?"
+  },
+  "panel": {
+    "diff": "Diff",
+    "terminal": "Terminal",
+    "run": "Run",
+    "refresh": "Rafraîchir le diff",
+    "runScript": "Script run (.aiguillage/settings.toml)",
+    "start": "Lancer",
+    "stop": "Arrêter",
+    "noChanges": "Aucun changement par rapport à la branche de base.",
+    "uncommitted": "Changements non commités inclus."
+  },
+  "dialog": {
+    "baseBranch": "Branche de base des nouveaux workspaces",
+    "removeRepo": "Retirer le repo",
+    "ok": "OK",
+    "addRepo": "Ajouter un repo",
+    "repoPath": "Chemin du repo git",
+    "pathPlaceholder": "~/code/mon-projet",
+    "cancel": "Annuler",
+    "add": "Ajouter"
+  },
+  "errors": {
+    "notRepo": "Ce dossier n'est pas un repo git.",
+    "unknownRepo": "Repo inconnu.",
+    "noCommit": "Ce repo n'a encore aucun commit : fais un premier commit avant de créer un workspace.",
+    "archiveWorkspacesFirst": "Archive d'abord ses workspaces.",
+    "uncommittedWorkspace": "Le workspace a des changements non commités. Commite d'abord (bouton Commit ou demande à l'agent).",
+    "uncommittedMain": "Le repo principal ({{base}}) a des changements non commités.",
+    "mergeConflict": "Conflit : merge annulé, {{base}} est intact. Demande à l'agent de rebaser sur {{base}}.\n{{detail}}",
+    "noRunScript": "Aucun script run : ajoute .aiguillage/settings.toml (ou aiguillage.json) à la racine du repo.",
+    "interruptFirst": "Interromps l'agent avant de revenir en arrière.",
+    "noCheckpoint": "Pas de checkpoint pour ce message.",
+    "gitBusy": "Une opération git est en cours.",
+    "tooLarge": "Requête trop grosse.",
+    "notFound": "Introuvable."
+  },
+  "messages": {
+    "committed": "Commit créé.",
+    "merged": "Fusionné dans {{base}} (merge commit).",
+    "fastForward": "{{base}} avancé jusqu'à {{branch}} (fast-forward)."
+  },
+  "app": {
+    "startFailed": "Aiguillage n'a pas pu démarrer",
+    "portInUse": "Le port {{port}} est déjà utilisé par un autre programme."
+  }
+}

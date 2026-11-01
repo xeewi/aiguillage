@@ -1,0 +1,544 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-28T23:05:45+00:00",
+  "title": "Design System: Aiguillage",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Signage Ink",
+        "canonical": "#1a1a1a",
+        "tonalRamp": [
+          "#080808",
+          "#0d0d0d",
+          "#121212",
+          "#171717",
+          "#3c3c3c",
+          "#767676",
+          "#afafaf",
+          "#e4e4e4"
+        ],
+        "dark": "#e9ebee"
+      },
+      "ink-fg": {
+        "role": "neutral",
+        "displayName": "Ink Foreground",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#4d4d4d",
+          "#808080",
+          "#b2b2b2",
+          "#e6e6e6",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Signage White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#4d4d4d",
+          "#808080",
+          "#b2b2b2",
+          "#e6e6e6",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff"
+        ],
+        "dark": "#111315"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Quiet Grey",
+        "canonical": "#5d646b",
+        "tonalRamp": [
+          "#1c1e20",
+          "#2e3236",
+          "#41464b",
+          "#545a60",
+          "#757b81",
+          "#9ea2a6",
+          "#c6c9cb",
+          "#ececed"
+        ],
+        "dark": "#9aa1a9"
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#dde0e4",
+        "tonalRamp": [
+          "#424344",
+          "#6e7072",
+          "#9b9da0",
+          "#c7cacd",
+          "#e2e5e8",
+          "#ebecef",
+          "#f3f4f6",
+          "#fbfbfc"
+        ],
+        "dark": "#2a2f35"
+      },
+      "soft-grey": {
+        "role": "neutral",
+        "displayName": "Platform Grey",
+        "canonical": "#eef0f2",
+        "tonalRamp": [
+          "#474849",
+          "#777879",
+          "#a7a8a9",
+          "#d6d8da",
+          "#f1f2f4",
+          "#f5f6f7",
+          "#f9fafa",
+          "#fdfdfd"
+        ],
+        "dark": "#1e2226"
+      },
+      "gutter": {
+        "role": "neutral",
+        "displayName": "Gutter",
+        "canonical": "#f7f8f9",
+        "tonalRamp": [
+          "#4a4a4b",
+          "#7c7c7c",
+          "#adaeae",
+          "#dedfe0",
+          "#f8f9fa",
+          "#fafbfb",
+          "#fcfdfd",
+          "#fefefe"
+        ]
+      },
+      "term-bg": {
+        "role": "neutral",
+        "displayName": "Terminal Paper",
+        "canonical": "#fbfbfc",
+        "tonalRamp": [
+          "#4b4b4c",
+          "#7e7e7e",
+          "#b0b0b0",
+          "#e2e2e3",
+          "#fcfcfc",
+          "#fdfdfd",
+          "#fefefe",
+          "#ffffff"
+        ]
+      },
+      "trunk-grey": {
+        "role": "neutral",
+        "displayName": "Trunk Grey",
+        "canonical": "#a3a9b0",
+        "tonalRamp": [
+          "#313335",
+          "#525458",
+          "#72767b",
+          "#93989e",
+          "#b1b6bc",
+          "#c8cbd0",
+          "#dfe1e3",
+          "#f4f5f6"
+        ],
+        "dark": "#4a5159"
+      },
+      "signal-red": {
+        "role": "secondary",
+        "displayName": "Signal Red",
+        "canonical": "#e3051c",
+        "tonalRamp": [
+          "#440208",
+          "#72020e",
+          "#9f0414",
+          "#cc0419",
+          "#e72a3e",
+          "#ee6977",
+          "#f5a8b0",
+          "#fce1e4"
+        ],
+        "dark": "#ff4d5e"
+      },
+      "diff-add": {
+        "role": "neutral",
+        "displayName": "Diff Green",
+        "canonical": "#006b41",
+        "tonalRamp": [
+          "#002014",
+          "#003620",
+          "#004b2e",
+          "#00603a",
+          "#26815e",
+          "#66a68d",
+          "#a6cbbc",
+          "#e0ede8"
+        ],
+        "dark": "#6fd3a0"
+      },
+      "diff-add-bg": {
+        "role": "neutral",
+        "displayName": "Diff Green Wash",
+        "canonical": "#e6f3ed",
+        "tonalRamp": [
+          "#454947",
+          "#737a76",
+          "#a1aaa6",
+          "#cfdbd5",
+          "#eaf5f0",
+          "#f0f8f4",
+          "#f6fbf9",
+          "#fcfefd"
+        ]
+      },
+      "diff-del": {
+        "role": "neutral",
+        "displayName": "Diff Red",
+        "canonical": "#b80016",
+        "tonalRamp": [
+          "#370007",
+          "#5c000b",
+          "#81000f",
+          "#a60014",
+          "#c32639",
+          "#d46673",
+          "#e6a6ad",
+          "#f6e0e3"
+        ],
+        "dark": "#ff8b95"
+      },
+      "diff-del-bg": {
+        "role": "neutral",
+        "displayName": "Diff Red Wash",
+        "canonical": "#fbe7e9",
+        "tonalRamp": [
+          "#4b4546",
+          "#7e7474",
+          "#b0a2a3",
+          "#e2d0d2",
+          "#fcebec",
+          "#fdf1f2",
+          "#fef7f7",
+          "#fffcfc"
+        ]
+      },
+      "line-1-yellow": {
+        "role": "tertiary",
+        "displayName": "Ligne 1 Yellow",
+        "canonical": "#ffcd00",
+        "tonalRamp": [
+          "#4d3e00",
+          "#806600",
+          "#b29000",
+          "#e6b800",
+          "#ffd426",
+          "#ffe166",
+          "#ffeea6",
+          "#fff9e0"
+        ]
+      },
+      "line-2-blue": {
+        "role": "tertiary",
+        "displayName": "Ligne 2 Blue",
+        "canonical": "#003ca6",
+        "tonalRamp": [
+          "#001232",
+          "#001e53",
+          "#002a74",
+          "#003695",
+          "#2659b3",
+          "#668aca",
+          "#a6bbe0",
+          "#e0e8f4"
+        ],
+        "dark": "#3b74e6"
+      },
+      "line-3-green": {
+        "role": "tertiary",
+        "displayName": "Ligne 3 Green",
+        "canonical": "#00814f",
+        "tonalRamp": [
+          "#002718",
+          "#004028",
+          "#005a37",
+          "#007447",
+          "#269469",
+          "#66b395",
+          "#a6d3c1",
+          "#e0f0ea"
+        ]
+      },
+      "line-4-brown": {
+        "role": "tertiary",
+        "displayName": "Ligne 4 Brown",
+        "canonical": "#8d5e2a",
+        "tonalRamp": [
+          "#2a1c0d",
+          "#462f15",
+          "#63421d",
+          "#7f5526",
+          "#9e764a",
+          "#bb9e7f",
+          "#d7c7b4",
+          "#f1ece5"
+        ],
+        "dark": "#b07c45"
+      },
+      "line-5-orange": {
+        "role": "tertiary",
+        "displayName": "Ligne 5 Orange",
+        "canonical": "#ff7e2e",
+        "tonalRamp": [
+          "#4d260e",
+          "#803f17",
+          "#b25820",
+          "#e67129",
+          "#ff914d",
+          "#ffb282",
+          "#ffd2b6",
+          "#fff0e6"
+        ]
+      },
+      "line-6-mint": {
+        "role": "tertiary",
+        "displayName": "Ligne 6 Mint",
+        "canonical": "#6eca97",
+        "tonalRamp": [
+          "#213d2d",
+          "#37654c",
+          "#4d8d6a",
+          "#63b688",
+          "#84d2a7",
+          "#a8dfc1",
+          "#ccecdb",
+          "#eef9f3"
+        ]
+      },
+      "line-7-plum": {
+        "role": "tertiary",
+        "displayName": "Ligne 7 Plum",
+        "canonical": "#a0006e",
+        "tonalRamp": [
+          "#300021",
+          "#500037",
+          "#70004d",
+          "#900063",
+          "#ae2684",
+          "#c666a8",
+          "#dea6cc",
+          "#f4e0ee"
+        ],
+        "dark": "#d1349c"
+      },
+      "line-8-pink": {
+        "role": "tertiary",
+        "displayName": "Ligne 8 Pink",
+        "canonical": "#e19bdf",
+        "tonalRamp": [
+          "#442f43",
+          "#704e70",
+          "#9e6c9c",
+          "#ca8cc9",
+          "#e6aae4",
+          "#edc3ec",
+          "#f4dcf4",
+          "#fbf3fb"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Empty-state headline only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Workspace name in the header."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Dialog titles."
+      },
+      "item": {
+        "displayName": "Item",
+        "purpose": "Workspace names in the sidebar."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Thread text, max 72ch, tabular figures."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Buttons, tabs, tool names, toast."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase repo group headers."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Code, diffs, branches, paths, terminals; ligatures off."
+      }
+    },
+    "shadows": [
+      {
+        "name": "dialog",
+        "value": "0 12px 40px rgb(0 0 0 / .18)",
+        "purpose": "Modal dialogs (backdrop rgb(0 0 0 / .35))."
+      },
+      {
+        "name": "toast",
+        "value": "0 8px 24px rgb(0 0 0 / .2)",
+        "purpose": "Bottom-centre toast."
+      },
+      {
+        "name": "tab-active",
+        "value": "inset 0 -3px 0 var(--ink)",
+        "purpose": "Active panel tab underline."
+      }
+    ],
+    "motion": [
+      {
+        "name": "spin",
+        "value": "rotate 360deg, .8s linear infinite",
+        "purpose": "Busy spinner; disabled under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stack-panel",
+        "value": "900px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single ink action per group (PR, Envoyer, Lancer).",
+      "html": "<button class=\"ds-btn\">PR</button>",
+      "css": ".ds-btn { font-family: Figtree, system-ui, sans-serif; background: var(--ink, #1a1a1a); color: var(--ink-fg, #fff); border: 1px solid var(--ink, #1a1a1a); border-radius: 7px; padding: 6px 12px; font-weight: 700; font-size: 13px; cursor: pointer; } .ds-btn:hover { opacity: .88; } .ds-btn:focus-visible { outline: 2px solid var(--fg, #1a1a1a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Every non-primary action.",
+      "html": "<button class=\"ds-btn-ghost\">Commit</button>",
+      "css": ".ds-btn-ghost { font-family: Figtree, system-ui, sans-serif; background: var(--panel, #fff); color: var(--fg, #1a1a1a); border: 1px solid var(--line, #dde0e4); border-radius: 7px; padding: 6px 12px; font-weight: 700; font-size: 13px; cursor: pointer; } .ds-btn-ghost:hover { background: var(--soft, #eef0f2); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--fg, #1a1a1a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "button-icon",
+      "description": "Borderless 16px/1.75-stroke inline SVG.",
+      "html": "<button class=\"ds-btn-icon\" aria-label=\"Rafraîchir\"><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3\"/></svg></button>",
+      "css": ".ds-btn-icon { border: 0; background: transparent; padding: 4px; min-width: 26px; display: inline-grid; place-items: center; border-radius: 7px; color: var(--muted, #5d646b); cursor: pointer; } .ds-btn-icon:hover { color: var(--fg, #1a1a1a); background: var(--soft, #eef0f2); } .ds-btn-icon:focus-visible { outline: 2px solid var(--fg, #1a1a1a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Dialog fields; selects use Platform Grey.",
+      "html": "<input class=\"ds-input\" placeholder=\"Nom du workspace\">",
+      "css": ".ds-input { font-family: Figtree, system-ui, sans-serif; background: var(--panel, #fff); color: var(--fg, #1a1a1a); border: 1px solid var(--line, #dde0e4); border-radius: 7px; padding: 6px 10px; font-size: 13px; font-weight: 500; } .ds-input:focus-visible { outline: 2px solid var(--fg, #1a1a1a); outline-offset: 2px; }"
+    },
+    {
+      "name": "State Pills",
+      "kind": "chip",
+      "refersTo": "pill-running",
+      "description": "Running (ink), needs-you (red), new (outline + ink dot), failed (red outline + x).",
+      "html": "<span class=\"ds-pill ds-run\"><i></i>En cours</span> <span class=\"ds-pill ds-ask\">Attend ta réponse</span> <span class=\"ds-pill ds-new\"><i></i>Nouveau</span>",
+      "css": ".ds-pill { font-family: Figtree, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 700; white-space: nowrap; } .ds-pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; } .ds-run { background: #1a1a1a; color: #fff; } .ds-ask { background: #e3051c; color: #fff; } .ds-new { border: 1px solid #dde0e4; color: #1a1a1a; } .ds-new i { background: #1a1a1a; }"
+    },
+    {
+      "name": "Line Map Sidebar",
+      "kind": "nav",
+      "refersTo": "workspace-row",
+      "description": "Grey trunk from a hollow base-branch terminus; each workspace a coloured stub into a numbered badge.",
+      "html": "<div class=\"ds-lines\"><div class=\"ds-term\">main</div><div class=\"ds-ws ds-on\" style=\"--c:#ffcd00\"><span class=\"ds-bdg\" style=\"color:#1a1a1a\">1</span><b>tokyo</b><span class=\"ds-pill ds-ask\">Attend ta réponse</span><span class=\"ds-task\">Refactor du parser</span></div><div class=\"ds-ws\" style=\"--c:#003ca6\"><span class=\"ds-bdg\">2</span><b>lima</b><span class=\"ds-pill ds-run\"><i></i>En cours</span><span class=\"ds-task\">Tests e2e</span></div></div>",
+      "css": ".ds-lines { font-family: Figtree, system-ui, sans-serif; position: relative; display: grid; gap: 2px; width: 260px; font-size: 14px; font-weight: 500; color: #1a1a1a; } .ds-lines::before { content: \"\"; position: absolute; left: 6px; top: 10px; bottom: 22px; width: 4px; border-radius: 2px; background: #a3a9b0; z-index: 1; } .ds-term { position: relative; padding: 0 0 4px 24px; font: 500 12px \"JetBrains Mono\", ui-monospace, monospace; color: #5d646b; } .ds-term::before { content: \"\"; position: absolute; left: 2px; top: 3px; width: 8px; height: 8px; border: 2px solid #a3a9b0; border-radius: 50%; background: #fff; z-index: 2; } .ds-ws { position: relative; display: grid; grid-template-columns: 26px 1fr auto; gap: 2px 10px; align-items: center; padding: 9px 8px 9px 24px; border-radius: 8px; cursor: pointer; } .ds-ws:hover, .ds-ws.ds-on { background: #eef0f2; } .ds-ws::before { content: \"\"; position: absolute; left: 6px; top: 50%; z-index: 1; width: 22px; height: 4px; margin-top: -2px; background: var(--c); border-radius: 0 2px 2px 0; } .ds-ws b { font-size: 15px; font-weight: 700; } .ds-bdg { grid-row: span 2; width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--c); color: #fff; font-weight: 800; font-size: 13.5px; position: relative; z-index: 1; } .ds-task { grid-column: 2 / 4; font-size: 12.5px; color: #5d646b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 700; justify-self: end; } .ds-pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; } .ds-run { background: #1a1a1a; color: #fff; } .ds-ask { background: #e3051c; color: #fff; }"
+    },
+    {
+      "name": "Permission Card",
+      "kind": "card",
+      "refersTo": "permission-card",
+      "description": "Red-bordered approval above the composer.",
+      "html": "<div class=\"ds-perm\"><div class=\"ds-q\"><span class=\"ds-rb\">!</span>Autoriser Bash ?</div><pre>npm test</pre><div><button class=\"ds-ok\">Autoriser</button> <button class=\"ds-no\">Refuser</button></div></div>",
+      "css": ".ds-perm { font-family: Figtree, system-ui, sans-serif; border: 2px solid #e3051c; border-radius: 10px; padding: 12px 14px; background: #fff; display: grid; gap: 8px; font-size: 14px; color: #1a1a1a; max-width: 480px; } .ds-q { display: flex; align-items: center; gap: 10px; font-weight: 700; } .ds-rb { width: 24px; height: 24px; border-radius: 50%; background: #e3051c; color: #fff; display: inline-grid; place-items: center; font-weight: 800; font-size: 13px; } .ds-perm pre { margin: 0; font: 500 12.5px \"JetBrains Mono\", ui-monospace, monospace; font-variant-ligatures: none; background: #eef0f2; padding: 8px 10px; border-radius: 6px; } .ds-ok, .ds-no { font: inherit; font-size: 13px; font-weight: 700; border-radius: 7px; padding: 6px 12px; cursor: pointer; border: 1px solid #1a1a1a; background: #1a1a1a; color: #fff; } .ds-no { background: #fff; color: #1a1a1a; border-color: #dde0e4; } .ds-ok:hover { opacity: .88; } .ds-no:hover { background: #eef0f2; } .ds-ok:focus-visible, .ds-no:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; }"
+    },
+    {
+      "name": "Tool Row",
+      "kind": "custom",
+      "refersTo": "tool-row",
+      "description": "A station on the active line: hollow dot while running, filled when done.",
+      "html": "<details class=\"ds-tool\" style=\"--c:#00814f\" open><summary><b>Edit</b><span>lib/agent.js</span></summary><pre>+ const x = a !== b</pre></details>",
+      "css": ".ds-tool { font-family: Figtree, system-ui, sans-serif; max-width: 480px; border: 1px solid #dde0e4; border-radius: 8px; background: #fff; color: #1a1a1a; } .ds-tool summary { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; list-style: none; border-bottom: 1px solid #dde0e4; } .ds-tool summary::before { content: \"\"; width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--c); background: var(--c); } .ds-tool summary b { font-size: 13px; font-weight: 700; } .ds-tool summary span { font: 500 12.5px \"JetBrains Mono\", ui-monospace, monospace; color: #5d646b; } .ds-tool pre { margin: 8px 12px; font: 500 12px/1.5 \"JetBrains Mono\", ui-monospace, monospace; font-variant-ligatures: none; background: #eef0f2; padding: 8px 10px; border-radius: 6px; color: #006b41; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Plan de métro",
+    "overview": "Every workspace is a metro line leaving the base branch. Its colour and its number follow it everywhere (sidebar stub, badge, header branch pill, panel tabs, tool stations in the thread) so the developer never loses track of which agent they are looking at. The ground is a white transit-signage sheet: ink type, grey surfaces, hairline rules; colour is spent only on line identity and on the one signal that needs a human.\n\nDensity is that of a tool used for hours: 14px body, 13px controls, a 288px map sidebar, a thread capped at 72ch, a diff/terminal panel on the right. Type is Figtree at heavy weights (700/800) for names and controls, like station signage; JetBrains Mono for code, branches and paths only, with ligatures off. Figures are tabular everywhere. Dark theme mirrors the same roles on a near-black ground (#111315) via `prefers-color-scheme`, lifting the darkest line colours (blue, brown, plum) so they still read.\n\nThe world rejects the category default of a dark grey ground with a single violet accent and anonymous status dots.",
+    "keyCharacteristics": [
+      "The sidebar list is the map: grey trunk, hollow terminus for the base branch, coloured stubs to round numbered badges.",
+      "Line number = ⌘ shortcut = line colour (8 colours, then they loop).",
+      "Ink is the only primary; red is the only alarm.",
+      "Flat sheet, hairline borders; shadows only on floating overlays.",
+      "One inline-SVG icon set on a 16px grid, 1.75 stroke."
+    ],
+    "rules": [
+      {
+        "name": "The Identity Rule",
+        "body": "Line colours mean \"this workspace\" and nothing else. Never use one for a state, a button, a link or decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Alarm Rule",
+        "body": "Signal Red means a human is needed now (pending permission) or something failed. Running is ink, new is an ink dot on an outlined pill, failed is a red outline with an x.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Primary Rule",
+        "body": "Exactly one ink-filled button per action group (PR in the header, Envoyer in the composer, Lancer in the run bar); every other action is ghost.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Is For Machines Rule",
+        "body": "JetBrains Mono only for code, diffs, branches, paths and terminals; never for UI labels.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Ligatures Rule",
+        "body": "`font-variant-ligatures: none` on every code surface; `!=` and `->` must look like what was typed.",
+        "section": "typography"
+      },
+      {
+        "name": "The Floating-Only Shadow Rule",
+        "body": "A shadow means \"this is above the page\" (dialog, toast). Rows, cards and panels never get one.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Station Rule",
+        "body": "Circles are stations: a filled circle is a line badge or a completed tool, a hollow 2px ring is the terminus or a pending tool. Don't use circles as generic bullets or avatars.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do route every identity colour through the `lnN` class and the `--c` property, so badge, stub, station dot and tabs badge always agree.",
+      "Do keep numbering = ⌘ shortcut = colour: line number is the workspace's position in the live list, colour loops every 8.",
+      "Do put ink numerals on the light line colours (yellow, orange, mint, pink) and test any new line colour for numeral contrast before shipping it.",
+      "Do use the inline-SVG set at 16px / 1.75 stroke for any new icon, drawn on the same grid.",
+      "Do disable ligatures on every new code surface."
+    ],
+    "donts": [
+      "Don't use a line colour for status, emphasis, links or buttons.",
+      "Don't use Signal Red for anything that isn't a pending human decision or a failure (diff deletions keep their own diff-del tokens).",
+      "Don't add a second filled primary button to an action group, or a brand accent colour beside ink.",
+      "Don't add shadows to rows, cards or panels; depth on the sheet is a hairline.",
+      "Don't use emoji, text glyphs or an icon font as icons.",
+      "Don't set UI labels in JetBrains Mono."
+    ]
+  }
+}

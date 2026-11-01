@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aiguillage</title>
+  <link rel="stylesheet" href="/vendor/xterm.css">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%23ffcd00'/><rect x='3' y='7' width='10' height='2' rx='1' fill='%231a1a1a'/></svg>">
+</head>
+<body>
+  <aside id="side">
+    <div class="brand">Aiguillage<span>local</span></div>
+    <div id="repos"></div>
+    <button id="addRepo" class="ghost">Add a repo</button>
+    <details id="archived"><summary data-i18n="side.archived">Archived</summary><div id="archivedList"></div></details>
+    <select id="lang" data-i18n-title="side.language" data-i18n-aria-label="side.language"></select>
+  </aside>
+
+  <main>
+    <div id="empty" class="empty">
+      <h1 data-i18n="empty.title">Several Claude Code agents, in parallel, on your machine.</h1>
+      <p data-i18n="empty.body">Add a git repo, then create a workspace: an isolated worktree, a branch, an agent.</p>
+      <button id="emptyAdd">Add a repo</button>
+    </div>
+
+    <section id="ws" hidden>
+      <header id="wsHead">
+        <div class="title">
+          <b id="wsName"></b>
+          <span id="wsBranch" class="mono"></span>
+        </div>
+        <div class="actions">
+          <select id="model" data-i18n-title="head.model">
+            <option value="" data-i18n="head.modelDefault">Default model</option>
+            <option value="opus">Opus</option>
+            <option value="sonnet">Sonnet</option>
+            <option value="haiku">Haiku</option>
+          </select>
+          <select id="effort" data-i18n-title="head.effort">
+            <option value="">Default effort</option>
+            <option value="low">Effort: low</option>
+            <option value="medium">Effort: medium</option>
+            <option value="high">Effort: high</option>
+            <option value="xhigh">Effort: xhigh</option>
+            <option value="max">Effort: max</option>
+          </select>
+          <select id="mode" data-i18n-title="head.permissions">
+            <option value="auto" data-i18n="head.modeAuto">Auto (worktree only)</option>
+            <option value="default" data-i18n="head.modeAsk">Ask</option>
+            <option value="acceptEdits" data-i18n="head.modeEdits">Auto edits</option>
+            <option value="plan" data-i18n="head.modePlan">Plan</option>
+          </select>
+          <span class="sep"></span>
+          <button data-act="open" data-app="code" class="ghost" data-i18n="head.code" data-i18n-title="head.codeTitle">Code</button>
+          <button data-act="open" class="ghost" data-i18n="head.folder" data-i18n-title="head.folderTitle">Folder</button>
+          <span class="sep"></span>
+          <button data-act="commit" class="ghost" data-i18n="head.commit">Commit</button>
+          <button data-act="merge" class="ghost" data-i18n="head.merge" data-i18n-title="head.mergeTitle">Merge</button>
+          <button data-act="pr" data-i18n="head.pr" data-i18n-title="head.prTitle">PR</button>
+          <span class="sep"></span>
+          <button data-act="archive" class="ghost" data-i18n="head.archive">Archive</button>
+        </div>
+      </header>
+
+      <div id="split">
+        <div id="chat">
+          <div id="thread"></div>
+          <div id="perms"></div>
+          <form id="composer">
+            <textarea id="input" rows="3" placeholder="Ask the agent something…" data-i18n-placeholder="chat.placeholder"></textarea>
+            <div class="row">
+              <span id="busy" hidden><i class="spin"></i><span data-i18n="chat.busy">The agent is working…</span></span>
+              <button type="button" id="stop" class="ghost" hidden data-i18n="chat.stop">Stop</button>
+              <button type="submit" data-i18n="chat.send">Send</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="panel">
+          <nav id="tabs">
+            <button data-tab="diff" class="on" data-i18n="panel.diff">Diff</button>
+            <button data-tab="term" data-i18n="panel.terminal">Terminal</button>
+            <button data-tab="run" data-i18n="panel.run">Run</button>
+            <span class="grow"></span>
+            <button id="refresh" class="ghost icon" data-i18n-title="panel.refresh" data-i18n-aria-label="panel.refresh"></button>
+          </nav>
+          <div id="diffView" class="tab"></div>
+          <div id="termView" class="tab" hidden></div>
+          <div id="runView" class="tab" hidden>
+            <div class="runbar">
+              <a class="mono" id="runPort" target="_blank" rel="noopener"></a>
+              <span class="grow"></span>
+              <select id="runScript" data-i18n-title="panel.runScript"></select>
+              <button id="runStart" class="ico"><span data-i18n="panel.start">Start</span></button>
+              <button id="runStop" class="ghost ico"><span data-i18n="panel.stop">Stop</span></button>
+            </div>
+            <div id="runTerm"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
+  <div id="toast" hidden></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
