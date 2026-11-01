@@ -16,10 +16,29 @@ test('chat: message → streamed deltas, logged events, title, session memory', 
   const log = await srv.log(w.id)
   assert.deepEqual(log.map(e => e.type), ['cg_user', 'system', 'assistant', 'result'])
   assert.ok(log[0].cp?.tree, 'a checkpoint is taken before each message')
-  assert.equal((await srv.ws(w.id)).title, 'hello there')
   assert.ok(s.msgs.some(m => m.t === 'delta' && m.ws === w.id), 'partial text is streamed')
   assert.equal(await srv.turn(w.id, 'memory'), 'memory: hello there | memory')
   s.close()
+})
+
+test('naming: Claude names the workspace from the first message; a rename sticks; empty goes back to auto', async () => {
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'fix the login page')
+  await waitFor(async () => (await srv.ws(w.id)).title === 'Named: fix the login page', { what: 'name from Claude' })
+  await srv.turn(w.id, 'second message')
+  await srv.api('PATCH', `/workspaces/${w.id}`, { title: '  Login   page ' })
+  assert.equal((await srv.ws(w.id)).title, 'Login page')
+  await srv.api('PATCH', `/workspaces/${w.id}`, { title: '' })
+  await srv.turn(w.id, 'third')
+  await waitFor(async () => (await srv.ws(w.id)).title === 'Named: third', { what: 'renamed from the next message' })
+})
+
+test('naming: when the CLI fails, the truncated first message stays', async () => {
+  const { w } = await setup(srv)
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'crash' }) // the agent crashes too
+  await waitFor(async () => (await srv.log(w.id)).some(e => e.type === 'cg_error'), { what: 'agent exit' })
+  await new Promise(r => setTimeout(r, 500)) // the naming call fails in about the same time
+  assert.equal((await srv.ws(w.id)).title, 'crash')
 })
 
 test('chat: one process per workspace, resumed with the same session after a restart', async () => {

@@ -46,7 +46,8 @@
     "prTitle": "Push + gh pr create",
     "archive": "Archive",
     "confirmArchive": "Archive {{name}}? The worktree is removed, branch {{branch}} is kept.",
-    "portTitle": "AIGUILLAGE_PORT (10 reserved ports)"
+    "portTitle": "AIGUILLAGE_PORT (10 reserved ports)",
+    "rename": "Rename"
   },
   "chat": {
     "placeholder": "Ask the agent something…  (Enter to send, Shift+Enter for a new line)",
@@ -93,7 +94,9 @@
     "repoPath": "Git repo path",
     "pathPlaceholder": "~/code/my-project",
     "cancel": "Cancel",
-    "add": "Add"
+    "add": "Add",
+    "rename": "Rename the workspace",
+    "name": "Name (empty: back to the default name)"
   },
   "errors": {
     "notRepo": "This folder is not a git repo.",

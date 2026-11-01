@@ -17,6 +17,7 @@ const ICONS = {
   play: '<path d="M5 3.5v9l7-4.5z"/>',
   check: '<path d="m3 8.5 3 3 7-7"/>',
   stop: '<rect x="4" y="4" width="8" height="8" rx="1"/>',
+  edit: '<path d="M10.5 3 13 5.5 6 12.5H3.5V10z"/>',
 }
 const svg = n => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`
 const ibtn = (n, label, cls = '') => { const b = h('button', 'ghost icon ' + cls); b.innerHTML = svg(n); b.title = label; b.setAttribute('aria-label', label); return b }
@@ -26,6 +27,8 @@ let active = new URLSearchParams(location.hash.slice(1)).get('ws')
 let tab = 'diff'
 const unread = new Set()
 const wsById = id => S.workspaces.find(w => w.id === id)
+// Shown name: the task name (Claude's summary of the first message, or the user's rename), else the city.
+const label = w => w.title || w.name
 
 // ---------- server ----------
 async function api(method, path, body) {
@@ -113,7 +116,7 @@ const lineCls = n => 'ln' + ((n - 1) % 8 + 1)
 function wsItem(w) {
   const n = lineOf(w)
   const el = h('div', `wsItem ${lineCls(n)}` + (w.id === active ? ' on' : ''))
-  el.append(h('span', 'bdg', n), h('span', 'wsName', w.name))
+  el.append(h('span', 'bdg', n), h('span', 'wsName', label(w)))
   const pill = w.pending.length ? h('span', 'pill ask', t('status.ask'))
     : w.busy ? h('span', 'pill run', t('status.run'))
     : w.failed ? h('span', 'pill err', t('status.err'))
@@ -121,7 +124,7 @@ function wsItem(w) {
   if (pill) { if (pill.matches('.run, .new')) pill.prepend(h('i')); if (pill.matches('.err')) pill.insertAdjacentHTML('afterbegin', svg('x')); el.append(pill) }
   else if (w.scriptRunning) { const r = h('span', 'pill script'); r.innerHTML = svg('play'); r.append(w.scriptRunning); r.title = t('status.script', { port: w.port }); el.append(r) }
   else el.append(h('span'))
-  el.append(h('span', 'wsTitle', w.title || t('side.newWorkspace')))
+  el.append(h('span', 'wsTitle', w.title ? w.name : t('side.newWorkspace')))
   el.onclick = () => select(w.id)
   return el
 }
@@ -167,6 +170,25 @@ async function addRepoDialog() {
 }
 $('#addRepo').onclick = $('#emptyAdd').onclick = addRepoDialog
 
+function renameDialog(w) {
+  const f = $('#dlgForm'); f.replaceChildren()
+  const input = h('input'); input.value = label(w); input.maxLength = 80
+  const lab = h('label', null, t('dialog.name')); lab.append(input)
+  const row = h('div', 'row')
+  // type=button: Enter in the field submits with OK, not with the first button.
+  const cancel = h('button', 'ghost', t('dialog.cancel')); cancel.type = 'button'; cancel.onclick = () => $('#dlg').close('cancel')
+  const ok = h('button', null, t('dialog.ok')); ok.value = 'ok'
+  row.append(h('span', 'grow'), cancel, ok)
+  f.append(h('h3', null, t('dialog.rename')), lab, row)
+  $('#dlg').returnValue = ''
+  $('#dlg').showModal(); input.select()
+  $('#dlg').onclose = guard(async () => {
+    if ($('#dlg').returnValue === 'ok' && input.value.trim() !== label(w)) await api('PATCH', `/workspaces/${w.id}`, { title: input.value })
+  })
+}
+$('#rename').innerHTML = svg('edit')
+$('#rename').onclick = () => renameDialog(wsById(active))
+
 // ---------- workspace ----------
 function select(id) {
   active = id; unread.delete(id)
@@ -178,7 +200,7 @@ function renderHead() {
   const w = wsById(active)
   $('#ws').hidden = !w || !!w.archived
   if (!w || w.archived) return
-  $('#wsName').textContent = w.name
+  $('#wsName').textContent = label(w)
   $('#wsBranch').textContent = `${w.branch} ← ${w.base}`
   $('#wsBranch').title = w.path
   const n = lineOf(w); $('#wsBranch').dataset.n = $('#tabs').dataset.n = n; $('#ws').className = lineCls(n)
@@ -187,7 +209,7 @@ function renderHead() {
   $('#effort').value = w.effort || ''
   $('#busy').hidden = $('#stop').hidden = !w.busy
   $("#runPort").textContent = `http://localhost:${w.port}`; $("#runPort").href = `http://localhost:${w.port}`; $('#runPort').title = t('head.portTitle')
-  document.title = (w.busy ? '● ' : '') + w.name + ' · Aiguillage'
+  document.title = (w.busy ? '● ' : '') + label(w) + ' · Aiguillage'
 }
 
 $('#model').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { model: $('#model').value }))

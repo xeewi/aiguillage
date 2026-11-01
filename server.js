@@ -190,7 +190,11 @@ const routes = {
   'POST /api/workspaces': ({ body }) => createWorkspace(body),
   'GET /api/workspaces/:id/log': ({ ws }) => readLog(ws.id),
   'GET /api/workspaces/:id/diff': async ({ ws }) => ({ diff: (await G.diff(ws.path, ws.baseRef || ws.base)).slice(0, 3_000_000), status: await G.status(ws.path) }),
-  'PATCH /api/workspaces/:id': ({ ws, body }) => { A.configure(ws, body); changed(); return {} },
+  'PATCH /api/workspaces/:id': ({ ws, body }) => {
+    // Rename. Empty: back to the city name, and the next message names it again.
+    if (typeof body.title === 'string') ws.title = body.title.replace(/\s+/g, ' ').trim().slice(0, 80)
+    A.configure(ws, body); changed(); return {}
+  },
   'POST /api/workspaces/:id/send': async ({ ws, body }) => { await A.send(ws, String(body.text)); return {} },
   'POST /api/workspaces/:id/interrupt': ({ ws }) => { A.interrupt(ws); return {} },
   'POST /api/workspaces/:id/permission': ({ ws, body }) => { A.answer(ws, body.id, !!body.allow, body.message && String(body.message)); return {} },

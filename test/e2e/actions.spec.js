@@ -51,7 +51,7 @@ test('Archiver → listed in Archivés → ↺ restores (work kept) → × delet
   const row = archived.locator('.wsItem', { hasText: w.name })
   await expect(row).toContainText('write wip.txt draft')
   await row.getByRole('button', { name: 'Restore' }).click()
-  await expect(page.locator('#wsName')).toHaveText(w.name)
+  await expect(page.locator('#wsBranch')).toContainText(w.branch)
   await expect(page.locator('#repos .wsItem')).toHaveCount(1)
   expect(readFileSync(join(w.path, 'wip.txt'), 'utf8')).toBe('draft\n')
   await expect(page.locator('#thread .msg.me')).toHaveCount(1) // conversation kept

@@ -46,7 +46,8 @@
     "prTitle": "Push + gh pr create",
     "archive": "Archiver",
     "confirmArchive": "Archiver {{name}} ? Le worktree est supprimé, la branche {{branch}} est gardée.",
-    "portTitle": "AIGUILLAGE_PORT (10 ports réservés)"
+    "portTitle": "AIGUILLAGE_PORT (10 ports réservés)",
+    "rename": "Renommer"
   },
   "chat": {
     "placeholder": "Demande quelque chose à l'agent…  (Entrée pour envoyer, Maj+Entrée pour une ligne)",
@@ -93,7 +94,9 @@
     "repoPath": "Chemin du repo git",
     "pathPlaceholder": "~/code/mon-projet",
     "cancel": "Annuler",
-    "add": "Ajouter"
+    "add": "Ajouter",
+    "rename": "Renommer le workspace",
+    "name": "Nom (vide : retour au nom par défaut)"
   },
   "errors": {
     "notRepo": "Ce dossier n'est pas un repo git.",
