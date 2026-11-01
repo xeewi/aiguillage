@@ -228,4 +228,4 @@ dialog .row { margin-top: 16px; }
 #wsBranch::before { content: attr(data-n); width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--c, var(--trunk)); color: #fff; font: 800 12px Figtree, system-ui, sans-serif; }
 .ln1 #wsBranch::before, .ln5 #wsBranch::before, .ln6 #wsBranch::before, .ln8 #wsBranch::before { color: #1a1a1a; }
 .prefs { display: flex; gap: 8px; }
-.prefs select { font-size: 12px; padding: 4px 8px; }
+.prefs select, #defaults { font-size: 12px; padding: 4px 8px; }

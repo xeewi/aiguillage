@@ -13,7 +13,8 @@
     "theme": "Theme",
     "themeSystem": "System",
     "themeLight": "Light",
-    "themeDark": "Dark"
+    "themeDark": "Dark",
+    "defaults": "Defaults"
   },
   "status": {
     "ask": "Needs you",
@@ -112,7 +113,9 @@
     "rename": "Rename the workspace",
     "name": "Name (empty: back to the default name)",
     "pick": "Choose a folder…",
-    "initRepo": "{{path}} is not a git repo yet. Turn it into one? Its current files go into a first commit."
+    "initRepo": "{{path}} is not a git repo yet. Turn it into one? Its current files go into a first commit.",
+    "defaults": "Defaults for new workspaces",
+    "defaultsHint": "Existing workspaces keep their settings; change them from their header."
   },
   "errors": {
     "notRepo": "This folder is not a git repo.",

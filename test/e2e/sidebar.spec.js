@@ -129,3 +129,15 @@ test.describe('on a dark OS', () => {
     await expect.poll(bg).toBe('rgb(17, 19, 21)')
   })
 })
+
+test('Defaults dialog: chosen model and effort preselect the header of new workspaces', async ({ srv, page }) => {
+  const repo = await srv.api('POST', '/repos', { path: makeRepo() })
+  await page.goto(srv.base)
+  await page.locator('#defaults').click()
+  await page.locator('#dlg select').first().selectOption('sonnet')
+  await page.locator('#dlg select').nth(1).selectOption('high')
+  await page.locator('#dlg').getByRole('button', { name: 'OK' }).click()
+  await page.locator('.repoHead', { hasText: 'repo' }).getByRole('button', { name: 'New workspace' }).click()
+  await expect(page.locator('#model')).toHaveValue('sonnet')
+  await expect(page.locator('#effort')).toHaveValue('high')
+})

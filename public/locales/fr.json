@@ -13,7 +13,8 @@
     "theme": "Thème",
     "themeSystem": "Système",
     "themeLight": "Clair",
-    "themeDark": "Sombre"
+    "themeDark": "Sombre",
+    "defaults": "Par défaut"
   },
   "status": {
     "ask": "Attend ta réponse",
@@ -112,7 +113,9 @@
     "rename": "Renommer le workspace",
     "name": "Nom (vide : retour au nom par défaut)",
     "pick": "Choisir un dossier…",
-    "initRepo": "{{path}} n'est pas encore un repo git. Le transformer ? Ses fichiers actuels iront dans un premier commit."
+    "initRepo": "{{path}} n'est pas encore un repo git. Le transformer ? Ses fichiers actuels iront dans un premier commit.",
+    "defaults": "Réglages par défaut des nouveaux workspaces",
+    "defaultsHint": "Les workspaces existants gardent leurs réglages ; change-les depuis leur en-tête."
   },
   "errors": {
     "notRepo": "Ce dossier n'est pas un repo git.",

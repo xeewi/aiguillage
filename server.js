@@ -25,6 +25,7 @@ const clients = new Set()
 const broadcast = msg => { const s = JSON.stringify(msg); for (const c of clients) c.send(s) }
 const view = () => ({
   repos: state.repos,
+  defaults: state.defaults ?? {},
   workspaces: state.workspaces.map(w => ({ ...w, ...A.runtime(w.id), scriptRunning: terms.get(w.id + ':script')?.alive ? terms.get(w.id + ':script').label : null })),
 })
 let pendingState = null
@@ -125,7 +126,7 @@ async function createWorkspace({ repoId, name, base }) {
   const used = new Set(state.workspaces.map(w => w.port))
   let port = 40000
   while (used.has(port)) port += 10
-  const ws = { id: newId(), repoId, name: n, branch: `aig/${n}`, base, baseRef, path, port, createdAt: Date.now(), permissionMode: 'auto', model: '' }
+  const ws = { id: newId(), repoId, name: n, branch: `aig/${n}`, base, baseRef, path, port, createdAt: Date.now(), permissionMode: 'auto', model: state.defaults?.model ?? '', effort: state.defaults?.effort ?? '' }
   state.workspaces.push(ws)
   save()
   const { setup } = config(ws)
@@ -217,6 +218,11 @@ const routes = {
   'POST /api/setup': ({ body }) => {
     if (!Object.hasOwn(SETUP, body.step)) throw fail('errors.notFound')
     openTerm('setup', null, SETUP[body.step], body.step); return {}
+  },
+  // Model and effort given to new workspaces ('' = the CLI's own default).
+  'PATCH /api/defaults': ({ body }) => {
+    state.defaults = { model: String(body.model ?? ''), effort: String(body.effort ?? '') }
+    save(); changed(); return state.defaults
   },
   'POST /api/repos': async ({ body }) => {
     const dir = resolve(String(body.path).replace(/^~(?=$|\/)/, homedir()))

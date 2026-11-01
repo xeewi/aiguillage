@@ -225,6 +225,27 @@ function renameDialog(w) {
 $('#rename').innerHTML = svg('edit')
 $('#rename').onclick = () => renameDialog(wsById(active))
 
+// Same choices as the header selects, applied to workspaces created from now on.
+function defaultsDialog() {
+  const f = $('#dlgForm'); f.replaceChildren()
+  const pick = (src, label, value) => {
+    const sel = h('select'); sel.append(...[...$(src).options].map(o => o.cloneNode(true))); sel.value = value || ''
+    const lab = h('label', null, label); lab.append(sel); f.append(lab); return sel
+  }
+  f.append(h('h3', null, t('dialog.defaults')), h('p', 'muted', t('dialog.defaultsHint')))
+  const model = pick('#model', t('head.model'), S.defaults?.model), effort = pick('#effort', t('head.effort'), S.defaults?.effort)
+  const row = h('div', 'row')
+  const cancel = h('button', 'ghost', t('dialog.cancel')); cancel.value = 'cancel'
+  const ok = h('button', null, t('dialog.ok')); ok.value = 'ok'
+  row.append(h('span', 'grow'), cancel, ok); f.append(row)
+  $('#dlg').returnValue = ''
+  $('#dlg').showModal()
+  $('#dlg').onclose = guard(async () => {
+    if ($('#dlg').returnValue === 'ok') await api('PATCH', '/defaults', { model: model.value, effort: effort.value })
+  })
+}
+$('#defaults').onclick = defaultsDialog
+
 // ---------- workspace ----------
 function select(id) {
   active = id; unread.delete(id)
