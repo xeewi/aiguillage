@@ -191,3 +191,15 @@ test('plan usage: session and week lanes over Settings, red past 90 %, every lim
   await expect(page.locator('#usagePop')).toContainText('Opus')
   await expect(page.locator('#usagePop')).toContainText('Max plan')
 })
+
+test('a long workspace list scrolls on its own: brand and Settings stay on screen', async ({ srv, page }) => {
+  const repo = await srv.api('POST', '/repos', { path: makeRepo() })
+  for (let i = 0; i < 12; i++) await srv.api('POST', '/workspaces', { repoId: repo.id })
+  await page.setViewportSize({ width: 1000, height: 500 })
+  await page.goto(srv.base)
+  await expect(page.locator('.wsItem')).toHaveCount(12)
+  await page.locator('#repos').evaluate(el => { el.scrollTop = el.scrollHeight })
+  await expect(page.locator('#openSettings')).toBeInViewport()
+  await expect(page.locator('#sideToggle')).toBeInViewport()
+  expect(await page.locator('#side').evaluate(el => el.scrollTop)).toBe(0)
+})

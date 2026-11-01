@@ -69,6 +69,9 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 
 /* sidebar: the list is the map. A grey trunk (base branch) runs down each repo; every workspace is a line leaving it. */
 #side { width: 288px; flex: none; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; padding: 20px 14px; overflow-y: auto; }
+/* only the repo list scrolls: brand on top, add-repo / usage / settings below stay put */
+#repos { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+#archivedList { max-height: 30vh; overflow-y: auto; }
 .brand { display: flex; align-items: baseline; gap: 8px; padding: 0 6px; font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
 .brand b { font-weight: inherit; }
 #sideToggle { margin-left: auto; align-self: center; }
