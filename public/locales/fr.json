@@ -139,6 +139,7 @@
     "mergeConflict": "Conflit : merge annulé, {{base}} est intact. Demande à l'agent de rebaser sur {{base}}.\n{{detail}}",
     "noRunScript": "Aucun script run trouvé : le type de projet n'a pas été reconnu. Clique sur « Demander à l'agent » pour qu'il le configure, ou crée .aiguillage/settings.toml à la racine du repo (voir le README).",
     "interruptFirst": "Interromps l'agent avant de revenir en arrière.",
+    "worktreeMissing": "Le dossier de ce workspace n'existe plus ({{path}}). Archive le workspace.",
     "noCheckpoint": "Pas de checkpoint pour ce message.",
     "gitBusy": "Une opération git est en cours.",
     "tooLarge": "Requête trop grosse.",

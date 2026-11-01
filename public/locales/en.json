@@ -139,6 +139,7 @@
     "mergeConflict": "Conflict: merge aborted, {{base}} is untouched. Ask the agent to rebase on {{base}}.\n{{detail}}",
     "noRunScript": "No run script found: the project type wasn't recognized. Click \"Ask the agent\" to have it set one up, or create .aiguillage/settings.toml at the repo root (see the README).",
     "interruptFirst": "Interrupt the agent before going back.",
+    "worktreeMissing": "This workspace's folder no longer exists ({{path}}). Archive the workspace.",
     "noCheckpoint": "No checkpoint for this message.",
     "gitBusy": "A git operation is in progress.",
     "tooLarge": "Request too large.",
