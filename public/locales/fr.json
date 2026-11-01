@@ -22,6 +22,16 @@
     "title": "Plusieurs agents Claude Code, en parallèle, sur ta machine.",
     "body": "Ajoute un repo git, puis crée un workspace : un worktree isolé, une branche, un agent."
   },
+  "setup": {
+    "intro": "D'abord, trois choses à installer sur ce Mac. Un clic pour chacune.",
+    "git": "git, les outils développeur du Mac",
+    "gitDo": "Installer",
+    "claude": "Claude Code",
+    "claudeDo": "Installer",
+    "login": "Ton compte Claude",
+    "loginDo": "Se connecter",
+    "recheck": "Vérifier à nouveau"
+  },
   "head": {
     "model": "Modèle",
     "modelDefault": "Modèle par défaut",
@@ -93,7 +103,9 @@
     "repoPath": "Chemin du repo git",
     "pathPlaceholder": "~/code/mon-projet",
     "cancel": "Annuler",
-    "add": "Ajouter"
+    "add": "Ajouter",
+    "pick": "Choisir un dossier…",
+    "initRepo": "{{path}} n'est pas encore un repo git. Le transformer ? Ses fichiers actuels iront dans un premier commit."
   },
   "errors": {
     "notRepo": "Ce dossier n'est pas un repo git.",
@@ -108,7 +120,8 @@
     "noCheckpoint": "Pas de checkpoint pour ce message.",
     "gitBusy": "Une opération git est en cours.",
     "tooLarge": "Requête trop grosse.",
-    "notFound": "Introuvable."
+    "notFound": "Introuvable.",
+    "initRefused": "Choisis un dossier de projet, pas tout ton dossier personnel."
   },
   "messages": {
     "committed": "Commit créé.",

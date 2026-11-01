@@ -22,6 +22,10 @@ const argv = process.argv.slice(2)
 const flag = name => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined }
 if (process.env.FAKE_CLAUDE_LOG) appendFileSync(process.env.FAKE_CLAUDE_LOG, JSON.stringify({ argv, cwd: process.cwd() }) + '\n')
 
+// First-run checks (GET /api/doctor). FAKE_CLAUDE_LOGGED_OUT=1 simulates a fresh install.
+if (argv[0] === '--version') { console.log('0.0.0 (fake)'); process.exit(0) }
+if (argv[0] === 'auth') { console.log(JSON.stringify({ loggedIn: !process.env.FAKE_CLAUDE_LOGGED_OUT })); process.exit(0) }
+
 const HOME = process.env.FAKE_CLAUDE_HOME || join(tmpdir(), 'fake-claude')
 mkdirSync(HOME, { recursive: true })
 const file = id => join(HOME, id + '.json')

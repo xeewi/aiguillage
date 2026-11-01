@@ -32,7 +32,7 @@ async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'content-type': 'application/json' }, body: body && JSON.stringify(body) })
   const j = await r.json().catch(() => ({}))
   // Server errors and notices come with a translation key; the English text is the fallback.
-  if (!r.ok) throw new Error(j.key ? t(j.key, j.vars) : j.error || r.statusText)
+  if (!r.ok) throw Object.assign(new Error(j.key ? t(j.key, j.vars) : j.error || r.statusText), { key: j.key })
   if (j.key) j.message = t(j.key, j.vars)
   return j
 }
@@ -64,6 +64,7 @@ function onMsg(m) {
   else if (m.t === 'reload' && m.ws === active) loadThread()
   else if (m.t === 'term:reset') { const t = terms.get(m.key); if (t) { t.term.reset(); t.term.write(m.data) } }
   else if (m.t === 'term:data') terms.get(m.key)?.term.write(m.data)
+  else if (m.t === 'term:exit' && m.key === 'setup') checkSetup()
 }
 
 function notify(id, ev) {
@@ -102,8 +103,35 @@ function renderSide() {
     row.append(back, del); return row
   }))
   $('#empty').hidden = !!wsById(active) && !wsById(active).archived
-  if (!S.repos.length) $('#empty').hidden = false
+  if (!S.repos.length || !ready) $('#empty').hidden = false
 }
+
+// ---------- first run: git, then claude, then its login; one button at a time ----------
+let ready = true // assume a set-up machine until /doctor says otherwise: no flash for regular users
+const STEPS = ['git', 'claude', 'login']
+async function checkSetup() {
+  const d = await api('GET', '/doctor').catch(() => null); if (!d) return
+  const done = { git: d.git, claude: d.claude, login: d.loggedIn }
+  ready = STEPS.every(s => done[s])
+  const next = STEPS.find(s => !done[s])
+  $('#steps').replaceChildren(...STEPS.map(s => {
+    const li = h('li', done[s] ? 'done' : s === next ? 'next' : '')
+    li.append(h('span', 'grow', t(`setup.${s}`)))
+    if (done[s]) li.insertAdjacentHTML('afterbegin', svg('check'))
+    else if (s === next) {
+      const b = h('button', null, t(`setup.${s}Do`))
+      b.onclick = guard(async () => {
+        $('#setupTerm').hidden = false; mountTerm('setup', $('#setupTerm'))
+        await api('POST', '/setup', { step: s })
+      })
+      li.append(b)
+    }
+    return li
+  }))
+  $('#setup').hidden = ready; $('#empty').classList.toggle('setup', !ready)
+  renderSide(); renderHead()
+}
+$('#recheck').onclick = guard(checkSetup)
 
 // Line number = position in the ⌘1–9 order; it also picks the line colour (8 colours, then they loop).
 const live = () => S.repos.flatMap(r => S.workspaces.filter(w => w.repoId === r.id && !w.archived))
@@ -149,6 +177,10 @@ async function addRepoDialog() {
   const f = $('#dlgForm'); f.replaceChildren()
   const input = h('input'); input.placeholder = t('dialog.pathPlaceholder'); input.required = true
   const lab = h('label', null, t('dialog.repoPath')); lab.append(input)
+  // ponytail: the server opens the picker (macOS only); elsewhere it returns nothing and the input still works
+  const pick = h('button', 'ghost', t('dialog.pick')); pick.type = 'button'
+  pick.onclick = guard(async () => { const { path } = await api('POST', '/pick'); if (path) { input.value = path; ok.focus() } })
+  lab.append(pick)
   const list = h('div', 'suggest')
   const row = h('div', 'row')
   const cancel = h('button', 'ghost', t('dialog.cancel')); cancel.value = 'cancel'; cancel.formNoValidate = true
@@ -162,7 +194,11 @@ async function addRepoDialog() {
   }))).catch(() => {})
   $('#dlg').onclose = guard(async () => {
     if ($('#dlg').returnValue !== 'ok') return
-    await api('POST', '/repos', { path: input.value.trim() })
+    const path = input.value.trim()
+    try { await api('POST', '/repos', { path }) } catch (e) {
+      if (e.key !== 'errors.notRepo' || !confirm(t('dialog.initRepo', { path }))) throw e
+      await api('POST', '/repos', { path, init: true })
+    }
   })
 }
 $('#addRepo').onclick = $('#emptyAdd').onclick = addRepoDialog
@@ -176,8 +212,8 @@ function select(id) {
 
 function renderHead() {
   const w = wsById(active)
-  $('#ws').hidden = !w || !!w.archived
-  if (!w || w.archived) return
+  $('#ws').hidden = !ready || !w || !!w.archived
+  if ($('#ws').hidden) return
   $('#wsName').textContent = w.name
   $('#wsBranch').textContent = `${w.branch} ← ${w.base}`
   $('#wsBranch').title = w.path
@@ -388,7 +424,7 @@ async function loadDiff() {
 
 const terms = new Map()
 function mountTerm(key, host) {
-  for (const [k, t] of terms) if (!k.startsWith(active + ':')) { t.term.dispose(); terms.delete(k) }
+  for (const [k, t] of terms) if (k !== key && !k.startsWith(active + ':')) { t.term.dispose(); terms.delete(k) }
   let t = terms.get(key)
   if (!t) {
     const el = h('div', 'xterm-host')
@@ -431,3 +467,4 @@ for (const b of [$('#addRepo'), $('#emptyAdd')]) { b.textContent = t('side.addRe
 
 connect()
 api('GET', '/state').then(s => { S = s; renderSide(); if (wsById(active)) select(active) })
+checkSetup()

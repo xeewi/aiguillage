@@ -39,6 +39,8 @@ One agent per isolated branch, five agents at a time: Aiguillage gives you that 
 
 **Requirements:** Node ≥ 22, git, and the [Claude Code CLI](https://docs.claude.com/en/docs/claude-code), already logged in (`claude` on your `PATH`). [`gh`](https://cli.github.com) is optional (for the PR button).
 
+Never used a terminal? Open the `.dmg` app: on first launch it checks git, Claude Code and your Claude login, and installs each missing one in one click.
+
 ```bash
 git clone https://github.com/xeewi/aiguillage.git
 cd aiguillage
