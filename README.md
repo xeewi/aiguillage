@@ -60,6 +60,12 @@ npm run dist   # builds dist/Aiguillage-<version>-arm64.dmg
 >
 > The `.dmg` isn't signed by Apple yet: on first launch, right-click → **Open**.
 
+### Updates
+
+The app checks [GitHub releases](https://github.com/xeewi/aiguillage/releases) at launch and every 4 hours, downloads a new version in the background and offers **Restart to update** in the sidebar (or *Aiguillage → Check for Updates…*). It comes back on the same workspace and tab, with conversations and running scripts; an update left pending installs when you quit. This check is the app's only network request of its own: turn it off in **Settings**. If the app isn't in a folder it can write to (still on the `.dmg`, in Downloads), it offers the download instead.
+
+To publish a version: bump `version` in `package.json`, commit, then `git tag v0.2.0 && git push --tags`. The [release workflow](.github/workflows/release.yml) builds the `.dmg` and the `.zip` the updater downloads, and publishes the release.
+
 ## How it works
 
 1. **Add a local repo**, then click `+`: a worktree and its `aig/<city>` branch are created from `origin/<base>`, and your `setup` script runs.

@@ -227,6 +227,9 @@ dialog .row { margin-top: 16px; }
 /* header badge: drawn from data-n so #wsBranch keeps only the branch text */
 #wsBranch::before { content: attr(data-n); width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--c, var(--trunk)); color: #fff; font: 800 12px Figtree, system-ui, sans-serif; }
 .ln1 #wsBranch::before, .ln5 #wsBranch::before, .ln6 #wsBranch::before, .ln8 #wsBranch::before { color: #1a1a1a; }
+#update { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 13px; }
+#update a { font-size: 12px; color: var(--muted); }
+#update a:hover { color: var(--fg); }
 
 /* settings page: takes the workspace's place in main */
 #openSettings { justify-content: flex-start; border-color: transparent; background: none; color: var(--muted); }
@@ -239,6 +242,7 @@ dialog .row { margin-top: 16px; }
 .setBody > p { margin: -4px 0 10px; font-size: 13px; }
 .setRow, .setRepo { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .setRow > span { flex: 1; font-weight: 700; }
+.setRow > #appVersion { flex: none; font-weight: 500; font-size: 13px; }
 .setRow select { min-width: 220px; }
 .setRepo .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setRepo select { max-width: 200px; }

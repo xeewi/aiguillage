@@ -15,6 +15,7 @@
     <div id="repos"></div>
     <button id="addRepo" class="ghost">Add a repo</button>
     <details id="archived"><summary data-i18n="side.archived">Archived</summary><div id="archivedList"></div></details>
+    <div id="update" role="status" hidden></div>
     <button id="openSettings" class="ghost ico"><span data-i18n="side.settings">Settings</span></button>
   </aside>
 
@@ -55,6 +56,11 @@
 
         <h2 data-i18n="settings.repos">Repos</h2>
         <div id="setRepos"></div>
+
+        <div id="setUpdates" hidden>
+          <h2 data-i18n="settings.updates">Updates</h2>
+          <label class="setRow"><span data-i18n="update.auto">Check for updates automatically</span><span id="appVersion" class="muted"></span><input type="checkbox" id="autoUpdate"></label>
+        </div>
       </div>
     </section>
 
