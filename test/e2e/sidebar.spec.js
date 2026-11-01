@@ -68,16 +68,30 @@ test('a turn finishing in another workspace marks it unread (blue dot) until sel
   const item = page.locator('.wsItem', { hasText: other.name })
   await expect(item.locator('.pill.new')).toBeVisible()
   await item.click()
-  await expect(page.locator('#wsName')).toHaveText(other.name)
+  await expect(page.locator('#wsBranch')).toContainText(other.branch)
   await expect(item.locator('.pill.new')).toHaveCount(0)
   await expect(results(page)).toHaveCount(1)
   expect(w.id).not.toBe(other.id)
 })
 
-test('sidebar title shows the first message', async ({ open, page }) => {
-  await open()
+test('the workspace is named by Claude from the first message, and can be renamed', async ({ open, page }) => {
+  const { w } = await open()
+  await expect(page.locator('.wsItem.on .wsTitle')).toHaveText('New workspace')
   await say(page, 'refactor the login page')
-  await expect(page.locator('.wsItem.on .wsTitle')).toHaveText('refactor the login page')
+  await expect(page.locator('.wsItem.on .wsName')).toHaveText('Named: refactor the login page')
+  await expect(page.locator('.wsItem.on .wsTitle')).toHaveText(w.name)
+  await expect(page.locator('#wsName')).toHaveText('Named: refactor the login page')
+
+  await page.getByRole('button', { name: 'Rename' }).click()
+  await page.locator('#dlg input').fill('Login revamp')
+  await page.locator('#dlg input').press('Enter')
+  await expect(page.locator('#wsName')).toHaveText('Login revamp')
+  await expect(page.locator('.wsItem.on .wsName')).toHaveText('Login revamp')
+  await expect(page).toHaveTitle(/Login revamp · Aiguillage/)
+
+  await page.getByRole('button', { name: 'Rename' }).click()
+  await page.locator('#dlg').getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.locator('#wsName')).toHaveText('Login revamp')
 })
 
 test.describe('in French', () => {

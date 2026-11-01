@@ -20,6 +20,16 @@ import { randomUUID } from 'node:crypto'
 
 const argv = process.argv.slice(2)
 const flag = name => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined }
+// One-shot `claude -p` with the prompt on stdin (how Aiguillage names a workspace): answers with the
+// prompt's last line, quoted, so the cleanup is exercised. "crash" fails. Not logged: FAKE_CLAUDE_LOG lists agents.
+if (argv[0] === '-p' && !argv.includes('--input-format')) {
+  let s = ''
+  for await (const d of process.stdin) s += d
+  const last = s.trim().split('\n').at(-1)
+  if (last === 'crash') process.exit(3)
+  process.stdout.write(`"Named: ${last}."\n`)
+  process.exit(0)
+}
 if (process.env.FAKE_CLAUDE_LOG) appendFileSync(process.env.FAKE_CLAUDE_LOG, JSON.stringify({ argv, cwd: process.cwd() }) + '\n')
 
 // First-run checks (GET /api/doctor). FAKE_CLAUDE_LOGGED_OUT=1 simulates a fresh install.
