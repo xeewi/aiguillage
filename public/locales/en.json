@@ -99,7 +99,10 @@
     "start": "Start",
     "stop": "Stop",
     "noChanges": "No changes compared to the base branch.",
-    "uncommitted": "Uncommitted changes included."
+    "uncommitted": "Uncommitted changes included.",
+    "askAgent": "Ask the agent",
+    "askAgentTitle": "The agent figures out how to run this project and writes .aiguillage/settings.toml",
+    "askAgentPrompt": "Aiguillage's Run tab doesn't know how to run this project. Look at the repo, work out the command that starts the app in development (server, CLI, desktop app, etc.), then create `.aiguillage/settings.toml` at the repo root:\n\n```toml\n[scripts]\nsetup = \"…\"  # only if dependencies must be installed first, otherwise remove this line\n\n[scripts.run.dev]\ncommand = \"…\"\ndefault = true\n```\n\nIf the app listens on a port, use $AIGUILLAGE_PORT (also exported as $PORT). Add more `[scripts.run.<name>]` entries if useful. Don't start a long-running process yourself; just make sure the command is right."
   },
   "dialog": {
     "baseBranch": "Base branch for new workspaces",
@@ -125,7 +128,7 @@
     "uncommittedWorkspace": "The workspace has uncommitted changes. Commit first (Commit button, or ask the agent).",
     "uncommittedMain": "The main repo ({{base}}) has uncommitted changes.",
     "mergeConflict": "Conflict: merge aborted, {{base}} is untouched. Ask the agent to rebase on {{base}}.\n{{detail}}",
-    "noRunScript": "No run script: add .aiguillage/settings.toml (or aiguillage.json) at the repo root.",
+    "noRunScript": "No run script found: the project type wasn't recognized. Click \"Ask the agent\" to have it set one up, or create .aiguillage/settings.toml at the repo root (see the README).",
     "interruptFirst": "Interrupt the agent before going back.",
     "noCheckpoint": "No checkpoint for this message.",
     "gitBusy": "A git operation is in progress.",

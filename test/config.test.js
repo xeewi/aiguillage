@@ -47,6 +47,23 @@ test('broken TOML is ignored, user-level settings alone work, no config at all i
   assert.deepEqual(config(dir(), undefined, dir()), { run: {} })
 })
 
+test('no run script configured: guessed from the project files, task runner first, explicit config wins', () => {
+  const home = dir()
+  const detect = files => { const ws = dir(); for (const [f, s] of Object.entries(files)) put(ws, f, s); const c = config(ws, ws, home); return [Object.keys(c.run), defaultRun(c)] }
+  assert.deepEqual(detect({ 'package.json': '{"scripts":{"start":"node s.js","dev":"vite","test":"x"}}', 'pnpm-lock.yaml': '' }),
+    [['pnpm run dev', 'pnpm run start'], 'pnpm run dev'])
+  assert.deepEqual(detect({ Makefile: 'run-tests:\n\tx\nrun: build\n\tx\nFOO := 1\n', 'Cargo.toml': '' }), [['make run', 'cargo run'], 'make run'])
+  assert.deepEqual(detect({ 'go.mod': '' })[0], ['go run .'])
+  assert.deepEqual(detect({ 'manage.py': '', 'uv.lock': '' })[0], ['uv run python manage.py runserver $PORT'])
+  assert.deepEqual(detect({ 'mix.exs': '{:phoenix, "~> 1.7"}' })[0], ['mix phx.server'])
+  assert.deepEqual(detect({ 'pom.xml': '<artifactId>spring-boot-starter</artifactId>' })[0], ['mvn spring-boot:run'])
+  assert.deepEqual(detect({ 'App.csproj': '' })[0], ['dotnet run'])
+  assert.deepEqual(detect({ Procfile: 'web: gunicorn app:app\n' })[0], ['gunicorn app:app'])
+  assert.deepEqual(detect({ 'compose.yaml': '' })[0], ['docker compose up'])
+  assert.deepEqual(detect({ 'Cargo.toml': '', 'aiguillage.json': '{"run":"x"}' })[0], ['run'])
+  assert.deepEqual(detect({ 'README.md': '' })[0], [])
+})
+
 test('file_include_globs and settings.local.toml read from the repo root, not the worktree', () => {
   const root = dir(), ws = dir(), home = dir()
   put(root, '.aiguillage/settings.local.toml', 'file_include_globs = ["certs/*.pem"]\n[scripts]\narchive = "cleanup"\n')

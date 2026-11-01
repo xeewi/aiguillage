@@ -99,7 +99,10 @@
     "start": "Lancer",
     "stop": "Arrêter",
     "noChanges": "Aucun changement par rapport à la branche de base.",
-    "uncommitted": "Changements non commités inclus."
+    "uncommitted": "Changements non commités inclus.",
+    "askAgent": "Demander à l'agent",
+    "askAgentTitle": "L'agent trouve comment lancer ce projet et écrit .aiguillage/settings.toml",
+    "askAgentPrompt": "L'onglet Run d'Aiguillage ne sait pas comment lancer ce projet. Examine le repo, détermine la commande qui lance l'app en développement (serveur, CLI, appli desktop, etc.), puis crée `.aiguillage/settings.toml` à la racine du repo :\n\n```toml\n[scripts]\nsetup = \"…\"  # seulement si des dépendances doivent être installées, sinon supprime cette ligne\n\n[scripts.run.dev]\ncommand = \"…\"\ndefault = true\n```\n\nSi l'app écoute sur un port, utilise $AIGUILLAGE_PORT (aussi exporté en $PORT). Tu peux ajouter d'autres entrées `[scripts.run.<nom>]` si c'est utile. Ne lance pas toi-même de processus qui tourne en continu ; vérifie seulement que la commande est la bonne."
   },
   "dialog": {
     "baseBranch": "Branche de base des nouveaux workspaces",
@@ -125,7 +128,7 @@
     "uncommittedWorkspace": "Le workspace a des changements non commités. Commite d'abord (bouton Commit ou demande à l'agent).",
     "uncommittedMain": "Le repo principal ({{base}}) a des changements non commités.",
     "mergeConflict": "Conflit : merge annulé, {{base}} est intact. Demande à l'agent de rebaser sur {{base}}.\n{{detail}}",
-    "noRunScript": "Aucun script run : ajoute .aiguillage/settings.toml (ou aiguillage.json) à la racine du repo.",
+    "noRunScript": "Aucun script run trouvé : le type de projet n'a pas été reconnu. Clique sur « Demander à l'agent » pour qu'il le configure, ou crée .aiguillage/settings.toml à la racine du repo (voir le README).",
     "interruptFirst": "Interromps l'agent avant de revenir en arrière.",
     "noCheckpoint": "Pas de checkpoint pour ce message.",
     "gitBusy": "Une opération git est en cours.",

@@ -60,6 +60,7 @@ function onMsg(m) {
     if (m.ws === active) { dropDraft(); renderEv(m.ev); scroll() }
     if (m.ev.type === 'result') {
       if (m.ws === active && tab === 'diff') loadDiff()
+      if (m.ws === active && tab === 'run') loadScripts()
       if (m.ws !== active || document.hidden) { unread.add(m.ws); renderSide(); notify(m.ws, m.ev) }
     }
   }
@@ -434,7 +435,10 @@ async function loadScripts() {
   const sel = $('#runScript')
   sel.replaceChildren(...Object.entries(run).map(([id, r]) => { const o = h('option', null, id); o.value = id; o.title = r.command; o.selected = id === def; return o }))
   sel.hidden = !sel.options.length
+  $('#runAsk').hidden = !sel.hidden
 }
+// Unrecognized project: let the agent figure out the command and write .aiguillage/settings.toml.
+$('#runAsk').onclick = guard(() => api('POST', `/workspaces/${active}/send`, { text: t('panel.askAgentPrompt') }))
 $('#runStop').onclick = guard(() => api('POST', `/workspaces/${active}/run-stop`))
 
 async function loadDiff() {

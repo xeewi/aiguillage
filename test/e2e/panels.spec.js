@@ -53,6 +53,7 @@ test('Run tab: setup output, named scripts from .aiguillage/settings.toml, Run /
   await expect(out).toContainText(`setup-done-${w.name}`)
   await expect(page.locator('#runScript option')).toHaveText(['web', 'hello'])
   await expect(page.locator('#runScript')).toHaveValue('web')
+  await expect(page.locator('#runAsk')).toBeHidden()
   await expect(page.locator('#runPort')).toHaveText(`http://localhost:${w.port}`)
   await expect(page.locator('#runPort')).toHaveAttribute('href', `http://localhost:${w.port}`)
 
@@ -68,10 +69,12 @@ test('Run tab: setup output, named scripts from .aiguillage/settings.toml, Run /
   await expect(out).toContainText('hello-run')
 })
 
-test('Run tab without any script config: ▶ Run explains what to add', async ({ open, page }) => {
+test('Run tab without any script config: ▶ Run explains what to add, Ask the agent sends it the job', async ({ open, page }) => {
   await open()
   await page.getByRole('button', { name: 'Run', exact: true }).click()
   await expect(page.locator('#runScript')).toBeHidden()
   await page.locator('#runStart').click()
   await expect(page.locator('#toast.bad')).toContainText('No run script')
+  await page.locator('#runAsk').click()
+  await expect(page.locator('#thread .msg.me .body')).toContainText('.aiguillage/settings.toml')
 })

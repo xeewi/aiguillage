@@ -121,6 +121,9 @@ Aiguillage reads these files, highest priority first:
 3. `~/.aiguillage/settings.toml`: defaults for all your repos
 4. otherwise: `aiguillage.json`
 
+No run script anywhere? Aiguillage guesses from the project files and lists every match in the Run tab, the first one being the default: `Makefile` / `justfile` targets `dev` `start` `run` `serve`, `package.json` and `deno.json` scripts (with your lockfile's package manager), `Procfile` `web:`, then `cargo run`, `go run .`, Django `manage.py runserver`, `main.py` / `app.py`, `bin/rails server`, `mix phx.server`, `swift run`, Gradle, Maven, `dotnet run`, `docker compose up`. `$PORT` is set to the workspace port.
+Nothing recognized? **Ask the agent** in the Run tab: it works out the command and writes `.aiguillage/settings.toml` for you.
+
 ```toml
 [scripts]
 setup = "pnpm install"
