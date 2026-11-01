@@ -30,6 +30,20 @@ if (argv[0] === '-p' && !argv.includes('--input-format')) {
   process.stdout.write(`"Named: ${last}."\n`)
   process.exit(0)
 }
+// Usage probe (no permission tool: not an agent): answers get_usage with fixed plan limits. Not logged.
+if (argv.includes('--input-format') && !argv.includes('--permission-prompt-tool')) {
+  const rl = readline.createInterface({ input: process.stdin })
+  for await (const line of rl) {
+    const m = JSON.parse(line)
+    const resets = h => new Date(Date.now() + h * 3600_000).toISOString()
+    process.stdout.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: {
+      subscription_type: 'max', rate_limits_available: true, rate_limits: { limits: [
+        { kind: 'session', percent: 42, resets_at: resets(2), scope: null },
+        { kind: 'weekly_all', percent: 93, resets_at: resets(60), scope: null },
+        { kind: 'weekly_scoped', percent: 12, resets_at: resets(60), scope: { model: { display_name: 'Opus' } } }] } } } }) + '\n')
+  }
+  process.exit(0)
+}
 if (process.env.FAKE_CLAUDE_LOG) appendFileSync(process.env.FAKE_CLAUDE_LOG, JSON.stringify({ argv, cwd: process.cwd() }) + '\n')
 
 // First-run checks (GET /api/doctor). FAKE_CLAUDE_LOGGED_OUT=1 simulates a fresh install.

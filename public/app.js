@@ -57,7 +57,7 @@ function connect() {
 const send = m => sock?.readyState === 1 && sock.send(JSON.stringify(m))
 
 function onMsg(m) {
-  if (m.t === 'state') { S = m; renderSide(); renderHead(); renderPerms(); renderSettings(); renderUpdate() }
+  if (m.t === 'state') { S = m; renderSide(); renderHead(); renderPerms(); renderSettings(); renderUpdate(); renderUsage() }
   else if (m.t === 'ev') {
     if (m.ws === active) { dropDraft(); renderEv(m.ev); scroll() }
     if (m.ev.type === 'result') {
@@ -129,6 +129,54 @@ function renderUpdate() {
     api('POST', '/update').catch(() => {}) // the app quits before answering
   }
   box.replaceChildren(h('b', null, t('update.availableTitle', { version: u.latest })), notes, b)
+}
+
+// ---------- plan usage (lib/agent.js refreshUsage): session and week lanes over Settings, every limit on hover ----------
+// The grey tick on a lane is the time elapsed in its window: a fill past it means you're going faster than the clock.
+const WINDOW = { session: 5 * 3600_000 } // every other limit is weekly
+const pct = n => new Intl.NumberFormat(lang(), { style: 'percent' }).format(n / 100)
+const limitName = l => l.kind === 'session' ? t('usage.session') : l.kind === 'weekly_all' ? t('usage.week') : l.model ?? l.kind
+function resetText(at) {
+  const m = Math.max(0, Math.round((at - Date.now()) / 60_000))
+  if (m >= 24 * 60) return t('usage.resetsAt', { when: new Intl.DateTimeFormat(lang(), { weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(at) })
+  return t('usage.resetsIn', { time: m < 60 ? t('usage.min', { m }) : t('usage.hm', { h: Math.floor(m / 60), m: String(m % 60).padStart(2, '0') }) })
+}
+function ago(at) {
+  const m = Math.round((Date.now() - at) / 60_000), rtf = new Intl.RelativeTimeFormat(lang(), { numeric: 'auto' })
+  return m < 60 ? rtf.format(-m, 'minute') : rtf.format(-Math.round(m / 60), 'hour')
+}
+function renderUsage() {
+  const u = S.usage, box = $('#usage'), pop = $('#usagePop')
+  const lanes = ['session', 'weekly_all'].map(k => u?.limits.find(l => l.kind === k)).filter(Boolean)
+  box.hidden = !lanes.length
+  if (box.hidden) { pop.hidden = true; return }
+  const stale = Date.now() - u.at > 15 * 60_000
+  box.classList.toggle('stale', stale)
+  box.replaceChildren(...lanes.map(l => {
+    const lane = h('div', 'lane' + (l.pct >= 90 ? ' hot' : ''))
+    const head = h('div', 'laneHead', limitName(l)); head.append(h('b', null, pct(l.pct)))
+    const track = h('div', 'track'), fill = h('i'); fill.style.width = Math.min(100, l.pct) + '%'; track.append(fill)
+    if (l.resetsAt) {
+      const tick = h('s'); tick.style.left = Math.min(100, Math.max(0, 100 * (1 - (l.resetsAt - Date.now()) / (WINDOW[l.kind] ?? 7 * 86400_000)))) + '%'
+      track.append(tick)
+    }
+    lane.append(head, track, h('div', 'when', l.resetsAt ? resetText(l.resetsAt) : ''))
+    return lane
+  }), ...(stale ? [h('div', 'when', t('usage.updated', { ago: ago(u.at) }))] : []))
+  const table = h('table')
+  for (const l of u.limits) {
+    const tr = h('tr'); tr.append(h('td', null, limitName(l)), h('td', 'n', pct(l.pct)), h('td', 'muted', l.resetsAt ? resetText(l.resetsAt) : ''))
+    table.append(tr)
+  }
+  const plan = u.plan ? t('usage.plan', { plan: u.plan[0].toUpperCase() + u.plan.slice(1) }) + ' · ' : ''
+  pop.replaceChildren(table, h('div', 'muted', plan + t('usage.updated', { ago: ago(u.at) })))
+}
+{
+  const box = $('#usage'), pop = $('#usagePop')
+  const show = () => { const r = box.getBoundingClientRect(); pop.style.left = r.right + 18 + 'px'; pop.style.bottom = innerHeight - r.bottom + 'px'; pop.hidden = false }
+  const hide = () => { pop.hidden = true }
+  box.onmouseenter = box.onfocus = show; box.onmouseleave = box.onblur = hide
+  setInterval(renderUsage, 60_000) // countdowns and pace ticks move with the clock
 }
 
 // ---------- first run: git, then claude, then its login; one button at a time ----------

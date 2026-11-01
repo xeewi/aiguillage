@@ -173,5 +173,16 @@
     "notes": "What's new",
     "auto": "Check for updates automatically",
     "version": "Version {{version}}"
+  },
+  "usage": {
+    "title": "Plan usage",
+    "session": "Session",
+    "week": "Week",
+    "resetsIn": "resets in {{time}}",
+    "resetsAt": "resets {{when}}",
+    "hm": "{{h}}h {{m}}m",
+    "min": "{{m}} min",
+    "updated": "updated {{ago}}",
+    "plan": "{{plan}} plan"
   }
 }

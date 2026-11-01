@@ -28,6 +28,7 @@ const view = () => ({
   repos: state.repos,
   defaults: state.defaults ?? {},
   update: U.info(),
+  usage: A.usageNow(),
   workspaces: state.workspaces.map(w => ({ ...w, ...A.runtime(w.id), scriptRunning: terms.get(w.id + ':script')?.alive ? terms.get(w.id + ':script').label : null })),
 })
 let pendingState = null
@@ -400,6 +401,9 @@ for (const r of state.resumeScripts ?? []) {
   if (run) openTerm(ws.id + ':script', ws, run.command, r.id)
 }
 if (state.resumeScripts) { delete state.resumeScripts; save() }
+
+// Plan usage in the sidebar: now, every 3 min, and after each agent turn (lib/agent.js).
+A.refreshUsage(); setInterval(A.refreshUsage, 3 * 60_000).unref()
 
 export const ready = new Promise((ok, fail) => {
   server.once('error', fail)

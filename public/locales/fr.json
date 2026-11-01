@@ -173,5 +173,16 @@
     "notes": "Nouveautés",
     "auto": "Rechercher les mises à jour automatiquement",
     "version": "Version {{version}}"
+  },
+  "usage": {
+    "title": "Usage du forfait",
+    "session": "Session",
+    "week": "Semaine",
+    "resetsIn": "reset dans {{time}}",
+    "resetsAt": "reset {{when}}",
+    "hm": "{{h}} h {{m}}",
+    "min": "{{m}} min",
+    "updated": "à jour {{ago}}",
+    "plan": "Forfait {{plan}}"
   }
 }

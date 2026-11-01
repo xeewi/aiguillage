@@ -231,6 +231,26 @@ dialog .row { margin-top: 16px; }
 #update a { font-size: 12px; color: var(--muted); }
 #update a:hover { color: var(--fg); }
 
+/* plan usage: two lanes over Settings, 4px tracks like the map's; the grey tick is the time elapsed in the window. Red only past 90 %. */
+#usage { display: grid; gap: 12px; padding: 4px 6px; border-radius: 8px; }
+#usage.stale .lane { opacity: .55; }
+.laneHead { display: flex; align-items: baseline; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.laneHead b { margin-left: auto; font-size: 13px; letter-spacing: 0; color: var(--fg); }
+#usage .track { position: relative; height: 4px; border-radius: 2px; background: var(--soft); margin: 6px 0 5px; }
+#usage .track i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--fg); }
+#usage .track s { position: absolute; top: -3px; width: 2px; height: 10px; margin-left: -1px; border-radius: 1px; background: var(--trunk); }
+#usage .when { font-size: 12px; color: var(--muted); }
+.lane.hot .laneHead b { color: var(--ask); }
+.lane.hot .track i { background: var(--ask); }
+#usagePop { position: fixed; z-index: 10; width: 300px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .2); font-size: 13px; }
+#usagePop table { width: 100%; border-collapse: collapse; }
+#usagePop td { padding: 5px 0; border-bottom: 1px solid var(--line); }
+#usagePop td:first-child { font-weight: 700; }
+#usagePop td.n { text-align: right; font-weight: 800; padding-right: 12px; }
+#usagePop td.muted { text-align: right; font-size: 12px; }
+#usagePop tr:last-child td { border-bottom: 0; }
+#usagePop > div { margin-top: 8px; font-size: 12px; }
+
 /* settings page: takes the workspace's place in main */
 #openSettings { justify-content: flex-start; border-color: transparent; background: none; color: var(--muted); }
 #openSettings:hover, #openSettings.on { background: var(--soft); color: var(--fg); }

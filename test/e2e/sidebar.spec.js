@@ -148,3 +148,18 @@ test('Settings page: defaults preselect new workspaces, repo base branch is edit
   await expect(page.locator('#effort')).toHaveValue('high')
   await expect(page.locator('#mode')).toHaveValue('plan')
 })
+
+test('plan usage: session and week lanes over Settings, red past 90 %, every limit on hover', async ({ srv, page }) => {
+  await page.goto(srv.base)
+  const lanes = page.locator('#usage .lane')
+  await expect(lanes).toHaveCount(2)
+  await expect(lanes.nth(0)).toContainText(/Session\s*42%/)
+  await expect(lanes.nth(0)).not.toHaveClass(/hot/)
+  await expect(lanes.nth(0).locator('.when')).toHaveText(/resets in (1h 59m|2h 00m)/)
+  await expect(lanes.nth(1)).toHaveClass(/hot/)
+  await page.locator('#usage').hover()
+  await expect(page.locator('#usagePop')).toBeVisible()
+  await expect(page.locator('#usagePop tr')).toHaveCount(3)
+  await expect(page.locator('#usagePop')).toContainText('Opus')
+  await expect(page.locator('#usagePop')).toContainText('Max plan')
+})

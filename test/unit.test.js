@@ -115,3 +115,15 @@ test('store: state.json is reloaded from disk on start', async () => {
   const out = execFileSync(process.execPath, ['--input-type=module', '-e', `const s = await import(${JSON.stringify(new URL('../lib/store.js', import.meta.url).href)}); console.log(s.state.repos[0].id)`], { env: { ...process.env, AIGUILLAGE_HOME: home }, encoding: 'utf8' })
   assert.equal(out.trim(), 'keep')
 })
+
+test('parseUsage(): keeps the plan limits /usage shows, null when there are none', () => {
+  const r = { subscription_type: 'max', rate_limits_available: true, rate_limits: { limits: [
+    { kind: 'session', percent: 38, resets_at: '2026-11-01T20:09:59.5+00:00', scope: null },
+    { kind: 'weekly_scoped', percent: 2, resets_at: null, scope: { model: { display_name: 'Fable' } } },
+    { kind: 'broken' }] } }
+  assert.deepEqual(A.parseUsage(r, 5), { plan: 'max', at: 5, limits: [
+    { kind: 'session', model: null, pct: 38, resetsAt: Date.parse('2026-11-01T20:09:59.5Z') },
+    { kind: 'weekly_scoped', model: 'Fable', pct: 2, resetsAt: null }] })
+  assert.equal(A.parseUsage({ rate_limits_available: false, rate_limits: { limits: [] } }, 5), null)
+  assert.equal(A.parseUsage(undefined, 5), null)
+})

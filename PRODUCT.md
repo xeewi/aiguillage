@@ -24,7 +24,7 @@ User loop: add a local repo → `+ Workspace` (worktree + `aig/<name>` branch, s
 - Listens on 127.0.0.1 only.
 - Desktop only (narrow windows down to ~820px); no phone layout.
 - Billing goes through the user's Claude account via the CLI; API keys are stripped from the agent env.
-- Existing features: workspaces list, chat stream, permissions, checkpoints, diff, xterm terminals, run scripts, commit/merge/PR, archive.
+- Existing features: workspaces list, chat stream, permissions, checkpoints, diff, xterm terminals, run scripts, commit/merge/PR, archive, plan usage (session and week limits).
 
 ## Brand Commitments
 Name: Aiguillage. Voice: plain, direct; short labels, in every language.

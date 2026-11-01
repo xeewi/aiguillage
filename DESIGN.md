@@ -194,7 +194,7 @@ Signage white and ink, with a RATP-like line palette held strictly for identity 
 ### Named Rules
 **The Identity Rule.** Line colours mean "this workspace" and nothing else. Never use one for a state, a button, a link or decoration.
 
-**The One Alarm Rule.** Signal Red means a human is needed now (pending permission) or something failed. Running is ink, new is an ink dot on an outlined pill, failed is a red outline with an x.
+**The One Alarm Rule.** Signal Red means a human is needed now (pending permission) or something failed. Running is ink, new is an ink dot on an outlined pill, failed is a red outline with an x. A plan-usage lane at 90 % or more is red too: you're about to be cut off.
 
 **The Ink Primary Rule.** Exactly one ink-filled button per action group (PR in the header, Envoyer in the composer, Lancer in the run bar); every other action is ghost.
 
@@ -278,6 +278,9 @@ Plain signage buttons, bold labels, no gradients.
 
 ### Line Map Sidebar (signature)
 Each repo group: an uppercase Label header with icon buttons, then the map. A 4px Trunk Grey bar runs down the left edge from a hollow terminus labelled with the base branch in mono. Every workspace row is a 22px × 4px stub in its line colour leaving the trunk into a 26px numbered badge, then the name (Item type: the task name Claude draws from the first message, or the user's rename; the city name until then), a state pill right-aligned and, in Quiet Grey, ellipsised, the city name (or "New workspace" before the first message). The number is the ⌘1–9 shortcut and selects the colour. Hover and active rows fill Platform Grey at 8px radius. Archived rows drop the stub and badge.
+
+### Plan Usage Lanes
+Above Settings in the sidebar: one lane for the 5-hour session and one for the week, from the CLI's own `get_usage`. A lane is an uppercase Label with the percentage right-aligned (13px/800, ink), a 4px Platform Grey track filled in ink, a 2×10px Trunk Grey tick at the time elapsed in the window (a fill past the tick means you're ahead of the clock), and the reset in Quiet Grey 12px ("resets in 2h 14m", or a weekday and time beyond 24 h). Past 90 % the fill and the figure turn Signal Red. Data older than 15 min dims the lanes to 55 % and says how old it is. Hover or focus opens a floating card (toast shadow, 10px radius) listing every limit, per-model ones included, with the plan and the time it was fetched. No limits (API-key login, logged out): the block is not shown.
 
 ## Do's and Don'ts
 
