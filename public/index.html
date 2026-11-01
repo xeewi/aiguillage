@@ -30,12 +30,19 @@
       <h1 data-i18n="empty.title">Several Claude Code agents, in parallel, on your machine.</h1>
       <p data-i18n="empty.body">Add a git repo, then create a workspace: an isolated worktree, a branch, an agent.</p>
       <button id="emptyAdd">Add a repo</button>
+      <div id="setup" hidden>
+        <p data-i18n="setup.intro">First, three things to set up on this Mac. One click each.</p>
+        <ol id="steps"></ol>
+        <div id="setupTerm" hidden></div>
+        <button id="recheck" class="ghost" data-i18n="setup.recheck">Check again</button>
+      </div>
     </div>
 
     <section id="ws" hidden>
       <header id="wsHead">
         <div class="title">
           <b id="wsName"></b>
+          <button type="button" id="rename" class="ghost icon" data-i18n-title="head.rename" data-i18n-aria-label="head.rename"></button>
           <span id="wsBranch" class="mono"></span>
         </div>
         <div class="actions">

@@ -17,6 +17,7 @@ const ICONS = {
   play: '<path d="M5 3.5v9l7-4.5z"/>',
   check: '<path d="m3 8.5 3 3 7-7"/>',
   stop: '<rect x="4" y="4" width="8" height="8" rx="1"/>',
+  edit: '<path d="M10.5 3 13 5.5 6 12.5H3.5V10z"/>',
 }
 const svg = n => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`
 const ibtn = (n, label, cls = '') => { const b = h('button', 'ghost icon ' + cls); b.innerHTML = svg(n); b.title = label; b.setAttribute('aria-label', label); return b }
@@ -26,13 +27,15 @@ let active = new URLSearchParams(location.hash.slice(1)).get('ws')
 let tab = 'diff'
 const unread = new Set()
 const wsById = id => S.workspaces.find(w => w.id === id)
+// Shown name: the task name (Claude's summary of the first message, or the user's rename), else the city.
+const label = w => w.title || w.name
 
 // ---------- server ----------
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'content-type': 'application/json' }, body: body && JSON.stringify(body) })
   const j = await r.json().catch(() => ({}))
   // Server errors and notices come with a translation key; the English text is the fallback.
-  if (!r.ok) throw new Error(j.key ? t(j.key, j.vars) : j.error || r.statusText)
+  if (!r.ok) throw Object.assign(new Error(j.key ? t(j.key, j.vars) : j.error || r.statusText), { key: j.key })
   if (j.key) j.message = t(j.key, j.vars)
   return j
 }
@@ -64,6 +67,7 @@ function onMsg(m) {
   else if (m.t === 'reload' && m.ws === active) loadThread()
   else if (m.t === 'term:reset') { const t = terms.get(m.key); if (t) { t.term.reset(); t.term.write(m.data) } }
   else if (m.t === 'term:data') terms.get(m.key)?.term.write(m.data)
+  else if (m.t === 'term:exit' && m.key === 'setup') checkSetup()
 }
 
 function notify(id, ev) {
@@ -102,8 +106,35 @@ function renderSide() {
     row.append(back, del); return row
   }))
   $('#empty').hidden = !!wsById(active) && !wsById(active).archived
-  if (!S.repos.length) $('#empty').hidden = false
+  if (!S.repos.length || !ready) $('#empty').hidden = false
 }
+
+// ---------- first run: git, then claude, then its login; one button at a time ----------
+let ready = true // assume a set-up machine until /doctor says otherwise: no flash for regular users
+const STEPS = ['git', 'claude', 'login']
+async function checkSetup() {
+  const d = await api('GET', '/doctor').catch(() => null); if (!d) return
+  const done = { git: d.git, claude: d.claude, login: d.loggedIn }
+  ready = STEPS.every(s => done[s])
+  const next = STEPS.find(s => !done[s])
+  $('#steps').replaceChildren(...STEPS.map(s => {
+    const li = h('li', done[s] ? 'done' : s === next ? 'next' : '')
+    li.append(h('span', 'grow', t(`setup.${s}`)))
+    if (done[s]) li.insertAdjacentHTML('afterbegin', svg('check'))
+    else if (s === next) {
+      const b = h('button', null, t(`setup.${s}Do`))
+      b.onclick = guard(async () => {
+        $('#setupTerm').hidden = false; mountTerm('setup', $('#setupTerm'))
+        await api('POST', '/setup', { step: s })
+      })
+      li.append(b)
+    }
+    return li
+  }))
+  $('#setup').hidden = ready; $('#empty').classList.toggle('setup', !ready)
+  renderSide(); renderHead()
+}
+$('#recheck').onclick = guard(checkSetup)
 
 // Line number = position in the ⌘1–9 order; it also picks the line colour (8 colours, then they loop).
 const live = () => S.repos.flatMap(r => S.workspaces.filter(w => w.repoId === r.id && !w.archived))
@@ -113,7 +144,7 @@ const lineCls = n => 'ln' + ((n - 1) % 8 + 1)
 function wsItem(w) {
   const n = lineOf(w)
   const el = h('div', `wsItem ${lineCls(n)}` + (w.id === active ? ' on' : ''))
-  el.append(h('span', 'bdg', n), h('span', 'wsName', w.name))
+  el.append(h('span', 'bdg', n), h('span', 'wsName', label(w)))
   const pill = w.pending.length ? h('span', 'pill ask', t('status.ask'))
     : w.busy ? h('span', 'pill run', t('status.run'))
     : w.failed ? h('span', 'pill err', t('status.err'))
@@ -121,7 +152,7 @@ function wsItem(w) {
   if (pill) { if (pill.matches('.run, .new')) pill.prepend(h('i')); if (pill.matches('.err')) pill.insertAdjacentHTML('afterbegin', svg('x')); el.append(pill) }
   else if (w.scriptRunning) { const r = h('span', 'pill script'); r.innerHTML = svg('play'); r.append(w.scriptRunning); r.title = t('status.script', { port: w.port }); el.append(r) }
   else el.append(h('span'))
-  el.append(h('span', 'wsTitle', w.title || t('side.newWorkspace')))
+  el.append(h('span', 'wsTitle', w.title ? w.name : t('side.newWorkspace')))
   el.onclick = () => select(w.id)
   return el
 }
@@ -149,6 +180,10 @@ async function addRepoDialog() {
   const f = $('#dlgForm'); f.replaceChildren()
   const input = h('input'); input.placeholder = t('dialog.pathPlaceholder'); input.required = true
   const lab = h('label', null, t('dialog.repoPath')); lab.append(input)
+  // ponytail: the server opens the picker (macOS only); elsewhere it returns nothing and the input still works
+  const pick = h('button', 'ghost', t('dialog.pick')); pick.type = 'button'
+  pick.onclick = guard(async () => { const { path } = await api('POST', '/pick'); if (path) { input.value = path; ok.focus() } })
+  lab.append(pick)
   const list = h('div', 'suggest')
   const row = h('div', 'row')
   const cancel = h('button', 'ghost', t('dialog.cancel')); cancel.value = 'cancel'; cancel.formNoValidate = true
@@ -162,10 +197,33 @@ async function addRepoDialog() {
   }))).catch(() => {})
   $('#dlg').onclose = guard(async () => {
     if ($('#dlg').returnValue !== 'ok') return
-    await api('POST', '/repos', { path: input.value.trim() })
+    const path = input.value.trim()
+    try { await api('POST', '/repos', { path }) } catch (e) {
+      if (e.key !== 'errors.notRepo' || !confirm(t('dialog.initRepo', { path }))) throw e
+      await api('POST', '/repos', { path, init: true })
+    }
   })
 }
 $('#addRepo').onclick = $('#emptyAdd').onclick = addRepoDialog
+
+function renameDialog(w) {
+  const f = $('#dlgForm'); f.replaceChildren()
+  const input = h('input'); input.value = label(w); input.maxLength = 80
+  const lab = h('label', null, t('dialog.name')); lab.append(input)
+  const row = h('div', 'row')
+  // type=button: Enter in the field submits with OK, not with the first button.
+  const cancel = h('button', 'ghost', t('dialog.cancel')); cancel.type = 'button'; cancel.onclick = () => $('#dlg').close('cancel')
+  const ok = h('button', null, t('dialog.ok')); ok.value = 'ok'
+  row.append(h('span', 'grow'), cancel, ok)
+  f.append(h('h3', null, t('dialog.rename')), lab, row)
+  $('#dlg').returnValue = ''
+  $('#dlg').showModal(); input.select()
+  $('#dlg').onclose = guard(async () => {
+    if ($('#dlg').returnValue === 'ok' && input.value.trim() !== label(w)) await api('PATCH', `/workspaces/${w.id}`, { title: input.value })
+  })
+}
+$('#rename').innerHTML = svg('edit')
+$('#rename').onclick = () => renameDialog(wsById(active))
 
 // ---------- workspace ----------
 function select(id) {
@@ -176,9 +234,9 @@ function select(id) {
 
 function renderHead() {
   const w = wsById(active)
-  $('#ws').hidden = !w || !!w.archived
-  if (!w || w.archived) return
-  $('#wsName').textContent = w.name
+  $('#ws').hidden = !ready || !w || !!w.archived
+  if ($('#ws').hidden) return
+  $('#wsName').textContent = label(w)
   $('#wsBranch').textContent = `${w.branch} ← ${w.base}`
   $('#wsBranch').title = w.path
   const n = lineOf(w); $('#wsBranch').dataset.n = $('#tabs').dataset.n = n; $('#ws').className = lineCls(n)
@@ -187,7 +245,7 @@ function renderHead() {
   $('#effort').value = w.effort || ''
   $('#busy').hidden = $('#stop').hidden = !w.busy
   $("#runPort").textContent = `http://localhost:${w.port}`; $("#runPort").href = `http://localhost:${w.port}`; $('#runPort').title = t('head.portTitle')
-  document.title = (w.busy ? '● ' : '') + w.name + ' · Aiguillage'
+  document.title = (w.busy ? '● ' : '') + label(w) + ' · Aiguillage'
 }
 
 $('#model').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { model: $('#model').value }))
@@ -388,7 +446,7 @@ async function loadDiff() {
 
 const terms = new Map()
 function mountTerm(key, host) {
-  for (const [k, t] of terms) if (!k.startsWith(active + ':')) { t.term.dispose(); terms.delete(k) }
+  for (const [k, t] of terms) if (k !== key && !k.startsWith(active + ':')) { t.term.dispose(); terms.delete(k) }
   let t = terms.get(key)
   if (!t) {
     const el = h('div', 'xterm-host')
@@ -450,3 +508,4 @@ for (const b of [$('#addRepo'), $('#emptyAdd')]) { b.textContent = t('side.addRe
 
 connect()
 api('GET', '/state').then(s => { S = s; renderSide(); if (wsById(active)) select(active) })
+checkSetup()

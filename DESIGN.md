@@ -277,7 +277,7 @@ Plain signage buttons, bold labels, no gradients.
 - **Header branch pill:** Platform Grey capsule, mono branch name, led by the 22px line badge.
 
 ### Line Map Sidebar (signature)
-Each repo group: an uppercase Label header with icon buttons, then the map. A 4px Trunk Grey bar runs down the left edge from a hollow terminus labelled with the base branch in mono. Every workspace row is a 22px × 4px stub in its line colour leaving the trunk into a 26px numbered badge, then the name (Item type), a state pill right-aligned and the task title in Quiet Grey, ellipsised. The number is the ⌘1–9 shortcut and selects the colour. Hover and active rows fill Platform Grey at 8px radius. Archived rows drop the stub and badge.
+Each repo group: an uppercase Label header with icon buttons, then the map. A 4px Trunk Grey bar runs down the left edge from a hollow terminus labelled with the base branch in mono. Every workspace row is a 22px × 4px stub in its line colour leaving the trunk into a 26px numbered badge, then the name (Item type: the task name Claude draws from the first message, or the user's rename; the city name until then), a state pill right-aligned and, in Quiet Grey, ellipsised, the city name (or "New workspace" before the first message). The number is the ⌘1–9 shortcut and selects the colour. Hover and active rows fill Platform Grey at 8px radius. Archived rows drop the stub and badge.
 
 ## Do's and Don'ts
 

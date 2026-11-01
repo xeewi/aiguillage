@@ -100,6 +100,15 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .empty { margin: auto; max-width: 480px; padding: 24px; }
 .empty h1 { font-size: 30px; font-weight: 800; line-height: 1.15; letter-spacing: -.02em; margin: 0 0 12px; text-wrap: balance; }
 .empty p { color: var(--muted); font-size: 15px; margin: 0 0 20px; }
+.empty.setup { max-width: 640px; }
+.empty.setup > p, .empty.setup > #emptyAdd { display: none; }
+#steps { list-style: none; padding: 0; margin: 0 0 16px; border: 1px solid var(--line); border-radius: 10px; }
+#steps li { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 14px; color: var(--muted); }
+#steps li + li { border-top: 1px solid var(--line); }
+#steps li.next { color: var(--fg); font-weight: 700; }
+#steps li.done { color: var(--fg); }
+#steps li.done svg { color: var(--add); }
+#setupTerm { height: 260px; margin-bottom: 16px; background: var(--term-bg); border-radius: 10px; overflow: hidden; }
 #ws { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 #wsHead { display: flex; align-items: center; gap: 10px 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 #wsHead .title { flex: 1; min-width: 220px; display: flex; gap: 10px; align-items: center; }
@@ -199,6 +208,7 @@ dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--p
 dialog::backdrop { background: var(--scrim); }
 dialog h3 { margin: 0 0 8px; font-size: 18px; font-weight: 800; }
 dialog label { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; font-weight: 700; }
+dialog label button { align-self: flex-start; }
 dialog .row { margin-top: 16px; }
 .suggest { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
 .suggest button { text-align: left; border: 0; padding: 4px 8px; }

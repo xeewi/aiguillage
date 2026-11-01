@@ -26,6 +26,16 @@
     "title": "Several Claude Code agents, in parallel, on your machine.",
     "body": "Add a git repo, then create a workspace: an isolated worktree, a branch, an agent."
   },
+  "setup": {
+    "intro": "First, three things to set up on this Mac. One click each.",
+    "git": "git, the Mac developer tools",
+    "gitDo": "Install",
+    "claude": "Claude Code",
+    "claudeDo": "Install",
+    "login": "Your Claude account",
+    "loginDo": "Sign in",
+    "recheck": "Check again"
+  },
   "head": {
     "model": "Model",
     "modelDefault": "Default model",
@@ -50,7 +60,8 @@
     "prTitle": "Push + gh pr create",
     "archive": "Archive",
     "confirmArchive": "Archive {{name}}? The worktree is removed, branch {{branch}} is kept.",
-    "portTitle": "AIGUILLAGE_PORT (10 reserved ports)"
+    "portTitle": "AIGUILLAGE_PORT (10 reserved ports)",
+    "rename": "Rename"
   },
   "chat": {
     "placeholder": "Ask the agent something…  (Enter to send, Shift+Enter for a new line)",
@@ -97,7 +108,11 @@
     "repoPath": "Git repo path",
     "pathPlaceholder": "~/code/my-project",
     "cancel": "Cancel",
-    "add": "Add"
+    "add": "Add",
+    "rename": "Rename the workspace",
+    "name": "Name (empty: back to the default name)",
+    "pick": "Choose a folder…",
+    "initRepo": "{{path}} is not a git repo yet. Turn it into one? Its current files go into a first commit."
   },
   "errors": {
     "notRepo": "This folder is not a git repo.",
@@ -112,7 +127,8 @@
     "noCheckpoint": "No checkpoint for this message.",
     "gitBusy": "A git operation is in progress.",
     "tooLarge": "Request too large.",
-    "notFound": "Not found."
+    "notFound": "Not found.",
+    "initRefused": "Pick a project folder, not your whole home folder."
   },
   "messages": {
     "committed": "Commit created.",
