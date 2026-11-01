@@ -91,9 +91,9 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 
 /* desktop app (Electron, hidden title bar): room for the traffic lights, and the top of the sheet drags the window */
 .electron .brand { padding-left: 74px; } /* sits beside the traffic lights, level with the workspace title */
-.electron .brand, .electron #side::before, .electron #wsHead { -webkit-app-region: drag; }
+.electron .brand, .electron #side::before, .electron #wsHead, .electron .setHead { -webkit-app-region: drag; }
 .electron #side::before { content: ''; position: fixed; top: 0; left: 0; width: 288px; height: 44px; }
-.electron #wsHead :is(button, select, #wsBranch), .electron .empty { -webkit-app-region: no-drag; }
+.electron :is(#wsHead, .setHead) :is(button, select, #wsBranch), .electron .empty { -webkit-app-region: no-drag; }
 
 /* main */
 main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -227,5 +227,18 @@ dialog .row { margin-top: 16px; }
 /* header badge: drawn from data-n so #wsBranch keeps only the branch text */
 #wsBranch::before { content: attr(data-n); width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--c, var(--trunk)); color: #fff; font: 800 12px Figtree, system-ui, sans-serif; }
 .ln1 #wsBranch::before, .ln5 #wsBranch::before, .ln6 #wsBranch::before, .ln8 #wsBranch::before { color: #1a1a1a; }
-.prefs { display: flex; gap: 8px; }
-.prefs select, #defaults { font-size: 12px; padding: 4px 8px; }
+
+/* settings page: takes the workspace's place in main */
+#openSettings { justify-content: flex-start; border-color: transparent; background: none; color: var(--muted); }
+#openSettings:hover, #openSettings.on { background: var(--soft); color: var(--fg); }
+#settings { flex: 1; min-height: 0; overflow-y: auto; }
+.setHead { display: flex; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.setHead h1 { flex: 1; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
+.setBody { max-width: 640px; padding: 8px 28px 40px; }
+.setBody h2 { margin: 28px 0 10px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.setBody > p { margin: -4px 0 10px; font-size: 13px; }
+.setRow, .setRepo { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.setRow > span { flex: 1; font-weight: 700; }
+.setRow select { min-width: 220px; }
+.setRepo .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setRepo select { max-width: 200px; }

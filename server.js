@@ -126,7 +126,7 @@ async function createWorkspace({ repoId, name, base }) {
   const used = new Set(state.workspaces.map(w => w.port))
   let port = 40000
   while (used.has(port)) port += 10
-  const ws = { id: newId(), repoId, name: n, branch: `aig/${n}`, base, baseRef, path, port, createdAt: Date.now(), permissionMode: 'auto', model: state.defaults?.model ?? '', effort: state.defaults?.effort ?? '' }
+  const ws = { id: newId(), repoId, name: n, branch: `aig/${n}`, base, baseRef, path, port, createdAt: Date.now(), permissionMode: state.defaults?.permissionMode || 'auto', model: state.defaults?.model ?? '', effort: state.defaults?.effort ?? '' }
   state.workspaces.push(ws)
   save()
   const { setup } = config(ws)
@@ -219,9 +219,10 @@ const routes = {
     if (!Object.hasOwn(SETUP, body.step)) throw fail('errors.notFound')
     openTerm('setup', null, SETUP[body.step], body.step); return {}
   },
-  // Model and effort given to new workspaces ('' = the CLI's own default).
+  // Model, effort ('' = the CLI's own default) and permission mode given to new workspaces.
   'PATCH /api/defaults': ({ body }) => {
-    state.defaults = { model: String(body.model ?? ''), effort: String(body.effort ?? '') }
+    const permissionMode = ['default', 'acceptEdits', 'plan'].includes(body.permissionMode) ? body.permissionMode : 'auto'
+    state.defaults = { model: String(body.model ?? ''), effort: String(body.effort ?? ''), permissionMode }
     save(); changed(); return state.defaults
   },
   'POST /api/repos': async ({ body }) => {

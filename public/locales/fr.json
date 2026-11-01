@@ -9,12 +9,7 @@
     "delete": "Supprimer",
     "deleteTitle": "Supprimer (branche comprise)",
     "confirmDelete": "Supprimer {{name}} et la branche {{branch}} ?",
-    "language": "Langue",
-    "theme": "Thème",
-    "themeSystem": "Système",
-    "themeLight": "Clair",
-    "themeDark": "Sombre",
-    "defaults": "Par défaut"
+    "settings": "Réglages"
   },
   "status": {
     "ask": "Attend ta réponse",
@@ -105,8 +100,6 @@
     "askAgentPrompt": "L'onglet Run d'Aiguillage ne sait pas comment lancer ce projet. Examine le repo, détermine la commande qui lance l'app en développement (serveur, CLI, appli desktop, etc.), puis crée `.aiguillage/settings.toml` à la racine du repo :\n\n```toml\n[scripts]\nsetup = \"…\"  # seulement si des dépendances doivent être installées, sinon supprime cette ligne\n\n[scripts.run.dev]\ncommand = \"…\"\ndefault = true\n```\n\nSi l'app écoute sur un port, utilise $AIGUILLAGE_PORT (aussi exporté en $PORT). Tu peux ajouter d'autres entrées `[scripts.run.<nom>]` si c'est utile. Ne lance pas toi-même de processus qui tourne en continu ; vérifie seulement que la commande est la bonne."
   },
   "dialog": {
-    "baseBranch": "Branche de base des nouveaux workspaces",
-    "removeRepo": "Retirer le repo",
     "ok": "OK",
     "addRepo": "Ajouter un repo",
     "repoPath": "Chemin du repo git",
@@ -116,9 +109,24 @@
     "rename": "Renommer le workspace",
     "name": "Nom (vide : retour au nom par défaut)",
     "pick": "Choisir un dossier…",
-    "initRepo": "{{path}} n'est pas encore un repo git. Le transformer ? Ses fichiers actuels iront dans un premier commit.",
-    "defaults": "Réglages par défaut des nouveaux workspaces",
-    "defaultsHint": "Les workspaces existants gardent leurs réglages ; change-les depuis leur en-tête."
+    "initRepo": "{{path}} n'est pas encore un repo git. Le transformer ? Ses fichiers actuels iront dans un premier commit."
+  },
+  "settings": {
+    "title": "Réglages",
+    "close": "Fermer les réglages",
+    "appearance": "Apparence",
+    "theme": "Thème",
+    "themeSystem": "Système",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "language": "Langue",
+    "defaults": "Nouveaux workspaces",
+    "defaultsHint": "Les workspaces existants gardent leurs réglages ; change-les depuis leur en-tête.",
+    "repos": "Repos",
+    "noRepos": "Aucun repo pour l'instant.",
+    "baseBranch": "Branche de base des nouveaux workspaces",
+    "removeRepo": "Retirer",
+    "confirmRemove": "Retirer {{name}} d'Aiguillage ? Son dossier reste sur le disque."
   },
   "errors": {
     "notRepo": "Ce dossier n'est pas un repo git.",

@@ -18,6 +18,7 @@ const ICONS = {
   check: '<path d="m3 8.5 3 3 7-7"/>',
   stop: '<rect x="4" y="4" width="8" height="8" rx="1"/>',
   edit: '<path d="M10.5 3 13 5.5 6 12.5H3.5V10z"/>',
+  gear: '<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
 }
 const svg = n => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`
 const ibtn = (n, label, cls = '') => { const b = h('button', 'ghost icon ' + cls); b.innerHTML = svg(n); b.title = label; b.setAttribute('aria-label', label); return b }
@@ -55,7 +56,7 @@ function connect() {
 const send = m => sock?.readyState === 1 && sock.send(JSON.stringify(m))
 
 function onMsg(m) {
-  if (m.t === 'state') { S = m; renderSide(); renderHead(); renderPerms() }
+  if (m.t === 'state') { S = m; renderSide(); renderHead(); renderPerms(); renderSettings() }
   else if (m.t === 'ev') {
     if (m.ws === active) { dropDraft(); renderEv(m.ev); scroll() }
     if (m.ev.type === 'result') {
@@ -87,7 +88,7 @@ function renderSide() {
     const plus = ibtn('plus', t('side.newWorkspace')); plus.title = t('side.newWorkspaceFrom', { base: r.base })
     plus.onclick = guard(async () => { plus.disabled = true; try { select((await api('POST', '/workspaces', { repoId: r.id })).id) } finally { plus.disabled = false } })
     const more = ibtn('more', t('side.repoOptions'))
-    more.onclick = () => repoDialog(r)
+    more.onclick = () => { showSettings(true); $(`#setRepos [data-repo="${r.id}"] select`)?.focus() }
     head.append(name, more, plus); g.append(head)
     const lines = h('div', 'lines')
     lines.append(h('div', 'terminus', r.base))
@@ -108,6 +109,8 @@ function renderSide() {
   }))
   $('#empty').hidden = !!wsById(active) && !wsById(active).archived
   if (!S.repos.length || !ready) $('#empty').hidden = false
+  if (settingsOpen) $('#empty').hidden = true
+  $('#openSettings').classList.toggle('on', settingsOpen)
 }
 
 // ---------- first run: git, then claude, then its login; one button at a time ----------
@@ -144,7 +147,7 @@ const lineCls = n => 'ln' + ((n - 1) % 8 + 1)
 
 function wsItem(w) {
   const n = lineOf(w)
-  const el = h('div', `wsItem ${lineCls(n)}` + (w.id === active ? ' on' : ''))
+  const el = h('div', `wsItem ${lineCls(n)}` + (w.id === active && !settingsOpen ? ' on' : ''))
   el.append(h('span', 'bdg', n), h('span', 'wsName', label(w)))
   const pill = w.pending.length ? h('span', 'pill ask', t('status.ask'))
     : w.busy ? h('span', 'pill run', t('status.run'))
@@ -156,25 +159,6 @@ function wsItem(w) {
   el.append(h('span', 'wsTitle', w.title ? w.name : t('side.newWorkspace')))
   el.onclick = () => select(w.id)
   return el
-}
-
-async function repoDialog(r) {
-  const branches = await api('GET', `/repos/${r.id}/branches`).catch(() => [r.base])
-  const f = $('#dlgForm'); f.replaceChildren()
-  f.append(h('h3', null, r.name), h('p', 'mono muted', r.path))
-  const lab = h('label', null, t('dialog.baseBranch'))
-  const sel = h('select'); for (const b of branches) { const o = h('option', null, b); o.selected = b === r.base; sel.append(o) }
-  lab.append(sel)
-  const row = h('div', 'row')
-  const rm = h('button', 'ghost', t('dialog.removeRepo')); rm.value = 'rm'
-  const ok = h('button', null, t('dialog.ok')); ok.value = 'ok'
-  row.append(rm, h('span', 'grow'), ok)
-  f.append(lab, row)
-  $('#dlg').showModal()
-  $('#dlg').onclose = guard(async () => {
-    if ($('#dlg').returnValue === 'ok' && sel.value !== r.base) await api('PATCH', `/repos/${r.id}`, { base: sel.value })
-    if ($('#dlg').returnValue === 'rm') await api('DELETE', `/repos/${r.id}`)
-  })
 }
 
 async function addRepoDialog() {
@@ -226,37 +210,52 @@ function renameDialog(w) {
 $('#rename').innerHTML = svg('edit')
 $('#rename').onclick = () => renameDialog(wsById(active))
 
-// Same choices as the header selects, applied to workspaces created from now on.
-function defaultsDialog() {
-  const f = $('#dlgForm'); f.replaceChildren()
-  const pick = (src, label, value) => {
-    const sel = h('select'); sel.append(...[...$(src).options].map(o => o.cloneNode(true))); sel.value = value || ''
-    const lab = h('label', null, label); lab.append(sel); f.append(lab); return sel
-  }
-  f.append(h('h3', null, t('dialog.defaults')), h('p', 'muted', t('dialog.defaultsHint')))
-  const model = pick('#model', t('head.model'), S.defaults?.model), effort = pick('#effort', t('head.effort'), S.defaults?.effort)
-  const row = h('div', 'row')
-  const cancel = h('button', 'ghost', t('dialog.cancel')); cancel.value = 'cancel'
-  const ok = h('button', null, t('dialog.ok')); ok.value = 'ok'
-  row.append(h('span', 'grow'), cancel, ok); f.append(row)
-  $('#dlg').returnValue = ''
-  $('#dlg').showModal()
-  $('#dlg').onclose = guard(async () => {
-    if ($('#dlg').returnValue === 'ok') await api('PATCH', '/defaults', { model: model.value, effort: effort.value })
-  })
+// ---------- settings: a page in place of the workspace ----------
+let settingsOpen = location.hash === '#settings'
+function showSettings(on) {
+  settingsOpen = on; renderSettings.key = null
+  if (!on && wsById(active)) return select(active)
+  history.replaceState(null, '', on ? '#settings' : location.pathname)
+  renderSide(); renderHead(); renderSettings()
 }
-$('#defaults').onclick = defaultsDialog
+function renderSettings() {
+  if (!settingsOpen) return
+  const d = S.defaults ?? {}
+  $('#defModel').value = d.model || ''; $('#defEffort').value = d.effort || ''; $('#defMode').value = d.permissionMode || 'auto'
+  // Rebuilt only when repos change: state arrives often, and rebuilding would close an open select.
+  const key = S.repos.map(r => r.id + r.base).join()
+  if (key === renderSettings.key) return
+  renderSettings.key = key
+  $('#setRepos').replaceChildren(...S.repos.map(r => {
+    const row = h('div', 'setRepo'); row.dataset.repo = r.id
+    const name = h('div', 'grow'); name.append(h('b', null, r.name), h('div', 'mono muted', r.path))
+    const sel = h('select'); sel.title = t('settings.baseBranch'); sel.setAttribute('aria-label', `${r.name}: ${t('settings.baseBranch')}`)
+    const fill = bs => sel.replaceChildren(...bs.map(b => { const o = h('option', null, b); o.selected = b === r.base; return o }))
+    fill([r.base]); api('GET', `/repos/${r.id}/branches`).then(fill).catch(() => {})
+    sel.onchange = guard(() => api('PATCH', `/repos/${r.id}`, { base: sel.value }))
+    const rm = h('button', 'ghost', t('settings.removeRepo'))
+    rm.onclick = guard(async () => { if (confirm(t('settings.confirmRemove', { name: r.name }))) await api('DELETE', `/repos/${r.id}`) })
+    row.append(name, sel, rm); return row
+  }))
+  if (!S.repos.length) $('#setRepos').append(h('p', 'muted', t('settings.noRepos')))
+}
+const saveDefaults = guard(() => api('PATCH', '/defaults', { model: $('#defModel').value, effort: $('#defEffort').value, permissionMode: $('#defMode').value }))
+$('#defModel').onchange = $('#defEffort').onchange = $('#defMode').onchange = saveDefaults
+$('#openSettings').onclick = () => showSettings(true)
+$('#closeSettings').onclick = () => showSettings(false)
+addEventListener('keydown', e => { if (e.key === 'Escape' && settingsOpen && !$('#dlg').open) showSettings(false) })
 
 // ---------- workspace ----------
 function select(id) {
-  active = id; unread.delete(id)
+  active = id; unread.delete(id); settingsOpen = false
   history.replaceState(null, '', '#ws=' + id)
   renderSide(); renderHead(); renderPerms(); loadThread(); showTab(tab)
 }
 
 function renderHead() {
   const w = wsById(active)
-  $('#ws').hidden = !ready || !w || !!w.archived
+  $('#settings').hidden = !settingsOpen
+  $('#ws').hidden = settingsOpen || !ready || !w || !!w.archived
   if ($('#ws').hidden) return
   $('#wsName').textContent = label(w)
   $('#wsBranch').textContent = `${w.branch} ← ${w.base}`
@@ -519,7 +518,11 @@ addEventListener('keydown', e => {
 translateDom()
 for (const o of $('#effort').options) o.textContent = o.value ? t('head.effortLevel', { level: o.value }) : t('head.effortDefault')
 $('#lang').replaceChildren(...Object.entries(LANGS).map(([code, name]) => { const o = h('option', null, name); o.value = code; o.selected = code === lang(); return o }))
-$('#lang').hidden = $('#lang').options.length < 2
+$('#langRow').hidden = $('#lang').options.length < 2
+// New-workspace defaults offer the same choices as the header.
+for (const k of ['Model', 'Effort', 'Mode']) $('#def' + k).append(...[...$('#' + k.toLowerCase()).options].map(o => o.cloneNode(true)))
+$('#closeSettings').innerHTML = svg('x')
+$('#openSettings').insertAdjacentHTML('afterbegin', svg('gear'))
 $('#lang').onchange = async () => { await setLang($('#lang').value); location.reload() }
 $('#theme').value = theme()
 $('#theme').onchange = () => setTheme($('#theme').value)
@@ -532,5 +535,5 @@ $('#runStop').insertAdjacentHTML('afterbegin', svg('stop'))
 for (const b of [$('#addRepo'), $('#emptyAdd')]) { b.textContent = t('side.addRepo'); b.classList.add('ico'); b.insertAdjacentHTML('afterbegin', svg('plus')) }
 
 connect()
-api('GET', '/state').then(s => { S = s; renderSide(); if (wsById(active)) select(active) })
+api('GET', '/state').then(s => { S = s; if (settingsOpen) showSettings(true); else { renderSide(); if (wsById(active)) select(active) } })
 checkSetup()

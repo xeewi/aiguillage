@@ -9,12 +9,7 @@
     "delete": "Delete",
     "deleteTitle": "Delete (branch included)",
     "confirmDelete": "Delete {{name}} and branch {{branch}}?",
-    "language": "Language",
-    "theme": "Theme",
-    "themeSystem": "System",
-    "themeLight": "Light",
-    "themeDark": "Dark",
-    "defaults": "Defaults"
+    "settings": "Settings"
   },
   "status": {
     "ask": "Needs you",
@@ -105,8 +100,6 @@
     "askAgentPrompt": "Aiguillage's Run tab doesn't know how to run this project. Look at the repo, work out the command that starts the app in development (server, CLI, desktop app, etc.), then create `.aiguillage/settings.toml` at the repo root:\n\n```toml\n[scripts]\nsetup = \"…\"  # only if dependencies must be installed first, otherwise remove this line\n\n[scripts.run.dev]\ncommand = \"…\"\ndefault = true\n```\n\nIf the app listens on a port, use $AIGUILLAGE_PORT (also exported as $PORT). Add more `[scripts.run.<name>]` entries if useful. Don't start a long-running process yourself; just make sure the command is right."
   },
   "dialog": {
-    "baseBranch": "Base branch for new workspaces",
-    "removeRepo": "Remove repo",
     "ok": "OK",
     "addRepo": "Add a repo",
     "repoPath": "Git repo path",
@@ -116,9 +109,24 @@
     "rename": "Rename the workspace",
     "name": "Name (empty: back to the default name)",
     "pick": "Choose a folder…",
-    "initRepo": "{{path}} is not a git repo yet. Turn it into one? Its current files go into a first commit.",
-    "defaults": "Defaults for new workspaces",
-    "defaultsHint": "Existing workspaces keep their settings; change them from their header."
+    "initRepo": "{{path}} is not a git repo yet. Turn it into one? Its current files go into a first commit."
+  },
+  "settings": {
+    "title": "Settings",
+    "close": "Close settings",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "language": "Language",
+    "defaults": "New workspaces",
+    "defaultsHint": "Existing workspaces keep their settings; change them from their header.",
+    "repos": "Repos",
+    "noRepos": "No repo yet.",
+    "baseBranch": "Base branch for new workspaces",
+    "removeRepo": "Remove",
+    "confirmRemove": "Remove {{name}} from Aiguillage? Its folder stays on disk."
   },
   "errors": {
     "notRepo": "This folder is not a git repo.",
