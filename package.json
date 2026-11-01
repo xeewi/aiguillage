@@ -1,6 +1,6 @@
 {
   "name": "aiguillage",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "description": "Local-only orchestrator for parallel Claude Code agents in git worktrees",
   "type": "module",
