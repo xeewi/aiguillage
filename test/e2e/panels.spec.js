@@ -116,6 +116,17 @@ test('layout: collapsed sidebar, panel below, resized split; all survive a reloa
   await expect(page.locator('#split')).not.toHaveClass(/below/)
 })
 
+test('desktop app: the sidebar toggle stays clickable under the window drag strip, both ways', async ({ open, page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 Electron/45.0.0' }))
+  await open()
+  await expect(page.locator('html')).toHaveClass(/electron/)
+  // A real click: Playwright fails it if another box (the drag strip) would catch the pointer.
+  await page.getByRole('button', { name: 'Collapse the sidebar' }).click({ timeout: 3000 })
+  await expect(page.locator('.wsItem.on .wsName')).toBeHidden()
+  await page.getByRole('button', { name: 'Expand the sidebar' }).click({ timeout: 3000 })
+  await expect(page.locator('.wsItem.on .wsName')).toBeVisible()
+})
+
 test('narrow composer: model, effort and permissions fold into one chip that opens them', async ({ open, page }) => {
   await open()
   await expect(page.locator('#optsBtn')).toBeHidden()

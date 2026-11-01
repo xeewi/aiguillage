@@ -98,6 +98,8 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 .electron .brand, .electron #side::before, .electron #wsHead, .electron .setHead { -webkit-app-region: drag; }
 .electron #side::before { content: ''; position: fixed; top: 0; left: 0; width: inherit; height: 44px; }
 .electron :is(#wsHead, .setHead) :is(button, select, #wsBranch, .menu), .electron .brand button, .electron .empty { -webkit-app-region: no-drag; }
+/* the fixed drag strip paints over the brand row: the toggle must sit above it to get clicks and stay no-drag */
+.electron .brand button { position: relative; z-index: 1; }
 
 /* collapsed sidebar: badges only (name and status in the tooltip), the state pill shrinks to a dot */
 .side-min #side { width: 64px; padding: 20px 8px; align-items: center; }
