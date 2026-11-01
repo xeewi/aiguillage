@@ -11,7 +11,7 @@
 </head>
 <body>
   <aside id="side">
-    <div class="brand">Aiguillage<span>local</span></div>
+    <div class="brand"><b>Aiguillage</b><small>local</small><button type="button" id="sideToggle" class="ghost icon"></button></div>
     <div id="repos"></div>
     <button id="addRepo" class="ghost">Add a repo</button>
     <details id="archived"><summary data-i18n="side.archived">Archived</summary><div id="archivedList"></div></details>
@@ -68,40 +68,20 @@
     <section id="ws" hidden>
       <header id="wsHead">
         <div class="title">
-          <b id="wsName"></b>
-          <button type="button" id="rename" class="ghost icon" data-i18n-title="head.rename" data-i18n-aria-label="head.rename"></button>
+          <b id="wsName" data-i18n-title="head.renameHint"></b>
           <span id="wsBranch" class="mono"></span>
         </div>
         <div class="actions">
-          <select id="model" data-i18n-title="head.model">
-            <option value="" data-i18n="head.modelDefault">Default model</option>
-            <option value="opus">Opus</option>
-            <option value="sonnet">Sonnet</option>
-            <option value="haiku">Haiku</option>
-          </select>
-          <select id="effort" data-i18n-title="head.effort">
-            <option value="">Default effort</option>
-            <option value="low">Effort: low</option>
-            <option value="medium">Effort: medium</option>
-            <option value="high">Effort: high</option>
-            <option value="xhigh">Effort: xhigh</option>
-            <option value="max">Effort: max</option>
-          </select>
-          <select id="mode" data-i18n-title="head.permissions">
-            <option value="auto" data-i18n="head.modeAuto">Auto (worktree only)</option>
-            <option value="default" data-i18n="head.modeAsk">Ask</option>
-            <option value="acceptEdits" data-i18n="head.modeEdits">Auto edits</option>
-            <option value="plan" data-i18n="head.modePlan">Plan</option>
-          </select>
-          <span class="sep"></span>
-          <button data-act="open" data-app="code" class="ghost" data-i18n="head.code" data-i18n-title="head.codeTitle">Code</button>
-          <button data-act="open" class="ghost" data-i18n="head.folder" data-i18n-title="head.folderTitle">Folder</button>
-          <span class="sep"></span>
-          <button data-act="commit" class="ghost" data-i18n="head.commit">Commit</button>
-          <button data-act="merge" class="ghost" data-i18n="head.merge" data-i18n-title="head.mergeTitle">Merge</button>
-          <button data-act="pr" data-i18n="head.pr" data-i18n-title="head.prTitle">PR</button>
-          <span class="sep"></span>
-          <button data-act="archive" class="ghost" data-i18n="head.archive">Archive</button>
+          <button type="button" id="openBtn" class="ghost ico" popovertarget="openMenu"><span data-i18n="head.open">Open</span></button>
+          <div id="openMenu" class="menu" popover>
+            <button data-act="open" data-app="code" data-i18n="head.codeTitle">Open in VS Code</button>
+            <button data-act="open" data-i18n="head.folderTitle">Open the folder</button>
+          </div>
+          <button type="button" id="moreBtn" class="ghost icon" popovertarget="moreMenu" data-i18n-title="head.more" data-i18n-aria-label="head.more"></button>
+          <div id="moreMenu" class="menu" popover>
+            <button type="button" id="rename" data-i18n="head.rename">Rename</button>
+            <button data-act="archive" data-i18n="head.archive">Archive</button>
+          </div>
         </div>
       </header>
 
@@ -112,22 +92,56 @@
           <form id="composer">
             <textarea id="input" rows="3" placeholder="Ask the agent something…" data-i18n-placeholder="chat.placeholder"></textarea>
             <div class="row">
-              <span id="busy" hidden><i class="spin"></i><span data-i18n="chat.busy">The agent is working…</span></span>
+              <button type="button" id="optsBtn" popovertarget="opts" data-i18n-title="chat.settings"></button>
+              <span id="opts" popover>
+                <select id="model" data-i18n-title="head.model">
+                  <option value="" data-i18n="head.modelDefault">Default model</option>
+                  <option value="opus">Opus</option>
+                  <option value="sonnet">Sonnet</option>
+                  <option value="haiku">Haiku</option>
+                </select>
+                <select id="effort" data-i18n-title="head.effort">
+                  <option value="">Default effort</option>
+                  <option value="low">Effort: low</option>
+                  <option value="medium">Effort: medium</option>
+                  <option value="high">Effort: high</option>
+                  <option value="xhigh">Effort: xhigh</option>
+                  <option value="max">Effort: max</option>
+                </select>
+                <select id="mode" data-i18n-title="head.permissions">
+                  <option value="auto" data-i18n="head.modeAuto">Auto (worktree only)</option>
+                  <option value="default" data-i18n="head.modeAsk">Ask</option>
+                  <option value="acceptEdits" data-i18n="head.modeEdits">Auto edits</option>
+                  <option value="plan" data-i18n="head.modePlan">Plan</option>
+                </select>
+              </span>
+              <span id="busy" hidden data-i18n-title="chat.busy"><i class="spin"></i><span data-i18n="chat.busy">The agent is working…</span></span>
               <button type="button" id="stop" class="ghost" hidden data-i18n="chat.stop">Stop</button>
               <button type="submit" data-i18n="chat.send">Send</button>
             </div>
           </form>
         </div>
 
+        <div id="gutter" role="separator" tabindex="0" data-i18n-aria-label="panel.resize" data-i18n-title="panel.resizeTitle"></div>
+
         <div id="panel">
           <nav id="tabs">
-            <button data-tab="diff" class="on" data-i18n="panel.diff">Diff</button>
+            <button data-tab="diff" class="on"><span data-i18n="panel.diff">Diff</span><span id="diffCount"></span></button>
             <button data-tab="term" data-i18n="panel.terminal">Terminal</button>
             <button data-tab="run" data-i18n="panel.run">Run</button>
             <span class="grow"></span>
             <button id="refresh" class="ghost icon" data-i18n-title="panel.refresh" data-i18n-aria-label="panel.refresh"></button>
+            <button type="button" id="layout" class="ghost icon"></button>
           </nav>
-          <div id="diffView" class="tab"></div>
+          <div id="diffTab" class="tab">
+            <div id="gitBar" class="runbar">
+              <span id="diffStat" class="grow"></span>
+              <button data-act="commit" class="ghost" data-i18n="head.commit">Commit</button>
+              <button data-act="merge" class="ghost" data-i18n="head.merge" data-i18n-title="head.mergeTitle">Merge</button>
+              <button data-act="pr" data-i18n="head.pr" data-i18n-title="head.prTitle">Create PR</button>
+            </div>
+            <div id="diffView"></div>
+          </div>
           <div id="termView" class="tab" hidden></div>
           <div id="runView" class="tab" hidden>
             <div class="runbar">

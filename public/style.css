@@ -68,7 +68,9 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 /* sidebar: the list is the map. A grey trunk (base branch) runs down each repo; every workspace is a line leaving it. */
 #side { width: 288px; flex: none; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; padding: 20px 14px; overflow-y: auto; }
 .brand { display: flex; align-items: baseline; gap: 8px; padding: 0 6px; font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
-.brand span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.brand b { font-weight: inherit; }
+#sideToggle { margin-left: auto; align-self: center; }
+.brand small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .repoHead { display: flex; align-items: center; gap: 2px; padding: 0 0 6px 6px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
 .repoHead .base { text-transform: none; letter-spacing: 0; font-family: var(--mono); font-weight: 500; margin-left: 6px; }
 .lines { position: relative; display: grid; gap: 2px; }
@@ -92,8 +94,22 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 /* desktop app (Electron, hidden title bar): room for the traffic lights, and the top of the sheet drags the window */
 .electron .brand { padding-left: 74px; } /* sits beside the traffic lights, level with the workspace title */
 .electron .brand, .electron #side::before, .electron #wsHead, .electron .setHead { -webkit-app-region: drag; }
-.electron #side::before { content: ''; position: fixed; top: 0; left: 0; width: 288px; height: 44px; }
-.electron :is(#wsHead, .setHead) :is(button, select, #wsBranch), .electron .empty { -webkit-app-region: no-drag; }
+.electron #side::before { content: ''; position: fixed; top: 0; left: 0; width: inherit; height: 44px; }
+.electron :is(#wsHead, .setHead) :is(button, select, #wsBranch, .menu), .electron .brand button, .electron .empty { -webkit-app-region: no-drag; }
+
+/* collapsed sidebar: badges only (name and status in the tooltip), the state pill shrinks to a dot */
+.side-min #side { width: 64px; padding: 20px 8px; align-items: center; }
+.electron.side-min #side { width: 78px; padding-top: 48px; } /* below the traffic lights */
+.electron.side-min .brand { padding-left: 0; }
+.side-min .lines::before, .side-min .wsItem::before,
+.side-min :is(.brand > :not(button), .repoHead > :not(.plus), .terminus, .wsName, .wsTitle, #archived, #update, #usage, #addRepo span, #openSettings span) { display: none; }
+.side-min .brand, .side-min .repoHead { padding: 0; justify-content: center; }
+.side-min .wsItem { display: flex; gap: 0; padding: 7px; }
+.side-min .wsItem .pill { position: absolute; top: 3px; right: 3px; width: 11px; height: 11px; padding: 0; border: 2px solid var(--side); background: var(--fg); font-size: 0; z-index: 2; }
+.side-min .wsItem .pill > * { display: none; }
+.side-min .wsItem .pill:is(.ask, .err) { background: var(--ask); }
+.side-min .wsItem .pill.script { background: var(--trunk); }
+.side-min #addRepo { padding: 8px; }
 
 /* main */
 main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -111,14 +127,31 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #setupTerm { height: 260px; margin-bottom: 16px; background: var(--term-bg); border-radius: 10px; overflow: hidden; }
 #ws { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 #wsHead { display: flex; align-items: center; gap: 10px 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-#wsHead .title { flex: 1; min-width: 220px; display: flex; gap: 10px; align-items: center; }
+#wsHead .title { flex: 1; min-width: 0; display: flex; gap: 10px; align-items: center; }
 #wsName { font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
 #wsBranch { display: inline-flex; align-items: center; gap: 8px; background: var(--soft); border-radius: 99px; padding: 3px 12px 3px 3px; font-family: var(--mono); font-size: 12.5px; color: var(--fg); }
 #wsHead .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-#wsHead .actions .sep { width: 1px; background: var(--line); margin: 2px 4px; }
+#wsName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#wsBranch { flex: none; }
+
+/* header menus: native popovers anchored under their button (Esc and outside click close them) */
+#openBtn { anchor-name: --open-btn; } #openMenu { position-anchor: --open-btn; }
+#moreBtn { anchor-name: --more-btn; } #moreMenu { position-anchor: --more-btn; }
+.menu { inset: auto; position-area: bottom span-left; margin: 4px 0 0; min-width: 200px; padding: 6px; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .2); }
+.menu:popover-open { display: grid; gap: 2px; }
+.menu button { background: none; border: 0; color: var(--fg); text-align: left; padding: 7px 10px; }
+.menu button:hover { background: var(--soft); opacity: 1; }
+/* chat | gutter | panel; .below stacks them. --panel-size is the panel's share, set by dragging the gutter (app.js). */
 #split { flex: 1; min-height: 0; display: flex; }
-#chat { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-#panel { width: 46%; max-width: 900px; min-width: 340px; border-left: 1px solid var(--line); display: flex; flex-direction: column; background: var(--panel); }
+#split.below { flex-direction: column; }
+#chat { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+#panel { flex: none; width: var(--panel-size, 46%); display: flex; flex-direction: column; background: var(--panel); }
+#split.below #panel { width: auto; height: var(--panel-size, 45%); }
+#gutter { flex: none; width: 1px; background: var(--line); position: relative; z-index: 2; cursor: col-resize; touch-action: none; }
+#gutter::after { content: ''; position: absolute; inset: 0 -4px; } /* wider grab area than the line */
+#gutter:hover, #gutter.drag { background: var(--trunk); box-shadow: 0 0 0 1px var(--trunk); }
+#split.below #gutter { width: auto; height: 1px; cursor: row-resize; }
+#split.below #gutter::after { inset: -4px 0; }
 
 /* thread */
 #thread { flex: 1; overflow-y: auto; padding: 22px 28px; display: flex; flex-direction: column; gap: 12px; }
@@ -169,8 +202,26 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #composer textarea { display: block; width: 100%; resize: none; field-sizing: content; min-height: 72px; max-height: 40vh; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; line-height: 1.45; }
 #composer textarea:focus-visible { outline: 0; border-color: var(--ink); }
 #composer textarea::placeholder { color: var(--muted); }
+#composer { container-type: inline-size; }
 #composer .row { justify-content: flex-end; margin-top: 8px; }
-#busy { color: var(--muted); font-size: 12.5px; font-weight: 700; margin-right: auto; display: flex; gap: 8px; align-items: center; }
+/* the next message's settings: quiet selects that read as text until hovered */
+/* One line whatever the width. Wide: the three selects sit inline (#opts is a popover only in name: shown, static).
+   Narrow: they fold into one summary chip (#optsBtn) that opens them above it. */
+#optsBtn { display: none; }
+#opts { position: static; inset: auto; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; flex: 1; display: flex; gap: 2px; min-width: 0; }
+#opts select, #optsBtn { flex: 0 1 auto; min-width: 2.5em; text-overflow: ellipsis; field-sizing: content; background: transparent; border-color: transparent; color: var(--muted); font-weight: 700; font-size: 12.5px; padding: 4px 6px; cursor: pointer; }
+#opts select:hover, #opts select:focus-visible, #optsBtn:hover, #optsBtn:focus-visible { background: var(--soft); color: var(--fg); opacity: 1; }
+#optsBtn { anchor-name: --opts-btn; align-items: center; gap: 4px; margin-right: auto; white-space: nowrap; overflow: hidden; }
+#optsBtn svg { width: 12px; height: 12px; flex: none; }
+/* fold below ~540px, or ~640px while Stop takes room (thresholds sized on the French labels, the longest) */
+@container (max-width: 539px) { #optsBtn { display: inline-flex; } #opts:not(:popover-open) { display: none; } }
+@container (max-width: 639px) { #composer.busy #optsBtn { display: inline-flex; } #composer.busy #opts:not(:popover-open) { display: none; } }
+#opts:popover-open { position: fixed; position-anchor: --opts-btn; position-area: top span-right; margin: 0 0 4px; display: grid; gap: 4px; min-width: 240px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .2); }
+#opts:popover-open select { field-sizing: fixed; width: 100%; background: var(--soft); border-color: var(--line); color: var(--fg); padding: 6px 10px; }
+#busy { color: var(--muted); font-size: 12.5px; font-weight: 700; display: flex; gap: 8px; align-items: center; flex: none; }
+@container (max-width: 759px) { /* narrow: the spinner alone says it, the text stays for screen readers */
+  #busy > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 .spin { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--fg); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -179,12 +230,16 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #tabs button[data-tab] { background: transparent; border: 0; border-radius: 0; color: var(--muted); padding: 8px 12px; margin-bottom: -1px; }
 #tabs button[data-tab]:hover { color: var(--fg); opacity: 1; }
 #tabs button.on { color: var(--fg); box-shadow: inset 0 -3px 0 var(--ink); }
-#refresh { margin-bottom: 6px; }
+#refresh, #layout { margin-bottom: 6px; }
 #tabs::before { content: attr(data-n); width: 20px; height: 20px; margin-right: 6px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--c, var(--trunk)); color: #fff; font-weight: 800; font-size: 11px; }
 .ln1 #tabs::before, .ln5 #tabs::before, .ln6 #tabs::before, .ln8 #tabs::before { color: #1a1a1a; }
 .tab { flex: 1; min-height: 0; overflow: auto; }
 #termView, #runTerm { background: var(--term-bg); }
-#termView, #runView { display: flex; flex-direction: column; overflow: hidden; }
+#termView, #runView, #diffTab { display: flex; flex-direction: column; overflow: hidden; }
+#diffView { flex: 1; min-height: 0; overflow: auto; }
+#gitBar { flex-wrap: wrap; font-size: 13px; }
+#diffStat b { color: var(--fg); }
+#diffCount { margin-left: 6px; font-size: 12px; font-weight: 500; }
 #runTerm { flex: 1; min-height: 0; }
 .xterm-host { height: 100%; padding: 8px 0 0 12px; }
 .runbar { display: flex; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); color: var(--muted); }
@@ -219,8 +274,6 @@ dialog .row { margin-top: 16px; }
   #side { width: 220px; padding: 16px 10px; }
   .wsItem .pill { grid-column: 2 / 4; grid-row: 3; justify-self: start; margin-top: 2px; }
   .wsItem .bdg { grid-row: span 3; }
-  #split { flex-direction: column; }
-  #panel { width: auto; min-width: 0; max-width: none; height: 45%; border-left: 0; border-top: 1px solid var(--line); }
   #thread, #composer, #perms { padding-left: 16px; padding-right: 16px; }
 }
 
@@ -266,3 +319,4 @@ dialog .row { margin-top: 16px; }
 .setRow select { min-width: 220px; }
 .setRepo .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setRepo select { max-width: 200px; }
+#openBtn svg { width: 12px; height: 12px; }

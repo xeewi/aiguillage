@@ -196,7 +196,7 @@ Signage white and ink, with a RATP-like line palette held strictly for identity 
 
 **The One Alarm Rule.** Signal Red means a human is needed now (pending permission) or something failed. Running is ink, new is an ink dot on an outlined pill, failed is a red outline with an x. A plan-usage lane at 90 % or more is red too: you're about to be cut off.
 
-**The Ink Primary Rule.** Exactly one ink-filled button per action group (PR in the header, Envoyer in the composer, Lancer in the run bar); every other action is ghost.
+**The Ink Primary Rule.** Exactly one ink-filled button per action group (Create PR in the Diff tab's git bar, Send in the composer, Start in the run bar); every other action is ghost.
 
 ## Typography
 
@@ -223,11 +223,11 @@ Signage white and ink, with a RATP-like line palette held strictly for identity 
 
 ## Layout
 
-App shell, full viewport, no page scroll on desktop: sidebar (288px, 20px/14px padding, 14px gap) | main. Main is a header row (14px 20px, wraps to a second row of selects and actions with 1px hairline separators) over a split: thread + composer on the left (28px side gutters), panel on the right (46% width, 340–900px) with Diff / Terminal / Run tabs.
+App shell, full viewport, no page scroll on desktop: sidebar (288px, 20px/14px padding, 14px gap) | main. Main is a one-line header over a split. Each control sits where it acts: the header says where you are (name, double-click to rename; branch pill) with only an « Open ▾ » menu (VS Code, folder) and a « ⋯ » menu (rename, archive), both native popovers anchored under their button; the composer sets the next message (model, effort and permissions as quiet borderless selects left of Send; when the composer is too narrow, earlier while Stop is shown, they fold into one summary chip, permissions first, then only what overrides the CLI defaults, e.g. « Plan · Opus · high », which opens them above it; the « working » label leaves only its spinner); the Diff tab ships what you just read (a git bar with the file count and +/− totals, then Commit, Merge and the ink Create PR; disabled while there is nothing to commit or ship). The Diff tab label carries the +/− totals so pending work shows from any tab. The split is thread + composer (28px side gutters) and the Diff / Terminal / Run panel (46% beside, 45% below), divided by a 1px draggable gutter (keyboard arrows, double-click resets); a button in the tab bar puts the panel beside or below the chat. Both choices and the sizes are remembered. The sidebar collapses to a 64px rail of badges (78px in the desktop app, under the traffic lights), the state pill shrinking to a dot on the badge.
 
 Spacing steps are 2/4/8/12/16/20/28 with occasional 6/10/14 inside components. Thread items gap 12px; sidebar rows gap 2px.
 
-Responsive: at ≤900px the sidebar narrows to 220px (state pills drop under the task line), the panel moves under the chat (45% height) and gutters drop to 16px. Desktop only, no phone layout; the ≤900px step is for narrow desktop windows.
+Responsive: at ≤900px the sidebar narrows to 220px (state pills drop under the task line), the panel is always under the chat and gutters drop to 16px. Desktop only, no phone layout; the ≤900px step is for narrow desktop windows.
 
 ## Elevation & Depth
 
@@ -256,7 +256,7 @@ Plain signage buttons, bold labels, no gradients.
 - **Hover / Focus:** primary fades to 88% opacity; focus is a 2px ink outline at 2px offset; disabled 50% with progress cursor.
 - **Ghost:** white fill, hairline border, ink label; hover fills Platform Grey.
 - **Icon:** borderless, 26px minimum, Quiet Grey icon turning ink on a Platform Grey hover.
-- **Icons:** one inline-SVG set (plus, more, refresh, undo, x, play, check, stop) on a 16px viewBox, `currentColor` stroke 1.75, round caps and joins. Icon + text buttons gap 6px.
+- **Icons:** one inline-SVG set (plus, more, refresh, undo, x, play, check, stop, gear, down, side, panelBelow, panelRight) on a 16px viewBox, `currentColor` stroke 1.75, round caps and joins. Icon + text buttons gap 6px.
 
 ### Chips (state pills)
 - **Style:** capsule, 2px 9px, 11.5px/700.

@@ -9,7 +9,9 @@
     "delete": "Delete",
     "deleteTitle": "Delete (branch included)",
     "confirmDelete": "Delete {{name}} and branch {{branch}}?",
-    "settings": "Settings"
+    "settings": "Settings",
+    "collapse": "Collapse the sidebar",
+    "expand": "Expand the sidebar"
   },
   "status": {
     "ask": "Needs you",
@@ -43,21 +45,22 @@
     "modeAsk": "Ask",
     "modeEdits": "Auto edits",
     "modePlan": "Plan",
-    "code": "Code",
     "codeTitle": "Open in VS Code",
-    "folder": "Folder",
     "folderTitle": "Open the folder",
     "commit": "Commit",
     "commitPrompt": "Commit message",
     "merge": "Merge",
     "mergeTitle": "Merge into the base branch, locally",
     "confirmMerge": "Merge {{branch}} into {{base}} (main repo)?",
-    "pr": "PR",
+    "pr": "Create PR",
     "prTitle": "Push + gh pr create",
     "archive": "Archive",
     "confirmArchive": "Archive {{name}}? The worktree is removed, branch {{branch}} is kept.",
     "portTitle": "AIGUILLAGE_PORT (10 reserved ports)",
-    "rename": "Rename"
+    "rename": "Rename",
+    "open": "Open",
+    "more": "More actions",
+    "renameHint": "Double-click to rename"
   },
   "chat": {
     "placeholder": "Ask the agent something…  (Enter to send, Shift+Enter for a new line)",
@@ -70,7 +73,8 @@
     "confirmRevert": "Restore files and conversation to before this message? Later changes are lost.",
     "turns_one": "{{count}} turn",
     "turns_other": "{{count}} turns",
-    "agentExited": "claude stopped (code {{code}}).\n{{stderr}}"
+    "agentExited": "claude stopped (code {{code}}).\n{{stderr}}",
+    "settings": "Model, effort and permissions for the next message"
   },
   "notify": {
     "done": "{{name}} finished",
@@ -97,7 +101,13 @@
     "uncommitted": "Uncommitted changes included.",
     "askAgent": "Ask the agent",
     "askAgentTitle": "The agent figures out how to run this project and writes .aiguillage/settings.toml",
-    "askAgentPrompt": "Aiguillage's Run tab doesn't know how to run this project. Look at the repo, work out the command that starts the app in development (server, CLI, desktop app, etc.), then create `.aiguillage/settings.toml` at the repo root:\n\n```toml\n[scripts]\nsetup = \"…\"  # only if dependencies must be installed first, otherwise remove this line\n\n[scripts.run.dev]\ncommand = \"…\"\ndefault = true\n```\n\nIf the app listens on a port, use $AIGUILLAGE_PORT (also exported as $PORT). Add more `[scripts.run.<name>]` entries if useful. Don't start a long-running process yourself; just make sure the command is right."
+    "askAgentPrompt": "Aiguillage's Run tab doesn't know how to run this project. Look at the repo, work out the command that starts the app in development (server, CLI, desktop app, etc.), then create `.aiguillage/settings.toml` at the repo root:\n\n```toml\n[scripts]\nsetup = \"…\"  # only if dependencies must be installed first, otherwise remove this line\n\n[scripts.run.dev]\ncommand = \"…\"\ndefault = true\n```\n\nIf the app listens on a port, use $AIGUILLAGE_PORT (also exported as $PORT). Add more `[scripts.run.<name>]` entries if useful. Don't start a long-running process yourself; just make sure the command is right.",
+    "below": "Panel below the chat",
+    "right": "Panel beside the chat",
+    "resize": "Resize the panel",
+    "resizeTitle": "Drag to resize, double-click to reset",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files"
   },
   "dialog": {
     "ok": "OK",
@@ -121,7 +131,7 @@
     "themeDark": "Dark",
     "language": "Language",
     "defaults": "New workspaces",
-    "defaultsHint": "Existing workspaces keep their settings; change them from their header.",
+    "defaultsHint": "Existing workspaces keep their settings; change them under their message box.",
     "repos": "Repos",
     "noRepos": "No repo yet.",
     "baseBranch": "Base branch for new workspaces",

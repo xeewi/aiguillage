@@ -3,7 +3,12 @@ import { join } from 'node:path'
 import { test, expect, say } from './fixtures.js'
 import { git } from '../helpers.mjs'
 
-const act = (page, name) => page.locator('#wsHead .actions').getByRole('button', { name, exact: true })
+// Commit / Merge / PR sit in the Diff tab's bar; Archive in the header's ⋯ menu.
+const act = (page, name) => page.locator('#gitBar').getByRole('button', { name, exact: true })
+async function archive(page) {
+  await page.getByRole('button', { name: 'More actions' }).click()
+  await page.locator('#moreMenu').getByRole('button', { name: 'Archive' }).click()
+}
 
 test('Commit → Merge: refused while uncommitted, then merged into main', async ({ open, page }) => {
   const { w, repoPath } = await open()
@@ -41,7 +46,7 @@ test('Archiver → listed in Archivés → ↺ restores (work kept) → × delet
   await expect(page.locator('#thread .msg.ai').last()).toHaveText('wrote wip.txt')
 
   page.once('dialog', d => { expect(d.message()).toContain('Archive'); d.accept() })
-  await act(page, 'Archive').click()
+  await archive(page)
   await expect(page.locator('#repos .wsItem')).toHaveCount(0)
   await expect(page.locator('#empty')).toBeVisible()
   expect(existsSync(w.path)).toBe(false)
@@ -57,7 +62,7 @@ test('Archiver → listed in Archivés → ↺ restores (work kept) → × delet
   await expect(page.locator('#thread .msg.me')).toHaveCount(1) // conversation kept
 
   page.once('dialog', d => d.accept())
-  await act(page, 'Archive').click()
+  await archive(page)
   await expect(archived).toBeVisible()
   if (!(await archived.evaluate(d => d.open))) await archived.locator('summary').click()
   page.once('dialog', d => { expect(d.message()).toContain('Delete'); d.accept() })

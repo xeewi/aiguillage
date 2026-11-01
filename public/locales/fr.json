@@ -9,7 +9,9 @@
     "delete": "Supprimer",
     "deleteTitle": "Supprimer (branche comprise)",
     "confirmDelete": "Supprimer {{name}} et la branche {{branch}} ?",
-    "settings": "Réglages"
+    "settings": "Réglages",
+    "collapse": "Replier la barre latérale",
+    "expand": "Déplier la barre latérale"
   },
   "status": {
     "ask": "Attend ta réponse",
@@ -43,21 +45,22 @@
     "modeAsk": "Demander",
     "modeEdits": "Éditions auto",
     "modePlan": "Plan",
-    "code": "Code",
     "codeTitle": "Ouvrir dans VS Code",
-    "folder": "Dossier",
     "folderTitle": "Ouvrir le dossier",
     "commit": "Commit",
     "commitPrompt": "Message de commit",
     "merge": "Merge",
     "mergeTitle": "Fusionner dans la branche de base, en local",
     "confirmMerge": "Fusionner {{branch}} dans {{base}} (repo principal) ?",
-    "pr": "PR",
+    "pr": "Créer la PR",
     "prTitle": "Push + gh pr create",
     "archive": "Archiver",
     "confirmArchive": "Archiver {{name}} ? Le worktree est supprimé, la branche {{branch}} est gardée.",
     "portTitle": "AIGUILLAGE_PORT (10 ports réservés)",
-    "rename": "Renommer"
+    "rename": "Renommer",
+    "open": "Ouvrir",
+    "more": "Plus d'actions",
+    "renameHint": "Double-clic pour renommer"
   },
   "chat": {
     "placeholder": "Demande quelque chose à l'agent…  (Entrée pour envoyer, Maj+Entrée pour une ligne)",
@@ -70,7 +73,8 @@
     "confirmRevert": "Restaurer les fichiers et la conversation à avant ce message ? Les changements suivants sont perdus.",
     "turns_one": "{{count}} tour",
     "turns_other": "{{count}} tours",
-    "agentExited": "claude s'est arrêté (code {{code}}).\n{{stderr}}"
+    "agentExited": "claude s'est arrêté (code {{code}}).\n{{stderr}}",
+    "settings": "Modèle, effort et permissions du prochain message"
   },
   "notify": {
     "done": "{{name}} a terminé",
@@ -97,7 +101,13 @@
     "uncommitted": "Changements non commités inclus.",
     "askAgent": "Demander à l'agent",
     "askAgentTitle": "L'agent trouve comment lancer ce projet et écrit .aiguillage/settings.toml",
-    "askAgentPrompt": "L'onglet Run d'Aiguillage ne sait pas comment lancer ce projet. Examine le repo, détermine la commande qui lance l'app en développement (serveur, CLI, appli desktop, etc.), puis crée `.aiguillage/settings.toml` à la racine du repo :\n\n```toml\n[scripts]\nsetup = \"…\"  # seulement si des dépendances doivent être installées, sinon supprime cette ligne\n\n[scripts.run.dev]\ncommand = \"…\"\ndefault = true\n```\n\nSi l'app écoute sur un port, utilise $AIGUILLAGE_PORT (aussi exporté en $PORT). Tu peux ajouter d'autres entrées `[scripts.run.<nom>]` si c'est utile. Ne lance pas toi-même de processus qui tourne en continu ; vérifie seulement que la commande est la bonne."
+    "askAgentPrompt": "L'onglet Run d'Aiguillage ne sait pas comment lancer ce projet. Examine le repo, détermine la commande qui lance l'app en développement (serveur, CLI, appli desktop, etc.), puis crée `.aiguillage/settings.toml` à la racine du repo :\n\n```toml\n[scripts]\nsetup = \"…\"  # seulement si des dépendances doivent être installées, sinon supprime cette ligne\n\n[scripts.run.dev]\ncommand = \"…\"\ndefault = true\n```\n\nSi l'app écoute sur un port, utilise $AIGUILLAGE_PORT (aussi exporté en $PORT). Tu peux ajouter d'autres entrées `[scripts.run.<nom>]` si c'est utile. Ne lance pas toi-même de processus qui tourne en continu ; vérifie seulement que la commande est la bonne.",
+    "below": "Panneau sous la conversation",
+    "right": "Panneau à côté de la conversation",
+    "resize": "Redimensionner le panneau",
+    "resizeTitle": "Glisser pour redimensionner, double-clic pour réinitialiser",
+    "files_one": "{{count}} fichier",
+    "files_other": "{{count}} fichiers"
   },
   "dialog": {
     "ok": "OK",
@@ -121,7 +131,7 @@
     "themeDark": "Sombre",
     "language": "Langue",
     "defaults": "Nouveaux workspaces",
-    "defaultsHint": "Les workspaces existants gardent leurs réglages ; change-les depuis leur en-tête.",
+    "defaultsHint": "Les workspaces existants gardent leurs réglages ; change-les sous leur zone de message.",
     "repos": "Repos",
     "noRepos": "Aucun repo pour l'instant.",
     "baseBranch": "Branche de base des nouveaux workspaces",

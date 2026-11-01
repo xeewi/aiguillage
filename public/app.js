@@ -17,7 +17,10 @@ const ICONS = {
   play: '<path d="M5 3.5v9l7-4.5z"/>',
   check: '<path d="m3 8.5 3 3 7-7"/>',
   stop: '<rect x="4" y="4" width="8" height="8" rx="1"/>',
-  edit: '<path d="M10.5 3 13 5.5 6 12.5H3.5V10z"/>',
+  down: '<path d="m4.5 6.5 3.5 3.5 3.5-3.5"/>',
+  side: '<rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M6 2.5v11"/>',
+  panelBelow: '<rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M2 9h12"/>',
+  panelRight: '<rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M9.5 2.5v11"/>',
   gear: '<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
 }
 const svg = n => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`
@@ -61,7 +64,7 @@ function onMsg(m) {
   else if (m.t === 'ev') {
     if (m.ws === active) { dropDraft(); renderEv(m.ev); scroll() }
     if (m.ev.type === 'result') {
-      if (m.ws === active && tab === 'diff') loadDiff()
+      if (m.ws === active) loadDiff()
       if (m.ws === active && tab === 'run') loadScripts()
       if (m.ws !== active || document.hidden) { unread.add(m.ws); renderSide(); notify(m.ws, m.ev) }
     }
@@ -86,7 +89,7 @@ function renderSide() {
     const g = h('div', 'repo')
     const head = h('div', 'repoHead')
     const name = h('span', 'grow', r.name); name.title = r.path
-    const plus = ibtn('plus', t('side.newWorkspace')); plus.title = t('side.newWorkspaceFrom', { base: r.base })
+    const plus = ibtn('plus', t('side.newWorkspace'), 'plus'); plus.title = t('side.newWorkspaceFrom', { base: r.base })
     plus.onclick = guard(async () => { plus.disabled = true; try { select((await api('POST', '/workspaces', { repoId: r.id })).id) } finally { plus.disabled = false } })
     const more = ibtn('more', t('side.repoOptions'))
     more.onclick = () => { showSettings(true); $(`#setRepos [data-repo="${r.id}"] select`)?.focus() }
@@ -219,6 +222,7 @@ function wsItem(w) {
     : w.busy ? h('span', 'pill run', t('status.run'))
     : w.failed ? h('span', 'pill err', t('status.err'))
     : unread.has(w.id) ? h('span', 'pill new', t('status.new')) : null
+  el.title = label(w) + (pill ? ' · ' + pill.textContent : '') // the only label left when the sidebar is collapsed
   if (pill) { if (pill.matches('.run, .new')) pill.prepend(h('i')); if (pill.matches('.err')) pill.insertAdjacentHTML('afterbegin', svg('x')); el.append(pill) }
   else if (w.scriptRunning) { const r = h('span', 'pill script'); r.innerHTML = svg('play'); r.append(w.scriptRunning); r.title = t('status.script', { port: w.port }); el.append(r) }
   else el.append(h('span'))
@@ -273,8 +277,8 @@ function renameDialog(w) {
     if ($('#dlg').returnValue === 'ok' && input.value.trim() !== label(w)) await api('PATCH', `/workspaces/${w.id}`, { title: input.value })
   })
 }
-$('#rename').innerHTML = svg('edit')
-$('#rename').onclick = () => renameDialog(wsById(active))
+$('#rename').onclick = () => { $('#moreMenu').hidePopover(); renameDialog(wsById(active)) }
+$('#wsName').ondblclick = () => renameDialog(wsById(active))
 
 // ---------- settings: a page in place of the workspace ----------
 let settingsOpen = location.hash === '#settings'
@@ -319,6 +323,7 @@ function select(id) {
   active = id; unread.delete(id); settingsOpen = false
   history.replaceState(null, '', '#ws=' + id); localStorage.setItem('aig.ws', id)
   renderSide(); renderHead(); renderPerms(); loadThread(); showTab(tab)
+  if (tab !== 'diff') loadDiff() // the Diff tab's counts and the git bar, whatever tab is open
 }
 
 function renderHead() {
@@ -333,18 +338,29 @@ function renderHead() {
   $('#model').value = w.model || ''
   $('#mode').value = ['default', 'acceptEdits', 'plan'].includes(w.permissionMode) ? w.permissionMode : 'auto'
   $('#effort').value = w.effort || ''
-  $('#busy').hidden = $('#stop').hidden = !w.busy
+  optsSummary()
+  $('#busy').hidden = $('#stop').hidden = !w.busy; $('#composer').classList.toggle('busy', !!w.busy)
   $("#runPort").textContent = `http://localhost:${w.port}`; $("#runPort").href = `http://localhost:${w.port}`; $('#runPort').title = t('head.portTitle')
   document.title = (w.busy ? '● ' : '') + label(w) + ' · Aiguillage'
 }
 
+// Narrow composer: the three settings fold into one chip, « Plan · Opus · high »: permissions first (they matter
+// most), then only what overrides the CLI's defaults.
+function optsSummary() {
+  const text = [$('#mode').selectedOptions[0]?.text.replace(/\s*\(.*\)$/, ''), $('#model').value && $('#model').selectedOptions[0].text, $('#effort').value]
+    .filter(Boolean).join(' · ')
+  $('#optsBtn').replaceChildren(text); $('#optsBtn').insertAdjacentHTML('beforeend', svg('down'))
+}
+for (const k of ['model', 'effort', 'mode']) $('#' + k).addEventListener('change', optsSummary)
 $('#model').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { model: $('#model').value }))
 $('#effort').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { effort: $('#effort').value }))
 $('#mode').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { permissionMode: $('#mode').value }))
 $('#stop').onclick = guard(() => api('POST', `/workspaces/${active}/interrupt`))
 
-document.querySelector('#wsHead .actions').addEventListener('click', guard(async e => {
+// Open / Archive live in the header menus, Commit / Merge / PR in the Diff tab's bar.
+const onAct = guard(async e => {
   const b = e.target.closest('button[data-act]'); if (!b) return
+  b.closest('[popover]')?.hidePopover()
   const w = wsById(active), act = b.dataset.act
   let body = { app: b.dataset.app }
   if (act === 'archive' && !confirm(t('head.confirmArchive', { name: w.name, branch: w.branch }))) return
@@ -354,9 +370,10 @@ document.querySelector('#wsHead .actions').addEventListener('click', guard(async
   try {
     const r = await api('POST', `/workspaces/${active}/${act}`, body)
     if (r.message) toast(r.message)
-    if (act === 'archive') { active = null; renderSide(); renderHead() } else if (tab === 'diff') loadDiff()
+    if (act === 'archive') { active = null; renderSide(); renderHead() } else loadDiff()
   } finally { b.disabled = false }
-}))
+})
+for (const el of [$('#wsHead .actions'), $('#gitBar')]) el.addEventListener('click', onAct)
 
 // ---------- chat ----------
 let toolEls = new Map()
@@ -390,7 +407,7 @@ function renderEv(ev) {
       b.onclick = guard(async () => {
         if (!confirm(t('chat.confirmRevert'))) return
         const r = await api('POST', `/workspaces/${active}/revert`, { msgId: ev.id })
-        $('#input').value = r.text; $('#input').focus(); if (tab === 'diff') loadDiff()
+        $('#input').value = r.text; $('#input').focus(); loadDiff()
       })
       m.append(b)
     }
@@ -488,7 +505,7 @@ $('#input').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComp
 function showTab(t) {
   tab = t; localStorage.setItem('aig.tab', t)
   for (const b of document.querySelectorAll('#tabs [data-tab]')) b.classList.toggle('on', b.dataset.tab === t)
-  $('#diffView').hidden = t !== 'diff'; $('#termView').hidden = t !== 'term'; $('#runView').hidden = t !== 'run'
+  $('#diffTab').hidden = t !== 'diff'; $('#termView').hidden = t !== 'term'; $('#runView').hidden = t !== 'run'
   $('#refresh').hidden = t !== 'diff'
   if (!active) return
   if (t === 'diff') loadDiff()
@@ -515,13 +532,23 @@ async function loadDiff() {
   if (id !== active) return
   const box = $('#diffView'); box.replaceChildren()
   const files = diff.split(/^(?=diff --git )/m).filter(Boolean)
-  if (!files.length) return box.append(h('div', 'hint', t('panel.noChanges')))
+  let adds = 0, dels = 0
+  // Nothing to ship: Merge and PR wait for a change, Commit for an uncommitted one.
+  $('#gitBar [data-act="commit"]').disabled = !status
+  for (const a of ['merge', 'pr']) $(`#gitBar [data-act="${a}"]`).disabled = !files.length
+  const counts = el => { if (files.length) el.append(h('span', 'add', `+${adds}`), h('span', 'del', ` −${dels}`)) }
+  const stat = () => {
+    $('#diffStat').replaceChildren(); $('#diffCount').replaceChildren(); counts($('#diffCount'))
+    if (files.length) { $('#diffStat').append(h('b', null, t('panel.files', { count: files.length })), ' '); counts($('#diffStat')) }
+  }
+  if (!files.length) { stat(); return box.append(h('div', 'hint', t('panel.noChanges'))) }
   const sum = h('div', 'files')
   for (const f of files) {
     const name = (f.match(/^\+\+\+ b\/(.*)$/m) ?? f.match(/^--- a\/(.*)$/m) ?? f.match(/^diff --git a\/(.*?) b\//))?.[1] ?? '?'
     // Only lines after the first @@ are content: a removed "-- comment" line must not pass for a header.
     const hunks = f.includes('\n@@') ? f.slice(f.indexOf('\n@@')) : ''
     const add = (hunks.match(/^\+/gm) ?? []).length, del = (hunks.match(/^-/gm) ?? []).length
+    adds += add; dels += del
     const sec = h('details', 'file'); sec.open = files.length < 15
     const s = h('summary'); s.append(h('span', 'mono grow', name), h('span', 'add', `+${add}`), h('span', 'del', ` −${del}`))
     const pre = h('pre', 'diff')
@@ -535,6 +562,7 @@ async function loadDiff() {
   }
   if (files.length > 1) box.prepend(sum)
   if (status) box.prepend(h('div', 'hint', t('panel.uncommitted')))
+  stat()
 }
 
 const terms = new Map()
@@ -577,6 +605,50 @@ function setTheme(v) {
 }
 new ResizeObserver(() => { for (const t of terms.values()) if (t.el.isConnected) t.fit.fit() }).observe($('#panel'))
 
+// ---------- layout: sidebar collapsed to badges, panel beside or below the chat, draggable split; all remembered ----------
+const root = document.documentElement, split = $('#split'), gutter = $('#gutter')
+const narrow = matchMedia('(max-width: 900px)') // too narrow for side by side: always below
+const sizes = JSON.parse(localStorage.getItem('aig.split') || '{}') // panel share of #split, per orientation
+let below = false
+const setIcon = (b, icon, text) => { b.innerHTML = svg(icon); b.title = text; b.setAttribute('aria-label', text) }
+function layout() {
+  const min = root.classList.contains('side-min')
+  setIcon($('#sideToggle'), 'side', t(min ? 'side.expand' : 'side.collapse')); $('#sideToggle').setAttribute('aria-expanded', !min)
+  below = narrow.matches || localStorage.getItem('aig.layout') === 'below'
+  split.classList.toggle('below', below)
+  $('#layout').hidden = narrow.matches
+  setIcon($('#layout'), below ? 'panelRight' : 'panelBelow', t(below ? 'panel.right' : 'panel.below'))
+  gutter.setAttribute('aria-orientation', below ? 'horizontal' : 'vertical')
+  const f = sizes[below ? 'below' : 'side']
+  split.style.setProperty('--panel-size', f ? f * 100 + '%' : '') // none: the CSS default
+}
+function resize(f) {
+  const r = split.getBoundingClientRect(), total = below ? r.height : r.width
+  f = Math.min(Math.max(f, 200 / total), 1 - 240 / total) // the panel keeps 200px, the chat 240px
+  sizes[below ? 'below' : 'side'] = f; split.style.setProperty('--panel-size', f * 100 + '%')
+}
+const saveSizes = () => localStorage.setItem('aig.split', JSON.stringify(sizes))
+gutter.onpointerdown = e => { e.preventDefault(); gutter.setPointerCapture(e.pointerId); gutter.classList.add('drag') }
+gutter.onpointermove = e => {
+  if (!gutter.hasPointerCapture(e.pointerId)) return
+  const r = split.getBoundingClientRect()
+  resize(below ? (r.bottom - e.clientY) / r.height : (r.right - e.clientX) / r.width)
+}
+gutter.onlostpointercapture = () => { gutter.classList.remove('drag'); saveSizes() }
+gutter.ondblclick = () => { delete sizes[below ? 'below' : 'side']; saveSizes(); layout() }
+gutter.onkeydown = e => {
+  const d = { ArrowLeft: .02, ArrowUp: .02, ArrowRight: -.02, ArrowDown: -.02 }[e.key]; if (!d) return
+  e.preventDefault()
+  const r = split.getBoundingClientRect(), p = $('#panel').getBoundingClientRect()
+  resize((below ? p.height / r.height : p.width / r.width) + d); saveSizes()
+}
+$('#sideToggle').onclick = () => {
+  if (root.classList.toggle('side-min')) localStorage.setItem('aig.sideMin', '1'); else localStorage.removeItem('aig.sideMin')
+  layout()
+}
+$('#layout').onclick = () => { localStorage.setItem('aig.layout', below ? 'side' : 'below'); layout() }
+narrow.addEventListener('change', layout)
+
 // ---------- keyboard ----------
 addEventListener('keydown', e => {
   if (!(e.metaKey || e.ctrlKey)) return
@@ -599,9 +671,12 @@ $('#theme').onchange = () => setTheme($('#theme').value)
 // Desktop app: the window has no title bar, so the sheet makes room for the traffic lights and drags the window.
 if (/Electron\//.test(navigator.userAgent)) document.documentElement.classList.add('electron')
 $('#refresh').innerHTML = svg('refresh')
+$('#moreBtn').innerHTML = svg('more')
+$('#openBtn').insertAdjacentHTML('beforeend', svg('down'))
 $('#runStart').insertAdjacentHTML('afterbegin', svg('play'))
 $('#runStop').insertAdjacentHTML('afterbegin', svg('stop'))
-for (const b of [$('#addRepo'), $('#emptyAdd')]) { b.textContent = t('side.addRepo'); b.classList.add('ico'); b.insertAdjacentHTML('afterbegin', svg('plus')) }
+for (const b of [$('#addRepo'), $('#emptyAdd')]) { b.replaceChildren(h('span', null, t('side.addRepo'))); b.title = t('side.addRepo'); b.classList.add('ico'); b.insertAdjacentHTML('afterbegin', svg('plus')) }
+layout()
 
 connect()
 api('GET', '/state').then(s => { S = s; if (settingsOpen) showSettings(true); else { renderSide(); if (wsById(active)) select(active) } })

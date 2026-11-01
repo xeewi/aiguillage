@@ -82,14 +82,15 @@ test('the workspace is named by Claude from the first message, and can be rename
   await expect(page.locator('.wsItem.on .wsTitle')).toHaveText(w.name)
   await expect(page.locator('#wsName')).toHaveText('Named: refactor the login page')
 
-  await page.getByRole('button', { name: 'Rename' }).click()
+  await page.getByRole('button', { name: 'More actions' }).click()
+  await page.locator('#moreMenu').getByRole('button', { name: 'Rename' }).click()
   await page.locator('#dlg input').fill('Login revamp')
   await page.locator('#dlg input').press('Enter')
   await expect(page.locator('#wsName')).toHaveText('Login revamp')
   await expect(page.locator('.wsItem.on .wsName')).toHaveText('Login revamp')
   await expect(page).toHaveTitle(/Login revamp · Aiguillage/)
 
-  await page.getByRole('button', { name: 'Rename' }).click()
+  await page.locator('#wsName').dblclick() // shortcut to the same dialog
   await page.locator('#dlg').getByRole('button', { name: 'Cancel' }).click()
   await expect(page.locator('#wsName')).toHaveText('Login revamp')
 })
