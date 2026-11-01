@@ -10,7 +10,7 @@ colors:
   soft-grey: "#eef0f2"
   gutter: "#f7f8f9"
   term-bg: "#fbfbfc"
-  trunk-grey: "#a3a9b0"
+  trunk-grey: "#6b737c"
   signal-red: "#e3051c"
   diff-add: "#006b41"
   diff-add-bg: "#e6f3ed"
@@ -158,7 +158,7 @@ components:
 
 Every workspace is a metro line leaving the base branch. Its colour and its number follow it everywhere (sidebar stub, badge, header branch pill, panel tabs, tool stations in the thread) so the developer never loses track of which agent they are looking at. The ground is a white transit-signage sheet: ink type, grey surfaces, hairline rules; colour is spent only on line identity and on the one signal that needs a human.
 
-Density is that of a tool used for hours: 14px body, 13px controls, a 288px map sidebar, a thread capped at 72ch, a diff/terminal panel on the right. Type is Figtree at heavy weights (700/800) for names and controls, like station signage; JetBrains Mono for code, branches and paths only, with ligatures off. Figures are tabular everywhere. Dark theme mirrors the same roles on a near-black ground (#111315) via `prefers-color-scheme`, lifting the darkest line colours (blue, brown, plum) so they still read.
+Density is that of a tool used for hours: 14px body, 13px controls, a 288px map sidebar, a thread capped at 72ch, a diff/terminal panel on the right. Type is Figtree at heavy weights (700/800) for names and controls, like station signage; JetBrains Mono for code, branches and paths only, with ligatures off. Figures are tabular everywhere. Dark theme mirrors the same roles on a near-black ground (#111315): every token is `light-dark(light, dark)`, the OS picks by default and the sidebar's System / Light / Dark picker pins one (`data-theme`, stored in localStorage). Dark lifts the darkest line colours (blue #3468d8, brown #9c6b36, plum #c42f8f) to at least 3:1 on the ground while keeping white numerals at 4.5:1; Signal Red (#e3051c) and Trunk Grey (#6b737c) are the same in both themes. The terminal gets an ANSI palette per theme and re-themes live.
 
 The world rejects the category default of a dark grey ground with a single violet accent and anonymous status dots.
 

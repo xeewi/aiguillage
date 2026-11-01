@@ -9,7 +9,11 @@
     "delete": "Supprimer",
     "deleteTitle": "Supprimer (branche comprise)",
     "confirmDelete": "Supprimer {{name}} et la branche {{branch}} ?",
-    "language": "Langue"
+    "language": "Langue",
+    "theme": "Thème",
+    "themeSystem": "Système",
+    "themeLight": "Clair",
+    "themeDark": "Sombre"
   },
   "status": {
     "ask": "Attend ta réponse",

@@ -9,7 +9,11 @@
     "delete": "Delete",
     "deleteTitle": "Delete (branch included)",
     "confirmDelete": "Delete {{name}} and branch {{branch}}?",
-    "language": "Language"
+    "language": "Language",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark"
   },
   "status": {
     "ask": "Needs you",

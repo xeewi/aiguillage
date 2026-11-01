@@ -98,3 +98,20 @@ test.describe('in French', () => {
     await expect(page.locator('#composer button[type=submit]')).toHaveText('Send')
   })
 })
+
+test.describe('on a dark OS', () => {
+  test.use({ colorScheme: 'dark' })
+
+  test('the theme follows the OS, the picker pins light across reloads, System hands it back', async ({ open, page }) => {
+    await open()
+    const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+    await expect.poll(bg).toBe('rgb(17, 19, 21)')
+    await page.locator('#theme').selectOption('light')
+    await expect.poll(bg).toBe('rgb(255, 255, 255)')
+    await page.reload()
+    await expect(page.locator('#theme')).toHaveValue('light')
+    await expect.poll(bg).toBe('rgb(255, 255, 255)')
+    await page.locator('#theme').selectOption('system')
+    await expect.poll(bg).toBe('rgb(17, 19, 21)')
+  })
+})

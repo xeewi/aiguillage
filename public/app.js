@@ -403,9 +403,26 @@ function mountTerm(key, host) {
   host.replaceChildren(t.el)
   requestAnimationFrame(() => { t.fit.fit(); t.term.focus() })
 }
-const termTheme = () => {
-  const cs = getComputedStyle(document.body)
-  return { background: cs.getPropertyValue('--term-bg').trim(), foreground: cs.getPropertyValue('--fg').trim(), cursor: cs.getPropertyValue('--fg').trim() }
+// xterm needs resolved colours: a probe turns the light-dark() tokens into rgb().
+const cssColor = v => { const p = document.body.appendChild(h('i')); p.style.color = `var(${v})`; const c = getComputedStyle(p).color; p.remove(); return c }
+// ANSI colours tuned per ground (>= 4.5:1 on --term-bg); xterm's defaults are built for black and wash out on white.
+const ANSI = {
+  light: { black: '#1a1a1a', red: '#b80016', green: '#006b41', yellow: '#7f5a00', blue: '#003ca6', magenta: '#a0006e', cyan: '#00696f', white: '#5d646b',
+    brightBlack: '#5d646b', brightRed: '#c2001a', brightGreen: '#00754a', brightYellow: '#8a6200', brightBlue: '#2453b8', brightMagenta: '#b0247a', brightCyan: '#007a80', brightWhite: '#1a1a1a' },
+  dark: { black: '#2a2f35', red: '#ff8b95', green: '#6fd3a0', yellow: '#ffcd00', blue: '#86a8ff', magenta: '#e19bdf', cyan: '#6ccfd6', white: '#c9cdd2',
+    brightBlack: '#9aa1a9', brightRed: '#ffa8b0', brightGreen: '#8fe0b6', brightYellow: '#ffe066', brightBlue: '#a6c0ff', brightMagenta: '#eab3e8', brightCyan: '#8fdde3', brightWhite: '#ffffff' },
+}
+const termTheme = () => ({ ...ANSI[isDark() ? 'dark' : 'light'], background: cssColor('--term-bg'), foreground: cssColor('--fg'), cursor: cssColor('--fg'), selectionBackground: cssColor('--line') })
+const retheme = () => { for (const t of terms.values()) t.term.options.theme = termTheme() }
+// Theme: /theme.js already applied the stored choice; 'system' removes data-theme and lets the OS decide.
+const osDark = matchMedia('(prefers-color-scheme: dark)')
+osDark.addEventListener('change', retheme)
+const theme = () => document.documentElement.dataset.theme || 'system'
+const isDark = () => theme() === 'dark' || (theme() === 'system' && osDark.matches)
+function setTheme(v) {
+  if (v === 'system') { localStorage.removeItem('aig.theme'); delete document.documentElement.dataset.theme }
+  else { localStorage.setItem('aig.theme', v); document.documentElement.dataset.theme = v }
+  retheme()
 }
 new ResizeObserver(() => { for (const t of terms.values()) if (t.el.isConnected) t.fit.fit() }).observe($('#panel'))
 
@@ -421,6 +438,8 @@ for (const o of $('#effort').options) o.textContent = o.value ? t('head.effortLe
 $('#lang').replaceChildren(...Object.entries(LANGS).map(([code, name]) => { const o = h('option', null, name); o.value = code; o.selected = code === lang(); return o }))
 $('#lang').hidden = $('#lang').options.length < 2
 $('#lang').onchange = async () => { await setLang($('#lang').value); location.reload() }
+$('#theme').value = theme()
+$('#theme').onchange = () => setTheme($('#theme').value)
 
 // Desktop app: the window has no title bar, so the sheet makes room for the traffic lights and drags the window.
 if (/Electron\//.test(navigator.userAgent)) document.documentElement.classList.add('electron')

@@ -6,6 +6,7 @@
   <title>Aiguillage</title>
   <link rel="stylesheet" href="/vendor/xterm.css">
   <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%23ffcd00'/><rect x='3' y='7' width='10' height='2' rx='1' fill='%231a1a1a'/></svg>">
 </head>
 <body>
@@ -14,7 +15,14 @@
     <div id="repos"></div>
     <button id="addRepo" class="ghost">Add a repo</button>
     <details id="archived"><summary data-i18n="side.archived">Archived</summary><div id="archivedList"></div></details>
-    <select id="lang" data-i18n-title="side.language" data-i18n-aria-label="side.language"></select>
+    <div class="prefs">
+      <select id="theme" data-i18n-title="side.theme" data-i18n-aria-label="side.theme">
+        <option value="system" data-i18n="side.themeSystem">System</option>
+        <option value="light" data-i18n="side.themeLight">Light</option>
+        <option value="dark" data-i18n="side.themeDark">Dark</option>
+      </select>
+      <select id="lang" data-i18n-title="side.language" data-i18n-aria-label="side.language"></select>
+    </div>
   </aside>
 
   <main>

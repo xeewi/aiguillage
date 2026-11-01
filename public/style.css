@@ -2,25 +2,22 @@
 @font-face { font-family: 'JetBrains Mono'; src: url(/fonts/jetbrains-mono.woff2) format('woff2'); font-weight: 400 600; font-display: swap; } /* SIL OFL 1.1 */
 @font-face { font-family: Figtree; src: url(/fonts/figtree.woff2) format('woff2'); font-weight: 400 800; font-display: swap; } /* SIL OFL 1.1 */
 
+/* Every token is light-dark(light, dark): the OS picks by default, data-theme (theme.js) pins one. */
+:root { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 :root {
-  --bg: #ffffff; --side: #ffffff; --panel: #ffffff; --fg: #1a1a1a; --muted: #5d646b; --line: #dde0e4; --soft: #eef0f2; --gutter: #f7f8f9;
-  --ink: #1a1a1a; --ink-fg: #ffffff; --me: #eef0f2; --code: #eef0f2; --term-bg: #fbfbfc;
-  --add: #006b41; --add-bg: #e6f3ed; --del: #b80016; --del-bg: #fbe7e9; --hunk: #5d646b;
-  --ask: #e3051c; --trunk: #a3a9b0; --ok: #1a1a1a;
-  /* RATP-like line palette, by line number (1-8, then it loops) */
-  --l1: #ffcd00; --l2: #003ca6; --l3: #00814f; --l4: #8d5e2a; --l5: #ff7e2e; --l6: #6eca97; --l7: #a0006e; --l8: #e19bdf;
+  --bg: light-dark(#ffffff, #111315); --side: var(--bg); --panel: light-dark(#ffffff, #16191c);
+  --fg: light-dark(#1a1a1a, #e9ebee); --muted: light-dark(#5d646b, #9aa1a9); --line: light-dark(#dde0e4, #2a2f35);
+  --soft: light-dark(#eef0f2, #1e2226); --gutter: light-dark(#f7f8f9, #14171a);
+  --ink: var(--fg); --ink-fg: light-dark(#ffffff, #111315); --me: light-dark(#eef0f2, #22272c); --code: var(--soft); --term-bg: light-dark(#fbfbfc, #0e1012);
+  --add: light-dark(#006b41, #6fd3a0); --add-bg: light-dark(#e6f3ed, #12261c); --del: light-dark(#b80016, #ff8b95); --del-bg: light-dark(#fbe7e9, #2c1519); --hunk: var(--muted);
+  /* red and trunk are the same in both themes: white text on them stays >= 4.5:1 and they read >= 3:1 on either ground */
+  --ask: #e3051c; --trunk: #6b737c; --ok: var(--fg);
+  --scrim: light-dark(rgb(0 0 0 / .35), rgb(0 0 0 / .6));
+  /* RATP-like line palette, by line number (1-8, then it loops). Dark lifts 2, 4, 7 to >= 3:1 on the ground, white numerals still >= 4.5:1. */
+  --l1: #ffcd00; --l2: light-dark(#003ca6, #3468d8); --l3: #00814f; --l4: light-dark(#8d5e2a, #9c6b36); --l5: #ff7e2e; --l6: #6eca97; --l7: light-dark(#a0006e, #c42f8f); --l8: #e19bdf;
   --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #111315; --side: #111315; --panel: #16191c; --fg: #e9ebee; --muted: #9aa1a9; --line: #2a2f35; --soft: #1e2226; --gutter: #14171a;
-    --ink: #e9ebee; --ink-fg: #111315; --me: #22272c; --code: #1e2226; --term-bg: #0e1012;
-    --add: #6fd3a0; --add-bg: #12261c; --del: #ff8b95; --del-bg: #2c1519; --hunk: #9aa1a9;
-    --ask: #ff4d5e; --trunk: #4a5159; --ok: #e9ebee;
-    --l2: #3b74e6; --l4: #b07c45; --l7: #d1349c;
-    color-scheme: dark;
-  }
 }
 
 * { box-sizing: border-box; }
@@ -199,7 +196,7 @@ pre.diff .hunk { color: var(--hunk); background: var(--soft); margin-top: 4px; }
 
 /* dialog + toast */
 dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--fg); width: min(520px, calc(100vw - 32px)); padding: 20px 22px; box-shadow: 0 12px 40px rgb(0 0 0 / .18); }
-dialog::backdrop { background: rgb(0 0 0 / .35); }
+dialog::backdrop { background: var(--scrim); }
 dialog h3 { margin: 0 0 8px; font-size: 18px; font-weight: 800; }
 dialog label { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; font-weight: 700; }
 dialog .row { margin-top: 16px; }
@@ -220,4 +217,5 @@ dialog .row { margin-top: 16px; }
 /* header badge: drawn from data-n so #wsBranch keeps only the branch text */
 #wsBranch::before { content: attr(data-n); width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--c, var(--trunk)); color: #fff; font: 800 12px Figtree, system-ui, sans-serif; }
 .ln1 #wsBranch::before, .ln5 #wsBranch::before, .ln6 #wsBranch::before, .ln8 #wsBranch::before { color: #1a1a1a; }
-#lang { align-self: flex-start; font-size: 12px; padding: 4px 8px; }
+.prefs { display: flex; gap: 8px; }
+.prefs select { font-size: 12px; padding: 4px 8px; }
