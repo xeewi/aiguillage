@@ -32,7 +32,9 @@ let S = { repos: [], workspaces: [] }
 // The last workspace and tab come back when the app restarts (an update, a quit).
 let active = new URLSearchParams(location.hash.slice(1)).get('ws') || localStorage.getItem('aig.ws')
 let tab = ['diff', 'term', 'run'].includes(localStorage.getItem('aig.tab')) ? localStorage.getItem('aig.tab') : 'diff'
-const unread = new Set()
+// Sessions with a turn you haven't seen, or marked unread by hand (right-click); kept across restarts.
+const unread = new Set(JSON.parse(localStorage.getItem('aig.unread') || '[]'))
+const setUnread = (id, on) => { unread[on ? 'add' : 'delete'](id); localStorage.setItem('aig.unread', JSON.stringify([...unread])) }
 const wsById = id => S.workspaces.find(w => w.id === id)
 // Shown name: the task name (Claude's summary of the first message, or the user's rename), else the city.
 const label = w => w.title || w.name
@@ -72,7 +74,7 @@ function onMsg(m) {
       cmds.delete(m.ws)
       if (m.ws === active) loadDiff()
       if (m.ws === active && tab === 'run') loadScripts()
-      if (m.ws !== active || document.hidden) { unread.add(m.ws); renderSide(); notify(m.ws, m.ev) }
+      if (m.ws !== active || document.hidden) { setUnread(m.ws, true); renderSide(); notify(m.ws, m.ev) }
     }
   }
   else if (m.t === 'delta' && m.ws === active) { draft().textContent += m.text; scroll() }
@@ -116,6 +118,7 @@ function renderSide() {
     back.onclick = guard(async () => { await api('POST', `/workspaces/${w.id}/unarchive`); select(w.id) })
     const del = ibtn('x', t('side.delete')); del.title = t('side.deleteTitle')
     del.onclick = guard(async () => { if (confirm(t('side.confirmDelete', { name: w.name, branch: w.branch }))) await api('DELETE', `/workspaces/${w.id}`) })
+    row.oncontextmenu = e => ctxMenu(e, [[t('side.restore'), back.onclick], [t('side.deleteTitle'), del.onclick]])
     row.append(back, del); return row
   }))
   $('#empty').hidden = !!wsById(active) && !wsById(active).archived
@@ -235,7 +238,36 @@ function wsItem(w) {
   else el.append(h('span'))
   el.append(h('span', 'wsTitle', w.title ? w.name : t('side.newWorkspace')))
   el.onclick = () => select(w.id)
+  el.oncontextmenu = e => ctxMenu(e, [
+    [t('head.codeTitle'), () => wsAct(w, 'open', 'code')],
+    [t('head.folderTitle'), () => wsAct(w, 'open')],
+    null,
+    [t('head.rename'), () => renameDialog(w)],
+    [t(unread.has(w.id) ? 'side.markRead' : 'side.markUnread'), () => { setUnread(w.id, !unread.has(w.id)); renderSide() }],
+    [t('side.copyBranch'), () => copy(w.branch)],
+    [t('side.copyPath'), () => copy(w.path)],
+    null,
+    w.busy && [t('chat.stop'), () => api('POST', `/workspaces/${w.id}/interrupt`)],
+    [t('head.archive'), () => wsAct(w, 'archive'), '⇧⌘A'],
+  ])
   return el
+}
+
+const copy = async s => { await navigator.clipboard.writeText(s); toast(t('side.copied', { text: s })) }
+// Right-click menu at the pointer: [label, fn, shortcut?] items, null for a separator, false to leave one out.
+function ctxMenu(e, items) {
+  e.preventDefault()
+  const m = $('#ctxMenu')
+  m.replaceChildren(...items.filter(i => i !== false).map(i => {
+    if (!i) return h('hr')
+    const b = h('button', null, i[0]); b.type = 'button'
+    if (i[2]) b.append(h('kbd', null, i[2]))
+    b.onclick = guard(() => { m.hidePopover(); return i[1]() })
+    return b
+  }))
+  m.showPopover()
+  m.style.left = Math.min(e.clientX, innerWidth - m.offsetWidth - 4) + 'px'
+  m.style.top = Math.min(e.clientY, innerHeight - m.offsetHeight - 4) + 'px'
 }
 
 async function addRepoDialog() {
@@ -335,7 +367,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && settingsOpen && !$(
 
 // ---------- workspace ----------
 function select(id) {
-  active = id; unread.delete(id); settingsOpen = false
+  active = id; setUnread(id, false); settingsOpen = false
   history.replaceState(null, '', '#ws=' + id); localStorage.setItem('aig.ws', id)
   renderSide(); renderHead(); renderPerms(); renderAtts(); loadThread(); showTab(tab)
   if (tab !== 'diff') loadDiff() // the Diff tab's counts and the git bar, whatever tab is open
@@ -389,21 +421,21 @@ $('#effort').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { effo
 $('#mode').onchange = guard(() => api('PATCH', `/workspaces/${active}`, { permissionMode: $('#mode').value }))
 $('#stop').onclick = guard(() => api('POST', `/workspaces/${active}/interrupt`))
 
-// Open / Archive live in the header menus, Commit / Merge / PR in the Diff tab's bar.
-const onAct = guard(async e => {
-  const b = e.target.closest('button[data-act]'); if (!b) return
-  b.closest('[popover]')?.hidePopover()
-  const w = wsById(active), act = b.dataset.act
-  let body = { app: b.dataset.app }
+// Open / Archive live in the header menus (and a session's right-click menu), Commit / Merge / PR in the Diff tab's bar.
+async function wsAct(w, act, app) {
+  let body = { app }
   if (act === 'archive' && !confirm(t('head.confirmArchive', { name: w.name, branch: w.branch }))) return
   if (act === 'merge' && !confirm(t('head.confirmMerge', { branch: w.branch, base: w.base }))) return
   if (act === 'commit') { const m = prompt(t('head.commitPrompt'), w.title || ''); if (m == null) return; body = { message: m } }
+  const r = await api('POST', `/workspaces/${w.id}/${act}`, body)
+  if (r.message) toast(r.message)
+  if (act === 'archive') { if (w.id === active) active = null; renderSide(); renderHead() } else if (w.id === active) loadDiff()
+}
+const onAct = guard(async e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return
+  b.closest('[popover]')?.hidePopover()
   b.disabled = true
-  try {
-    const r = await api('POST', `/workspaces/${active}/${act}`, body)
-    if (r.message) toast(r.message)
-    if (act === 'archive') { active = null; renderSide(); renderHead() } else loadDiff()
-  } finally { b.disabled = false }
+  try { await wsAct(wsById(active), b.dataset.act, b.dataset.app) } finally { b.disabled = false }
 })
 for (const el of [$('#wsHead .actions'), $('#gitBar')]) el.addEventListener('click', onAct)
 
@@ -853,6 +885,8 @@ addEventListener('keydown', e => {
   if (!(e.metaKey || e.ctrlKey)) return
   const l = live()
   if (/^[1-9]$/.test(e.key) && l[e.key - 1]) { e.preventDefault(); select(l[e.key - 1].id) }
+  const w = wsById(active)
+  if (e.shiftKey && e.key.toLowerCase() === 'a' && w && !w.archived && !settingsOpen && !$('#dlg').open) { e.preventDefault(); guard(wsAct)(w, 'archive') }
 })
 
 translateDom()

@@ -101,7 +101,7 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 .electron .brand { padding-left: 74px; } /* sits beside the traffic lights, level with the workspace title */
 .electron .brand, .electron #side::before, .electron #wsHead, .electron .setHead { -webkit-app-region: drag; }
 .electron #side::before { content: ''; position: fixed; top: 0; left: 0; width: inherit; height: 44px; }
-.electron :is(#wsHead, .setHead) :is(button, select, #wsBranch, .menu), .electron .brand button, .electron .empty { -webkit-app-region: no-drag; }
+.electron :is(#wsHead, .setHead) :is(button, select, #wsBranch, .menu), .electron .brand button, .electron .empty, .electron #ctxMenu { -webkit-app-region: no-drag; }
 /* the fixed drag strip paints over the brand row: the toggle must sit above it to get clicks and stay no-drag */
 .electron .brand button { position: relative; z-index: 1; }
 
@@ -147,8 +147,11 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #moreBtn { anchor-name: --more-btn; } #moreMenu { position-anchor: --more-btn; }
 .menu { inset: auto; position-area: bottom span-left; margin: 4px 0 0; min-width: 200px; padding: 6px; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .2); }
 .menu:popover-open { display: grid; gap: 2px; }
-.menu button { background: none; border: 0; color: var(--fg); text-align: left; padding: 7px 10px; }
+.menu button { display: flex; gap: 24px; background: none; border: 0; color: var(--fg); text-align: left; padding: 7px 10px; }
+.menu kbd { margin-left: auto; font: inherit; color: var(--muted); }
 .menu button:hover { background: var(--soft); opacity: 1; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; width: auto; }
+#ctxMenu { position: fixed; position-area: none; margin: 0; } /* placed at the pointer (app.js ctxMenu) */
 /* chat | gutter | panel; .below stacks them. --panel-size is the panel's share, set by dragging the gutter (app.js). */
 #split { flex: 1; min-height: 0; display: flex; }
 #split.below { flex-direction: column; }

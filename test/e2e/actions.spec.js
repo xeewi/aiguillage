@@ -71,3 +71,43 @@ test('Archiver → listed in Archivés → ↺ restores (work kept) → × delet
   expect((await srv.state()).workspaces).toHaveLength(0)
   expect(git(repoPath, 'branch', '--list', w.branch)).toBe('')
 })
+
+test('right-click a session in the sidebar → Archive it without opening it; right-click the archived row → Restore', async ({ srv, open, page }) => {
+  const { w } = await open()
+  const other = await srv.api('POST', '/workspaces', { repoId: w.repoId })
+  const item = page.locator('#repos .wsItem', { hasText: other.name })
+  await item.click({ button: 'right' })
+  await expect(page.locator('#ctxMenu')).toBeVisible()
+  await expect(page.locator('#wsBranch')).toContainText(w.branch) // still on the open session
+  page.once('dialog', d => { expect(d.message()).toContain(other.name); d.accept() })
+  await page.locator('#ctxMenu').getByRole('button', { name: 'Archive' }).click()
+  await expect(page.locator('#repos .wsItem')).toHaveCount(1)
+  await expect(page.locator('#wsBranch')).toContainText(w.branch)
+
+  await page.locator('#archived summary').click()
+  await page.locator('#archived .wsItem', { hasText: other.name }).click({ button: 'right' })
+  await page.locator('#ctxMenu').getByRole('button', { name: 'Restore' }).click()
+  await expect(page.locator('#repos .wsItem')).toHaveCount(2)
+  await expect(page.locator('#wsBranch')).toContainText(other.branch) // restore opens it, as the ↺ button does
+})
+
+test('right-click → Mark as unread survives a reload, opening the session clears it; ⇧⌘A archives the open one', async ({ srv, open, page }) => {
+  const { w } = await open()
+  const other = await srv.api('POST', '/workspaces', { repoId: w.repoId })
+  const item = page.locator('#repos .wsItem', { hasText: other.name })
+  await item.click({ button: 'right' })
+  await page.locator('#ctxMenu').getByRole('button', { name: 'Mark as unread' }).click()
+  await expect(item.locator('.pill.new')).toBeVisible()
+  await page.reload()
+  await expect(item.locator('.pill.new')).toBeVisible()
+  await item.click({ button: 'right' })
+  await expect(page.locator('#ctxMenu').getByRole('button', { name: 'Mark as read' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await item.click()
+  await expect(item.locator('.pill.new')).toHaveCount(0)
+
+  page.once('dialog', d => { expect(d.message()).toContain(other.name); d.accept() })
+  await page.keyboard.press('ControlOrMeta+Shift+A')
+  await expect(page.locator('#repos .wsItem')).toHaveCount(1)
+  await expect(page.locator('#empty')).toBeVisible()
+})

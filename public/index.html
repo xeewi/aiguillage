@@ -66,6 +66,8 @@
       </div>
     </section>
 
+    <div id="ctxMenu" class="menu" popover></div>
+
     <section id="ws" hidden>
       <header id="wsHead">
         <div class="title">
@@ -81,7 +83,7 @@
           <button type="button" id="moreBtn" class="ghost icon" popovertarget="moreMenu" data-i18n-title="head.more" data-i18n-aria-label="head.more"></button>
           <div id="moreMenu" class="menu" popover>
             <button type="button" id="rename" data-i18n="head.rename">Rename</button>
-            <button data-act="archive" data-i18n="head.archive">Archive</button>
+            <button data-act="archive"><span data-i18n="head.archive">Archive</span><kbd>⇧⌘A</kbd></button>
           </div>
         </div>
       </header>
