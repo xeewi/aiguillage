@@ -104,9 +104,16 @@
               <span id="opts" popover>
                 <select id="model" data-i18n-title="head.model">
                   <option value="" data-i18n="head.modelDefault">Default model</option>
+                  <!-- ponytail: the aliases `claude --model` takes (CLI 2.1.316); full model ids still work via /model -->
+                  <option value="best">Best</option>
+                  <option value="fable">Fable</option>
                   <option value="opus">Opus</option>
                   <option value="sonnet">Sonnet</option>
                   <option value="haiku">Haiku</option>
+                  <option value="fable[1m]">Fable 1M</option>
+                  <option value="opus[1m]">Opus 1M</option>
+                  <option value="sonnet[1m]">Sonnet 1M</option>
+                  <option value="opusplan">Opus Plan</option>
                 </select>
                 <select id="effort" data-i18n-title="head.effort">
                   <option value="">Default effort</option>
