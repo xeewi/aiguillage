@@ -30,7 +30,8 @@ const view = () => ({
   defaults: state.defaults ?? {},
   update: U.info(),
   usage: A.usageNow(),
-  workspaces: state.workspaces.map(w => ({ ...w, ...A.runtime(w.id), scriptRunning: terms.get(w.id + ':script')?.alive ? terms.get(w.id + ':script').label : null })),
+  workspaces: state.workspaces.map(w => ({ ...w, ...A.runtime(w.id), scriptRunning: terms.get(w.id + ':script')?.alive ? terms.get(w.id + ':script').label : null,
+    claudeTerm: !!terms.get(w.id + ':claude')?.alive })),
 })
 let pendingState = null
 const changed = () => { pendingState ??= setTimeout(() => { pendingState = null; broadcast({ t: 'state', ...view() }) }, 30) }
@@ -306,7 +307,21 @@ const routes = {
   'POST /api/workspaces/:id/send': async ({ ws, body }) => {
     const text = String(body.text ?? ''), files = attached(ws, body.files)
     if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
+    // Two CLIs writing the same session would fork it: the chat waits for the terminal one to quit.
+    if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
     await A.send(ws, text, files); return {}
+  },
+  'GET /api/workspaces/:id/commands': ({ ws }) => A.commands(ws),
+  // Commands with a full-screen UI (/permissions, /resume, /memory…) don't exist in -p mode: run them in the real,
+  // interactive Claude Code, on this same conversation, in the Terminal tab. The idle chat process steps aside.
+  'POST /api/workspaces/:id/terminal-command': ({ ws, body }) => {
+    const command = String(body.command ?? '')
+    if (!/^\/[\w:.-]+$/.test(command)) throw fail('errors.badCommand')
+    if (A.runtime(ws.id).busy) throw fail('errors.agentBusy')
+    A.stop(ws)
+    const q = s => `'${s.replace(/'/g, `'\\''`)}'`
+    openTerm(ws.id + ':claude', ws, [q(CLAUDE()), ...(ws.sessionId ? ['--resume', q(ws.sessionId)] : []), q(command)].join(' '), 'claude')
+    return {}
   },
   'POST /api/workspaces/:id/interrupt': ({ ws }) => { A.interrupt(ws); return {} },
   'POST /api/workspaces/:id/permission': ({ ws, body }) => { A.answer(ws, body.id, !!body.allow, body.message && String(body.message)); return {} },

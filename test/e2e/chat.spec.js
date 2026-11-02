@@ -22,6 +22,67 @@ test('context: unknown before a turn, then « X% until auto-compact » like the 
   await expect(ctx).toHaveText('60% until auto-compact')
 })
 
+test('/clear draws a separator and drops the revert buttons above it, live and after reload', async ({ open, page }) => {
+  await open()
+  await say(page, 'before')
+  await say(page, '/clear')
+  await expect(page.locator('#thread .meta.cleared')).toHaveText(/Conversation cleared/)
+  await say(page, 'after')
+  await expect(results(page)).toHaveCount(3)
+  for (let i = 0; i < 2; i++) {
+    await expect(page.locator('#thread .msg.me .revert')).toHaveCount(1)
+    await expect(page.locator('#thread .msg.me').last().locator('.revert')).toHaveCount(1)
+    await page.reload()
+    await expect(page.locator('#thread .meta.cleared')).toHaveCount(1)
+  }
+})
+
+test('« / » menu: the session\'s commands, filtered as you type (aliases too), arrows + Tab complete, Escape closes', async ({ open, page }) => {
+  await open()
+  const input = page.locator('#input'), menu = page.locator('#slash'), items = menu.locator('[role=option]')
+  await input.pressSequentially('/')
+  await expect(items.locator('b')).toHaveText(['/clear', '/compact', '/context', '/model', '/code-review'])
+  await input.pressSequentially('rev')
+  await expect(items.locator('b')).toHaveText(['/code-review']) // its alias /review
+  await input.press('Backspace'); await input.press('Backspace'); await input.press('Backspace'); await input.pressSequentially('co')
+  await expect(items.locator('b')).toHaveText(['/compact', '/context', '/code-review'])
+  await input.press('ArrowDown')
+  await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true')
+  await input.press('Tab')
+  await expect(input).toHaveValue('/context ')
+  await expect(menu).toBeHidden()
+  await input.fill('/mo')
+  await expect(items).toHaveCount(1)
+  await input.press('Escape')
+  await expect(menu).toBeHidden()
+  // Enter on a command that takes an argument only completes it: the argument is still to type.
+  await input.fill('/mod'); await expect(items).toHaveCount(1)
+  await input.press('Enter')
+  await expect(input).toHaveValue('/model ')
+  await expect(page.locator('#thread .msg.me')).toHaveCount(0)
+})
+
+test('/model typed in the chat shows in the model menu, even a model the menu does not list', async ({ open, page }) => {
+  await open()
+  await say(page, '/model fable')
+  await expect(page.locator('#thread .msg.ai').last()).toHaveText(/Set model to `?fable/)
+  await expect(page.locator('#model')).toHaveValue('fable')
+})
+
+test('a full-screen command offers the interactive Claude Code; the Terminal tab shows it until it quits', async ({ open, page }) => {
+  await open()
+  await say(page, '/permissions')
+  const msg = page.locator('#thread .msg.ai').last()
+  await expect(msg).toContainText('/permissions opens its own screen')
+  await msg.getByRole('button', { name: 'Open /permissions in the terminal' }).click()
+  await expect(page.locator('#tabs [data-tab=term]')).toHaveClass(/on/)
+  await expect(page.locator('#termView .xterm-rows')).toContainText('--resume')
+  await say(page, 'hi')
+  await expect(page.locator('#toast')).toContainText('Terminal tab')
+  await page.locator('#termView .xterm-helper-textarea').pressSequentially('/exit\r')
+  await expect(page.locator('#termView .xterm-rows')).not.toContainText('--resume') // back to the shell
+})
+
 test('Shift+Enter inserts a newline instead of sending', async ({ open, page }) => {
   await open()
   await page.locator('#input').fill('line one')

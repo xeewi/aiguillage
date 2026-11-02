@@ -74,6 +74,7 @@
     "ready": "Worktree ready in <code>{{path}}</code>. Describe the task to the agent.",
     "revert": "Go back to before this message",
     "revertTitle": "Go back to before this message (files + conversation)",
+    "cleared": "Conversation cleared: the agent no longer remembers what is above",
     "confirmRevert": "Restore files and conversation to before this message? Later changes are lost.",
     "turns_one": "{{count}} turn",
     "turns_other": "{{count}} turns",
@@ -84,7 +85,9 @@
     "dropHint": "Any file: images, PDFs, code, documents, data… up to 100 MB each.",
     "remove": "Remove {{name}}",
     "noFolders": "Folders can't be attached: drop the files inside them.",
-    "tooLarge": "{{name}} is over 100 MB."
+    "tooLarge": "{{name}} is over 100 MB.",
+    "interactiveOnly": "{{cmd}} opens its own screen, which the chat can’t show. Run it in the real Claude Code, on this same conversation:",
+    "openInTerminal": "Open {{cmd}} in the terminal"
   },
   "notify": {
     "done": "{{name}} finished",
@@ -161,12 +164,16 @@
     "interruptFirst": "Interrupt the agent before going back.",
     "worktreeMissing": "This workspace's folder no longer exists ({{path}}). Archive the workspace.",
     "noCheckpoint": "No checkpoint for this message.",
+    "revertCleared": "This message is before a /clear: the conversation was cleared, it can't be gone back to.",
     "gitBusy": "A git operation is in progress.",
     "tooLarge": "Request too large.",
     "notFound": "Not found.",
     "initRefused": "Pick a project folder, not your whole home folder.",
     "fileTooLarge": "File too large (100 MB max).",
-    "emptyMessage": "Write a message or attach a file."
+    "emptyMessage": "Write a message or attach a file.",
+    "claudeInTerminal": "Claude Code is open in the Terminal tab on this conversation: quit it (/exit) to chat here again.",
+    "badCommand": "Not a command.",
+    "agentBusy": "The agent is working: wait for it or stop it first."
   },
   "messages": {
     "committed": "Commit created.",

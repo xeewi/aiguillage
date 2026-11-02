@@ -62,10 +62,14 @@ function connect() {
 const send = m => sock?.readyState === 1 && sock.send(JSON.stringify(m))
 
 function onMsg(m) {
-  if (m.t === 'state') { S = m; renderSide(); renderHead(); renderPerms(); renderSettings(); renderUpdate(); renderUsage() }
+  if (m.t === 'state') {
+    S = m; renderSide(); renderHead(); renderPerms(); renderSettings(); renderUpdate(); renderUsage()
+    if (tab === 'term' && wsById(active) && termShown !== termKey()) showTab('term') // the terminal Claude Code started or quit
+  }
   else if (m.t === 'ev') {
     if (m.ws === active) { dropDraft(); renderEv(m.ev); scroll() }
     if (m.ev.type === 'result') {
+      cmds.delete(m.ws)
       if (m.ws === active) loadDiff()
       if (m.ws === active && tab === 'run') loadScripts()
       if (m.ws !== active || document.hidden) { unread.add(m.ws); renderSide(); notify(m.ws, m.ev) }
@@ -346,9 +350,13 @@ function renderHead() {
   $('#wsBranch').textContent = `${w.branch} ← ${w.base}`
   $('#wsBranch').title = w.path
   const n = lineOf(w); $('#wsBranch').dataset.n = $('#tabs').dataset.n = n; $('#ws').className = lineCls(n)
-  $('#model').value = w.model || ''
+  // /model or /effort typed in the chat may pick a value the menu doesn't list (fable, a full model id…): add it.
+  for (const k of ['model', 'effort']) {
+    const s = $('#' + k), v = w[k] || ''
+    if (![...s.options].some(o => o.value === v)) s.append(new Option(k === 'effort' ? t('head.effortLevel', { level: v }) : v, v))
+    s.value = v
+  }
   $('#mode').value = ['default', 'acceptEdits', 'plan'].includes(w.permissionMode) ? w.permissionMode : 'auto'
-  $('#effort').value = w.effort || ''
   optsSummary(); renderCtx(w.context)
   $('#busy').hidden = $('#stop').hidden = !w.busy; $('#composer').classList.toggle('busy', !!w.busy)
   $("#runPort").textContent = `http://localhost:${w.port}`; $("#runPort").href = `http://localhost:${w.port}`; $('#runPort').title = t('head.portTitle')
@@ -440,6 +448,10 @@ function renderEv(ev) {
     }
     return thread.append(m)
   }
+  if (ev.type === 'cg_clear') {
+    thread.querySelectorAll('.revert').forEach(b => b.remove()) // the server refuses those now
+    return thread.append(h('div', 'meta cleared', t('chat.cleared')))
+  }
   if (ev.type === 'system') return thread.append(h('div', 'meta', `session ${ev.session_id.slice(0, 8)} · ${ev.model}`))
   if (ev.type === 'cg_error') return thread.append(h('div', 'msg err', ev.key ? t(ev.key, ev.vars) : ev.text))
   if (ev.type === 'result') {
@@ -456,6 +468,14 @@ function renderEv(ev) {
   for (const c of content ?? []) {
     if (c.type === 'text' && ev.type === 'assistant') {
       const m = h('div', 'msg ai' + (parent ? ' small' : '')); m.innerHTML = md(c.text); into.append(m)
+      // A full-screen command the CLI has no -p version of: offer the real Claude Code, on this conversation.
+      const cmd = !parent && c.text.match(/^(\/[\w:.-]+) isn't available in this environment\.?$/)?.[1]
+      if (cmd) {
+        m.replaceChildren(h('p', null, t('chat.interactiveOnly', { cmd })))
+        const b = h('button', 'ghost', t('chat.openInTerminal', { cmd }))
+        b.onclick = guard(async () => { await api('POST', `/workspaces/${active}/terminal-command`, { command: cmd }); showTab('term') })
+        m.append(b)
+      }
     } else if (c.type === 'text') into.append(h('div', 'meta', c.text))
     else if (c.type === 'tool_use') into.append(toolEl(c))
     else if (c.type === 'tool_result') {
@@ -533,7 +553,48 @@ $('#composer').onsubmit = guard(async e => {
     $('#input').value = text; atts.set(id, files); renderAtts(); throw err
   }
 })
-$('#input').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#composer').requestSubmit() } }
+$('#input').onkeydown = e => {
+  if (!$('#slash').hidden && slashKey(e)) return e.preventDefault()
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#composer').requestSubmit() }
+}
+
+// ---------- « / » menu: the commands the session itself offers (lib/agent.js commands), filtered as you type ----------
+const cmds = new Map() // workspace id -> Promise<[{ name, description, hint, aliases }]>; dropped after each turn (new skills…)
+const cmdsOf = id => cmds.get(id) ?? cmds.set(id, api('GET', `/workspaces/${id}/commands`).catch(() => { cmds.delete(id); return [] })).get(id)
+let slash = [], slashAt = 0, slashOff = null // slashOff: the text Escape closed the menu on
+async function renderSlash() {
+  const v = $('#input').value, q = v.match(/^\/(\S*)$/)?.[1]?.toLowerCase(), id = active
+  const all = q == null || !id || v === slashOff ? [] : await cmdsOf(id)
+  if (id !== active || $('#input').value !== v) return
+  const starts = c => [c.name, ...c.aliases].some(n => n.toLowerCase().startsWith(q))
+  slash = [...all.filter(starts), ...all.filter(c => !starts(c) && c.name.toLowerCase().includes(q))]
+  slashAt = 0; paintSlash()
+}
+function paintSlash() {
+  const box = $('#slash'), input = $('#input')
+  box.hidden = !slash.length
+  box.replaceChildren(...slash.map((c, i) => {
+    const o = h('div', i === slashAt ? 'on' : ''); o.id = 'slash-' + i; o.setAttribute('role', 'option'); o.setAttribute('aria-selected', i === slashAt)
+    o.append(h('b', null, '/' + c.name)); if (c.hint) o.append(h('i', null, c.hint)); o.append(h('span', null, c.description)); o.title = c.description
+    o.onmousedown = e => { e.preventDefault(); slashAt = i; pickSlash() }
+    return o
+  }))
+  if (slash.length) { input.setAttribute('aria-activedescendant', 'slash-' + slashAt); box.children[slashAt].scrollIntoView({ block: 'nearest' }) }
+  else input.removeAttribute('aria-activedescendant')
+}
+// Tab completes; Enter completes and sends, unless the command takes arguments still to type.
+function pickSlash(send) {
+  const c = slash[slashAt]; $('#input').value = `/${c.name} `; slash = []; paintSlash(); $('#input').focus()
+  if (send && !c.hint) $('#composer').requestSubmit()
+}
+function slashKey(e) {
+  const d = { ArrowDown: 1, ArrowUp: -1 }[e.key]
+  if (d) { slashAt = (slashAt + d + slash.length) % slash.length; paintSlash(); return true }
+  if (e.key === 'Escape') { slashOff = $('#input').value; slash = []; paintSlash(); return true }
+  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey && !e.isComposing)) { pickSlash(e.key === 'Enter'); return true }
+}
+$('#input').addEventListener('input', renderSlash)
+$('#input').addEventListener('blur', () => { slash = []; paintSlash() })
 
 // ---------- attachments: drop anywhere on the window, paste, or the paperclip. Any file type. ----------
 const MAX_FILE = 100e6 // same cap as the server
@@ -596,6 +657,9 @@ addEventListener('drop', e => {
 })
 
 // ---------- right panel ----------
+// The Terminal tab shows the interactive Claude Code while one runs (see terminal-command), the shell otherwise.
+const termKey = () => `${active}:${wsById(active)?.claudeTerm ? 'claude' : 'shell'}`
+let termShown = null
 function showTab(t) {
   tab = t; localStorage.setItem('aig.tab', t)
   for (const b of document.querySelectorAll('#tabs [data-tab]')) b.classList.toggle('on', b.dataset.tab === t)
@@ -603,7 +667,7 @@ function showTab(t) {
   $('#refresh').hidden = t !== 'diff'
   if (!active) return
   if (t === 'diff') loadDiff()
-  if (t === 'term') mountTerm(`${active}:shell`, $('#termView'))
+  if (t === 'term') mountTerm(termKey(), $('#termView'))
   if (t === 'run') { mountTerm(`${active}:script`, $('#runTerm')); loadScripts() }
 }
 $('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab) }
@@ -674,6 +738,7 @@ function mountTerm(key, host) {
     send({ t: 'term:open', key })
   }
   host.replaceChildren(t.el)
+  if (host.id === 'termView') termShown = key
   requestAnimationFrame(() => { t.fit.fit(); t.term.focus() })
 }
 // xterm needs resolved colours: a probe turns the light-dark() tokens into rgb().

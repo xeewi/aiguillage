@@ -65,6 +65,25 @@ test('revert is refused while the agent is working', async () => {
   assert.equal((await userMsgs(w.id)).length, 2)
 })
 
+test('/clear marks the log; messages before it can no longer be reverted, those after can', async () => {
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'write before.txt b')
+  await srv.turn(w.id, '/clear')
+  assert.deepEqual((await srv.log(w.id)).slice(-4).map(e => e.type), ['cg_user', 'cg_clear', 'system', 'result'], 'separator, then the new session')
+  await srv.turn(w.id, 'write after.txt a')
+  assert.equal(await srv.turn(w.id, 'memory'), 'memory: write after.txt a | memory', 'agent forgot the cleared part')
+
+  const [before, clear, after] = await userMsgs(w.id)
+  await assert.rejects(revert(w.id, before.id), /cleared/)
+  await assert.rejects(revert(w.id, clear.id), /cleared/)
+  assert.equal(after.prevUuid, null, 'first message after /clear starts the new conversation')
+  await revert(w.id, after.id)
+  assert.ok(!existsSync(join(w.path, 'after.txt')))
+  assert.ok(existsSync(join(w.path, 'before.txt')))
+  assert.equal((await srv.ws(w.id)).sessionId, null)
+  assert.equal(await srv.turn(w.id, 'memory'), 'memory: memory')
+})
+
 test('revert of an unknown message fails cleanly', async () => {
   const { w } = await setup(srv)
   await srv.turn(w.id, 'hi')

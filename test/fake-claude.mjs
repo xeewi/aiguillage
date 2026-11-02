@@ -9,7 +9,8 @@
 //   plan <text…>           ExitPlanMode        todo          TodoWrite (never asks)
 //   slow                   streams until interrupted        memory  lists this session's user messages
 //   env                    prints flags + env as JSON       crash   exits with an error
-//   markdown               hostile markdown (XSS probes)    anything else: "ok: <text>"
+//   markdown               hostile markdown (XSS probes)    /clear  resets the conversation
+//   anything else: "ok: <text>"
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
 import readline from 'node:readline'
 import { execSync } from 'node:child_process'
@@ -111,6 +112,23 @@ async function tool(name, input, run) {
 
 async function turn(text) {
   const t0 = Date.now()
+  // Like the real CLI: a reset event, then a fresh session with no memory and an empty local-command result.
+  if (text.trim() === '/clear') {
+    out({ type: 'conversation_reset', trigger: 'clear', session_id: sid })
+    sid = randomUUID(); messages = []; save()
+    out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
+    return out({ type: 'result', subtype: 'success', is_error: false, duration_ms: 1, num_turns: 0, result: '', local_command: 'clear', session_id: sid, uuid: randomUUID() })
+  }
+  // Local commands answer at once, with the real CLI's wording; "/model nope" fails like an unknown model.
+  const local = text.trim().match(/^\/(model|effort|permissions)(?:\s+(\S+))?$/)
+  if (local) {
+    const [, name, arg] = local
+    out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
+    const reply = name === 'permissions' ? '/permissions isn\'t available in this environment.'
+      : arg === 'nope' ? `Model 'nope' not found` : name === 'model' ? (model = arg, `Set model to \`${arg}\` for this session only`) : arg === 'auto' ? 'Effort level set to auto (this session only)' : `Set effort level to ${arg} (this session only)`
+    out({ type: 'assistant', uuid: randomUUID(), parent_tool_use_id: null, session_id: sid, message: { role: 'assistant', content: [{ type: 'text', text: reply }] } })
+    return out({ type: 'result', subtype: 'success', is_error: false, duration_ms: 1, num_turns: 0, result: reply, local_command: name === 'permissions' ? undefined : name, session_id: sid, uuid: randomUUID() })
+  }
   interrupted = false; turns = 1
   out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
   messages.push({ uuid: randomUUID(), role: 'user', text })
@@ -188,7 +206,8 @@ async function drain() {
 }
 readline.createInterface({ input: process.stdin }).on('line', line => {
   let m
-  try { m = JSON.parse(line) } catch { return }
+  // Run interactively (the Terminal tab's Claude Code), it is typed to: "/exit" quits.
+  try { m = JSON.parse(line) } catch { if (line.trim() === '/exit') process.exit(0); return }
   if (m.type === 'user') {
     const c = m.message.content
     queue.push(typeof c === 'string' ? c : c.map(x => x.text ?? '').join(''))
@@ -207,6 +226,13 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     // Context fill: 16 000 tokens per stored message; auto-compact at 200 000 - 40 000, so 10 % of it each.
     const ctx = q.subtype === 'get_context_usage' && { totalTokens: 16_000 * messages.length, maxTokens: 200_000, percentage: 8 * messages.length,
       categories: [{ id: 'messages', tokens: 16_000 * messages.length, kind: 'used' }, { id: 'autocompact_buffer', tokens: 40_000, kind: 'buffer' }] }
-    out({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: ctx || {} } })
+    const init = q.subtype === 'initialize' && { commands: [
+      { name: 'clear', description: 'Clear conversation history and free up context', argumentHint: '', builtin: true },
+      { name: 'compact', description: 'Clear conversation history but keep a summary in context', argumentHint: '<optional custom summarization instructions>', builtin: true },
+      { name: 'context', description: 'Show current context usage', argumentHint: '', builtin: true },
+      { name: 'model', description: 'Set the AI model for Claude Code', argumentHint: '<model>', builtin: true },
+      { name: 'code-review', description: 'Review the current diff', argumentHint: '[low|high]', aliases: ['review'], builtin: true },
+      { name: '__internal', description: 'hidden', argumentHint: '', builtin: true }] }
+    out({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: ctx || init || {} } })
   }
 }).on('close', () => { closed = true; if (!running) process.exit(0) })

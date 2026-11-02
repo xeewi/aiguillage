@@ -176,6 +176,8 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .msg a { color: var(--fg); text-underline-offset: 3px; }
 .meta { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .02em; }
 .meta.ok, .meta.bad { display: flex; align-items: center; gap: 4px; }
+.meta.cleared { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.meta.cleared::before, .meta.cleared::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
 .meta svg { width: 13px; height: 13px; stroke-width: 2.25; }
 .meta.ok svg { color: var(--ok); }
 .meta.bad { color: var(--del); }
@@ -212,6 +214,14 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #composer textarea::placeholder { color: var(--muted); }
 #composer { container-type: inline-size; }
 #composer .row { justify-content: flex-end; margin-top: 8px; }
+/* « / » menu: the session's commands, above the textarea like the terminal's */
+#slash { max-height: 260px; overflow-y: auto; margin-bottom: 6px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .12); }
+#slash div { display: flex; gap: 10px; align-items: baseline; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+#slash div.on { background: var(--soft); }
+#slash b { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+#slash i { font-style: normal; font-family: var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 35%; flex: none; }
+#slash span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.msg.ai button { margin-top: 8px; }
 /* the next message's settings: quiet selects that read as text until hovered */
 /* One line whatever the width. Wide: the three selects sit inline (#opts is a popover only in name: shown, static).
    Narrow: they fold into one summary chip (#optsBtn) that opens them above it. */

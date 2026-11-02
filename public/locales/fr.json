@@ -74,6 +74,7 @@
     "ready": "Worktree prêt dans <code>{{path}}</code>. Décris la tâche à l'agent.",
     "revert": "Revenir à avant ce message",
     "revertTitle": "Revenir à avant ce message (fichiers + conversation)",
+    "cleared": "Conversation effacée : l'agent ne se souvient plus de ce qui est au-dessus",
     "confirmRevert": "Restaurer les fichiers et la conversation à avant ce message ? Les changements suivants sont perdus.",
     "turns_one": "{{count}} tour",
     "turns_other": "{{count}} tours",
@@ -84,7 +85,9 @@
     "dropHint": "N'importe quel fichier : images, PDF, code, documents, données… jusqu'à 100 Mo chacun.",
     "remove": "Retirer {{name}}",
     "noFolders": "Un dossier ne peut pas être joint : dépose les fichiers qu'il contient.",
-    "tooLarge": "{{name}} dépasse 100 Mo."
+    "tooLarge": "{{name}} dépasse 100 Mo.",
+    "interactiveOnly": "{{cmd}} ouvre son propre écran, que le tchat ne peut pas afficher. Lance-le dans le vrai Claude Code, sur cette même conversation :",
+    "openInTerminal": "Ouvrir {{cmd}} dans le terminal"
   },
   "notify": {
     "done": "{{name}} a terminé",
@@ -161,12 +164,16 @@
     "interruptFirst": "Interromps l'agent avant de revenir en arrière.",
     "worktreeMissing": "Le dossier de ce workspace n'existe plus ({{path}}). Archive le workspace.",
     "noCheckpoint": "Pas de checkpoint pour ce message.",
+    "revertCleared": "Ce message est avant un /clear : la conversation a été effacée, impossible d'y revenir.",
     "gitBusy": "Une opération git est en cours.",
     "tooLarge": "Requête trop grosse.",
     "notFound": "Introuvable.",
     "initRefused": "Choisis un dossier de projet, pas tout ton dossier personnel.",
     "fileTooLarge": "Fichier trop gros (100 Mo max).",
-    "emptyMessage": "Écris un message ou joins un fichier."
+    "emptyMessage": "Écris un message ou joins un fichier.",
+    "claudeInTerminal": "Claude Code est ouvert dans l’onglet Terminal sur cette conversation : quitte-le (/exit) pour reprendre le tchat ici.",
+    "badCommand": "Ce n’est pas une commande.",
+    "agentBusy": "L’agent travaille : attends qu’il ait fini ou arrête-le."
   },
   "messages": {
     "committed": "Commit créé.",
