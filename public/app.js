@@ -101,7 +101,9 @@ function renderSide() {
     plus.onclick = guard(async () => { plus.disabled = true; try { select((await api('POST', '/workspaces', { repoId: r.id })).id) } finally { plus.disabled = false } })
     const more = ibtn('more', t('side.repoOptions'))
     more.onclick = () => { showSettings(true); $(`#setRepos [data-repo="${r.id}"] select`)?.focus() }
-    if (r.logo) { const img = h('img', 'repoLogo'); img.src = r.logo; img.alt = ''; img.onerror = () => img.remove(); head.append(img) }
+    // the collapsed rail heads each group with the logo, or the initial when there is none (or it fails to load)
+    const mark = h('span', 'repoMark', [...r.name][0]?.toUpperCase()); mark.title = r.name
+    if (r.logo) { const img = h('img', 'repoLogo'); img.src = r.logo; img.alt = ''; img.title = r.name; img.onerror = () => img.replaceWith(mark); head.append(img) } else head.append(mark)
     head.append(name, more, plus); g.append(head)
     const lines = h('div', 'lines')
     lines.append(h('div', 'terminus', r.base))

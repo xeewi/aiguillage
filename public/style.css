@@ -77,7 +77,9 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 #sideToggle { margin-left: auto; align-self: center; }
 .brand small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .repoHead { display: flex; align-items: center; gap: 2px; padding: 0 0 6px 6px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.repo + .repo { margin-top: 20px; } /* each repo map stands apart: its header never touches the previous repo's last row */
 .repoLogo { width: 16px; height: 16px; flex: none; object-fit: contain; border-radius: 3px; margin-right: 6px; }
+.repoMark { display: none; }
 .repoHead .base { text-transform: none; letter-spacing: 0; font-family: var(--mono); font-weight: 500; margin-left: 6px; }
 .lines { position: relative; display: grid; gap: 2px; }
 .lines::before { content: ''; position: absolute; left: 6px; top: 10px; bottom: 22px; width: 4px; border-radius: 2px; background: var(--trunk); z-index: 1; }
@@ -107,17 +109,31 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 
 /* collapsed sidebar: badges only (name and status in the tooltip), the state pill shrinks to a dot */
 .side-min #side { width: 64px; padding: 20px 8px; align-items: center; }
-.electron.side-min #side { width: 78px; padding-top: 48px; } /* below the traffic lights */
+/* the rail holds the traffic lights like the full sidebar does: they span x 16–78 (macOS 26), so 94px leaves them the same 16px on each side */
+.electron.side-min #side { width: 94px; padding-top: 48px; }
 .electron.side-min .brand { padding-left: 0; }
-.side-min .lines::before, .side-min .wsItem::before,
-.side-min :is(.brand > :not(button), .repoHead > :not(.plus), .terminus, .wsName, .wsTitle, #archived, #update, #usage, #addRepo span, #openSettings span) { display: none; }
+.side-min .wsItem::before,
+.side-min :is(.brand > :not(button), .repoHead > :not(.plus, .repoLogo, .repoMark), .terminus, .wsName, .wsTitle, #archived, #update, #usage, #addRepo span, #openSettings span) { display: none; }
 .side-min .brand, .side-min .repoHead { padding: 0; justify-content: center; }
+/* the map survives the fold: each repo is a line from its sign (logo, or initial) down through its badges,
+   then « + » for the next station; repos sit 16px apart */
+.side-min .repo { display: flex; flex-direction: column; align-items: center; }
+.side-min .repo + .repo { margin-top: 16px; }
+.side-min .repoHead { display: contents; }
+.side-min :is(.repoLogo, .repoMark) { width: 32px; height: 32px; margin: 0; border: 1px solid var(--line); border-radius: 8px; }
+.side-min .repoLogo { padding: 6px; background: var(--panel); }
+.side-min .repoMark { display: grid; place-items: center; font-size: 14px; font-weight: 800; letter-spacing: 0; color: var(--fg); cursor: default; }
+.side-min .lines { order: 1; margin-top: 6px; }
+.side-min .lines::before { left: 50%; margin-left: -2px; top: -6px; bottom: 22px; }
+.side-min .repoHead .plus { order: 2; margin-top: 2px; }
 .side-min .wsItem { display: flex; gap: 0; padding: 7px; }
-.side-min .wsItem .pill { position: absolute; top: 3px; right: 3px; width: 11px; height: 11px; padding: 0; border: 2px solid var(--side); background: var(--fg); font-size: 0; z-index: 2; }
+.side-min .wsItem .bdg { width: 30px; height: 30px; font-size: 15px; }
+.side-min .wsItem .pill { position: absolute; top: 4px; right: 4px; width: 12px; height: 12px; padding: 0; border: 2px solid var(--side); background: var(--fg); font-size: 0; z-index: 2; }
 .side-min .wsItem .pill > * { display: none; }
 .side-min .wsItem .pill:is(.ask, .err) { background: var(--ask); }
 .side-min .wsItem .pill.script { background: var(--trunk); }
-.side-min #addRepo { padding: 8px; }
+/* every rail control is the same 32px square around a 16px icon */
+.side-min :is(#sideToggle, .repoHead .plus, #addRepo, #openSettings) { width: 32px; height: 32px; padding: 0; justify-content: center; }
 
 /* main */
 main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
