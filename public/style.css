@@ -72,10 +72,10 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 /* only the repo list scrolls: brand on top, add-repo / usage / settings below stay put */
 #repos { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 #archivedList { max-height: 30vh; overflow-y: auto; }
-.brand { display: flex; align-items: baseline; gap: 8px; padding: 0 6px; font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
-.brand b { font-weight: inherit; }
-#sideToggle { margin-left: auto; align-self: center; }
-.brand small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.brand { display: flex; align-items: center; gap: 8px; padding: 0 0 0 6px; font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
+/* a narrow window squeezes the name, never the toggle */
+.brand b { font-weight: inherit; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sideToggle { margin-left: auto; flex: none; }
 .repoHead { display: flex; align-items: center; gap: 2px; padding: 0 0 6px 6px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
 .repo + .repo { margin-top: 20px; } /* each repo map stands apart: its header never touches the previous repo's last row */
 .repoLogo { width: 16px; height: 16px; flex: none; object-fit: contain; border-radius: 3px; margin-right: 6px; }
