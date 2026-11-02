@@ -264,6 +264,7 @@ Plain signage buttons, bold labels, no gradients.
 
 ### Cards / Containers
 - **Tool row (a station on the line):** hairline border, 8px radius, white; summary row 8px 12px with a station dot in the line colour (hollow while running, filled when done, red when failed). Output in Platform Grey mono blocks capped at 340px.
+- **Running subagents strip:** above the permission card, only while subagents work: an uppercase Label (« 2 sous-agents actifs »), then one hairline row (7px radius, white) per subagent: a pulsing ink dot, the task name (700), its current step in Quiet Grey mono, and a borderless Quiet Grey « Stop » in words (a lone square icon in a list reads as a checkbox). The row opens the subagent's Agent block in the thread; Stop ends that subagent alone. A stopped subagent is a choice, not a failure: its station fills and its block ends with « Stopped », never red. The Agent station pulses while its subagent runs, even after the main turn ended; the sidebar pill then reads « 2 sous-agents ».
 - **Permission card:** 2px Signal Red border, 10px radius, 12px 14px, a red 24px badge before the question. Sits above the composer.
 - **Own message:** Platform Grey bubble, 12px radius, right-aligned, max 78% / 72ch. Agent messages sit on the bare ground.
 - **Error message:** diff-del text on diff-del-bg, mono, 8px radius.

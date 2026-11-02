@@ -56,6 +56,18 @@ test('slim(): logs keep what the UI renders', () => {
   assert.deepEqual(m, { type: 'assistant', uuid: 'u', parent_tool_use_id: null, message: { content: [{ type: 'text', text: 'hi' }] } })
 })
 
+test('track(): subagents listed from task_started to task_notification, background shells left out', () => {
+  const tasks = new Map()
+  assert.ok(!A.track(tasks, { subtype: 'task_started', tool_use_id: 'b1', task_type: 'local_bash', description: 'npm run dev' }))
+  assert.ok(A.track(tasks, { subtype: 'task_started', tool_use_id: 't1', task_type: 'local_agent', description: 'Look', subagent_type: 'Explore', is_backgrounded: true }))
+  assert.ok(A.track(tasks, { subtype: 'task_progress', tool_use_id: 't1', description: 'Running ls' }))
+  assert.deepEqual([...tasks.values()], [{ id: 't1', taskId: undefined, description: 'Look', type: 'Explore', background: true, last: 'Running ls' }])
+  assert.ok(!A.track(tasks, { subtype: 'task_updated', tool_use_id: 't1' }))
+  assert.ok(!A.track(tasks, { subtype: 'task_notification', tool_use_id: 'b1', status: 'completed' }))
+  assert.ok(A.track(tasks, { subtype: 'task_notification', tool_use_id: 't1', status: 'completed' }))
+  assert.equal(tasks.size, 0)
+})
+
 test('briefing(): tells the agent its worktree, ports, run log and base', () => {
   store.state.repos.push({ id: 'r1', path: '/repo/main', name: 'main', base: 'main' })
   const ws = { id: 'w1', repoId: 'r1', name: 'oslo', branch: 'aig/oslo', base: 'main', baseRef: 'origin/main', path: '/wt/oslo', port: 40010 }

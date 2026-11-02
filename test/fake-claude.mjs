@@ -11,6 +11,8 @@
 //   env                    prints flags + env as JSON       crash   exits with an error
 //   markdown               hostile markdown (XSS probes)    /clear  resets the conversation
 //   anything else: "ok: <text>"
+//   subagent <ms>          a background Agent that runs a Bash, works <ms> (default 800) after the turn, then reports;
+//                          the stop_task control ends it early with « stopped »
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
 import readline from 'node:readline'
 import { execSync } from 'node:child_process'
@@ -82,6 +84,8 @@ function needsAsk(tool, input) {
   if (mode === 'acceptEdits' && tool === 'Write' && insideCwd(input.file_path)) return false
   return true
 }
+
+const background = {} // task_id -> stop(): subagents still running (stop_task ends them)
 
 // ---- one turn ----
 let turns = 0
@@ -183,6 +187,30 @@ async function turn(text) {
     case 'crash':
       process.stderr.write('boom: simulated crash\n')
       process.exit(3)
+    case 'subagent': {
+      // Same sequence as the real CLI: task_started, the Agent call answered at once, the subagent's own
+      // messages tagged with parent_tool_use_id, task_progress, then task_notification and a turn of its own.
+      const id = 'toolu_' + randomUUID().slice(0, 8), task_id = 'a' + randomUUID().slice(0, 8)
+      const sub = (type, content) => out({ type, uuid: randomUUID(), parent_tool_use_id: id, session_id: sid, message: { role: type, content } })
+      assistant([{ type: 'tool_use', id, name: 'Agent', input: { description: 'Look around', prompt: 'ls', subagent_type: 'general-purpose', run_in_background: true } }])
+      out({ type: 'system', subtype: 'task_started', task_id, tool_use_id: id, description: 'Look around', task_type: 'local_agent', subagent_type: 'general-purpose', is_backgrounded: true, session_id: sid })
+      out({ type: 'user', uuid: randomUUID(), parent_tool_use_id: null, session_id: sid, message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: 'Async agent launched successfully.' }] } })
+      sub('assistant', [{ type: 'tool_use', id: 'toolu_sub1', name: 'Bash', input: { command: 'ls', description: 'List files' } }])
+      out({ type: 'system', subtype: 'task_progress', task_id, tool_use_id: id, description: 'Running List files', last_tool_name: 'Bash', session_id: sid })
+      sub('user', [{ type: 'tool_result', tool_use_id: 'toolu_sub1', content: 'README.md' }])
+      const end = status => {
+        delete background[task_id]
+        if (status === 'completed') sub('assistant', [{ type: 'text', text: 'subagent done' }])
+        out({ type: 'system', subtype: 'task_notification', task_id, tool_use_id: id, status, summary: 'subagent ' + status, session_id: sid })
+        out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
+        assistant([{ type: 'text', text: 'the subagent ' + status }])
+        out({ type: 'result', subtype: 'success', is_error: false, duration_ms: 1, total_cost_usd: 0, num_turns: 1, session_id: sid, uuid: randomUUID() })
+      }
+      const timer = setTimeout(() => end('completed'), Number(rest[0]) || 800)
+      background[task_id] = () => { clearTimeout(timer); end('stopped') }
+      say('subagent launched')
+      break
+    }
     case 'markdown':
       say('**bold** <img src="x" onerror="window.__xss=1"> <script>window.__xss=2</script> [click](javascript:window.__xss=3)\n\n```js\nconst a = 1\n```')
       break
@@ -221,6 +249,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       interrupted = true
       for (const [id, r] of waiting) { waiting.delete(id); r({ behavior: 'deny', message: 'interrupted' }) }
     }
+    if (q.subtype === 'stop_task') background[q.task_id]?.()
     if (q.subtype === 'set_model') model = q.model
     if (q.subtype === 'set_permission_mode') mode = q.mode
     // Context fill: 16 000 tokens per stored message; auto-compact at 200 000 - 40 000, so 10 % of it each.

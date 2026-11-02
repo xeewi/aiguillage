@@ -18,6 +18,8 @@
     "run": "Working",
     "err": "Failed",
     "new": "New",
+    "agents_one": "{{count}} subagent",
+    "agents_other": "{{count}} subagents",
     "script": "Script running · port {{port}}"
   },
   "empty": {
@@ -76,6 +78,10 @@
     "revertTitle": "Go back to before this message (files + conversation)",
     "cleared": "Conversation cleared: the agent no longer remembers what is above",
     "confirmRevert": "Restore files and conversation to before this message? Later changes are lost.",
+    "subagents_one": "{{count}} subagent running",
+    "subagents_other": "{{count}} subagents running",
+    "stopSubagent": "Stop “{{name}}”",
+    "subagentStopped": "Stopped",
     "turns_one": "{{count}} turn",
     "turns_other": "{{count}} turns",
     "agentExited": "claude stopped (code {{code}}).\n{{stderr}}",

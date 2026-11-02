@@ -63,7 +63,7 @@ const send = m => sock?.readyState === 1 && sock.send(JSON.stringify(m))
 
 function onMsg(m) {
   if (m.t === 'state') {
-    S = m; renderSide(); renderHead(); renderPerms(); renderSettings(); renderUpdate(); renderUsage()
+    S = m; renderSide(); renderHead(); renderPerms(); renderTasks(); renderSettings(); renderUpdate(); renderUsage()
     if (tab === 'term' && wsById(active) && termShown !== termKey()) showTab('term') // the terminal Claude Code started or quit
   }
   else if (m.t === 'ev') {
@@ -133,7 +133,7 @@ function renderUpdate() {
   const b = h('button', null, t(u.state === 'ready' ? 'update.restart' : 'update.download'))
   b.onclick = () => {
     if (u.state === 'manual') return open(u.url)
-    const n = S.workspaces.filter(w => w.busy).length
+    const n = S.workspaces.filter(w => w.busy || w.tasks?.length).length
     if (n && !confirm(t('update.busyWarning', { count: n }))) return
     b.disabled = true; b.textContent = t('update.restarting')
     api('POST', '/update').catch(() => {}) // the app quits before answering
@@ -226,7 +226,7 @@ function wsItem(w) {
   const el = h('div', `wsItem ${lineCls(n)}` + (w.id === active && !settingsOpen ? ' on' : ''))
   el.append(h('span', 'bdg', n), h('span', 'wsName', label(w)))
   const pill = w.pending.length ? h('span', 'pill ask', t('status.ask'))
-    : w.busy ? h('span', 'pill run', t('status.run'))
+    : w.busy || w.tasks?.length ? h('span', 'pill run', w.tasks?.length ? t('status.agents', { count: w.tasks.length }) : t('status.run'))
     : w.failed ? h('span', 'pill err', t('status.err'))
     : unread.has(w.id) ? h('span', 'pill new', t('status.new')) : null
   el.title = label(w) + (pill ? ' · ' + pill.textContent : '') // the only label left when the sidebar is collapsed
@@ -423,6 +423,7 @@ async function loadThread() {
   thread.replaceChildren(); toolEls = new Map()
   if (!evs.length) { const p = h('div', 'hint'); p.innerHTML = t('chat.ready', { path: wsById(id)?.path ?? '', interpolation: { escapeValue: true } }); thread.append(p) }
   evs.forEach(renderEv)
+  renderTasks()
   thread.scrollTop = thread.scrollHeight
 }
 
@@ -454,6 +455,13 @@ function renderEv(ev) {
   }
   if (ev.type === 'system') return thread.append(h('div', 'meta', `session ${ev.session_id.slice(0, 8)} · ${ev.model}`))
   if (ev.type === 'cg_error') return thread.append(h('div', 'msg err', ev.key ? t(ev.key, ev.vars) : ev.text))
+  if (ev.type === 'task') {
+    // Stopped is a choice, not a failure: a filled station and a word, red only when it broke.
+    const b = toolEls.get(ev.tool_use_id)
+    b?.classList.add('done'); if (ev.status === 'failed') b?.classList.add('bad')
+    if (ev.status === 'stopped') b?.querySelector('.sub').append(h('div', 'meta', t('chat.subagentStopped')))
+    return renderTasks()
+  }
   if (ev.type === 'result') {
     const m = h('div', 'meta ' + (ev.is_error ? 'bad' : 'ok'), `${Math.round(ev.duration_ms / 1000)}s · ${t('chat.turns', { count: ev.num_turns })}`)
     m.insertAdjacentHTML('afterbegin', svg(ev.is_error ? 'x' : 'check'))
@@ -490,7 +498,7 @@ function renderEv(ev) {
 }
 
 function toolEl(c) {
-  const d = h('details', 'tool')
+  const d = h('details', 'tool' + (c.name === 'Agent' || c.name === 'Task' ? ' agent' : ''))
   const s = h('summary')
   s.append(h('b', null, c.name), h('span', 'mono', ' ' + String(toolSummary(c.name, c.input)).split('\n')[0].slice(0, 160)))
   d.append(s)
@@ -510,7 +518,39 @@ function toolEl(c) {
   const out = h('pre', 'out'); out.hidden = true
   d.append(out, h('div', 'sub'))
   toolEls.set(c.id, d)
+  if (wsById(active)?.tasks?.some(x => x.id === c.id)) d.classList.add('running')
   return d
+}
+
+// Subagents still working, over the composer: each opens its block in the thread, where its messages and tools land,
+// and can be stopped alone. The row stays until the CLI confirms; meanwhile its stop button waits.
+const stopping = new Set()
+function renderTasks() {
+  const tasks = wsById(active)?.tasks ?? [], box = $('#tasks')
+  const ids = new Set(tasks.map(x => x.id))
+  for (const [id, el] of toolEls) if (el.matches('.agent')) el.classList.toggle('running', ids.has(id))
+  box.hidden = !tasks.length
+  if (box.hidden) { box.replaceChildren(); return scroll() }
+  box.replaceChildren(h('div', 'tasksHead', t('chat.subagents', { count: tasks.length })), ...tasks.map(x => {
+    const row = h('div', 'task'), name = x.description || x.type
+    const b = h('button', 'open')
+    b.append(h('i'), h('b', null, name), h('span', 'mono', x.last || x.type))
+    b.title = [x.type, x.description, x.last].filter(Boolean).join(' · ')
+    b.onclick = () => {
+      const el = toolEls.get(x.id); if (!el) return
+      el.open = true; el.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    }
+    // Words, like the composer's Stop: a lone square in a list reads as a checkbox.
+    const s = h('button', 'stop', t('chat.stop')); s.title = t('chat.stopSubagent', { name }); s.setAttribute('aria-label', s.title)
+    s.disabled = stopping.has(x.id)
+    s.onclick = guard(async () => {
+      stopping.add(x.id); s.disabled = true
+      try { await api('POST', `/workspaces/${active}/stop-task`, { id: x.id }) } catch (e) { stopping.delete(x.id); s.disabled = false; throw e }
+    })
+    row.append(b, s)
+    return row
+  }))
+  scroll() // the strip takes room from the thread: keep its end in view, like new events do
 }
 
 const permQ = text => { const q = h('div', 'q'); q.append(h('span', 'bdg', '!'), h('span', null, text)); return q }

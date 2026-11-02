@@ -324,6 +324,7 @@ const routes = {
     return {}
   },
   'POST /api/workspaces/:id/interrupt': ({ ws }) => { A.interrupt(ws); return {} },
+  'POST /api/workspaces/:id/stop-task': ({ ws, body }) => { A.stopTask(ws, String(body.id)); return {} },
   'POST /api/workspaces/:id/permission': ({ ws, body }) => { A.answer(ws, body.id, !!body.allow, body.message && String(body.message)); return {} },
   'POST /api/workspaces/:id/revert': ({ ws, body }) => A.revert(ws, body.msgId),
   'POST /api/workspaces/:id/archive': async ({ ws }) => { await archive(ws); return {} },
@@ -460,7 +461,7 @@ wss.on('connection', sock => {
 if (process.versions.electron) U.start({
   changed,
   enabled: () => state.defaults?.autoUpdate !== false,
-  busy: () => state.workspaces.filter(w => A.runtime(w.id).busy).length,
+  busy: () => state.workspaces.filter(w => { const r = A.runtime(w.id); return r.busy || r.tasks.length }).length,
   beforeInstall: () => {
     state.resumeScripts = state.workspaces.filter(w => terms.get(w.id + ':script')?.alive).map(w => ({ ws: w.id, id: terms.get(w.id + ':script').label }))
     save()

@@ -18,6 +18,8 @@
     "run": "En cours",
     "err": "Échec",
     "new": "Nouveau",
+    "agents_one": "{{count}} sous-agent",
+    "agents_other": "{{count}} sous-agents",
     "script": "Script en cours · port {{port}}"
   },
   "empty": {
@@ -76,6 +78,10 @@
     "revertTitle": "Revenir à avant ce message (fichiers + conversation)",
     "cleared": "Conversation effacée : l'agent ne se souvient plus de ce qui est au-dessus",
     "confirmRevert": "Restaurer les fichiers et la conversation à avant ce message ? Les changements suivants sont perdus.",
+    "subagents_one": "{{count}} sous-agent actif",
+    "subagents_other": "{{count}} sous-agents actifs",
+    "stopSubagent": "Arrêter « {{name}} »",
+    "subagentStopped": "Arrêté",
     "turns_one": "{{count}} tour",
     "turns_other": "{{count}} tours",
     "agentExited": "claude s'est arrêté (code {{code}}).\n{{stderr}}",

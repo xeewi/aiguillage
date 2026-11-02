@@ -83,6 +83,41 @@ test('a full-screen command offers the interactive Claude Code; the Terminal tab
   await expect(page.locator('#termView .xterm-rows')).not.toContainText('--resume') // back to the shell
 })
 
+test('subagents: a row per running one over the composer and a count in the sidebar; a click opens its block', async ({ open, page }) => {
+  await open()
+  await say(page, 'subagent 4000')
+  const row = page.locator('#tasks .task')
+  await expect(row).toHaveCount(1)
+  await expect(page.locator('#tasks .tasksHead')).toHaveText('1 subagent running')
+  await expect(row).toContainText('Look around')
+  await expect(row).toContainText('Running List files')
+  await expect(page.locator('.wsItem.on .pill.run')).toHaveText('1 subagent')
+  const block = page.locator('#thread details.tool.agent')
+  await expect(block).toHaveClass(/running/)
+  await row.click()
+  await expect(block).toHaveAttribute('open', '')
+  await expect(block.locator('.sub details.tool')).toContainText('Bash')
+  await expect(block.locator('.sub .msg.ai')).toHaveText('subagent done', { timeout: 8000 })
+  await expect(page.locator('#tasks')).toBeHidden()
+  await expect(block).not.toHaveClass(/running/)
+  await expect(block).toHaveClass(/done/)
+})
+
+test('subagents: the stop button ends one alone; its block ends filled and « Stopped », not red', async ({ open, page }) => {
+  await open()
+  await say(page, 'subagent 60000')
+  const stop = page.getByRole('button', { name: 'Stop “Look around”' })
+  await stop.click()
+  await expect(page.locator('#tasks')).toBeHidden()
+  const block = page.locator('#thread details.tool.agent')
+  await expect(block).toHaveClass(/done/)
+  await expect(block).not.toHaveClass(/bad|running/)
+  await expect(block.locator('.sub > .meta')).toHaveText('Stopped')
+  await page.reload()
+  await expect(block.locator('.sub > .meta')).toHaveText('Stopped')
+  await expect(block).not.toHaveClass(/bad/)
+})
+
 test('Shift+Enter inserts a newline instead of sending', async ({ open, page }) => {
   await open()
   await page.locator('#input').fill('line one')

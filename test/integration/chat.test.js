@@ -21,6 +21,27 @@ test('chat: message → streamed deltas, logged events, title, session memory', 
   s.close()
 })
 
+test('subagents: listed while they work, past the end of the turn; their messages nest under the Agent call', async () => {
+  const { w } = await setup(srv)
+  assert.equal(await srv.turn(w.id, 'subagent 1500'), 'subagent launched')
+  const [task] = (await srv.ws(w.id)).tasks
+  assert.deepEqual(task, { id: task.id, taskId: task.taskId, description: 'Look around', type: 'general-purpose', background: true, last: 'Running List files' })
+  await waitFor(async () => !(await srv.ws(w.id)).tasks.length, { what: 'subagent done' })
+  const log = await srv.log(w.id)
+  assert.ok(log.some(e => e.type === 'task' && e.tool_use_id === task.id && e.status === 'completed'))
+  assert.ok(log.some(e => e.parent_tool_use_id === task.id && e.message.content[0].text === 'subagent done'))
+})
+
+test('subagents: one can be stopped alone; it ends « stopped » and the session goes on', async () => {
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'subagent 60000')
+  const [task] = (await srv.ws(w.id)).tasks
+  await srv.api('POST', `/workspaces/${w.id}/stop-task`, { id: task.id })
+  await waitFor(async () => !(await srv.ws(w.id)).tasks.length, { what: 'subagent stopped' })
+  assert.ok((await srv.log(w.id)).some(e => e.type === 'task' && e.tool_use_id === task.id && e.status === 'stopped'))
+  assert.equal(await srv.turn(w.id, 'still here'), 'ok: still here')
+})
+
 test('naming: Claude names the workspace from the first message; a rename sticks; empty goes back to auto', async () => {
   const { w } = await setup(srv)
   await srv.turn(w.id, 'fix the login page')

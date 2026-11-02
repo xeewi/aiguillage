@@ -197,12 +197,28 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .tool pre { font-family: var(--mono); font-size: 12px; line-height: 1.5; background: var(--code); padding: 8px 10px; border-radius: 6px; overflow-x: auto; max-height: 340px; white-space: pre-wrap; color: var(--fg); }
 .tool .sub { display: flex; flex-direction: column; gap: 6px; }
 .tool .sub:empty, .tool .out[hidden] { display: none; }
+.tool.running summary::before { background: var(--c, var(--trunk)); animation: pulse .9s ease-in-out infinite alternate; }
+.tool.agent .sub { max-height: 60vh; overflow-y: auto; }
 .todos { padding-left: 18px; }
 .todos .completed { text-decoration: line-through; color: var(--muted); }
 .todos .in_progress { font-weight: 700; }
 
 /* permissions + composer */
 #perms { padding: 0 28px; }
+/* subagents still working: one row each, a click opens its block in the thread */
+#tasks { padding: 8px 28px 10px; display: grid; gap: 4px; }
+#tasks[hidden] { display: none; }
+.tasksHead { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+#tasks .task { display: flex; align-items: center; gap: 2px; padding-right: 4px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+#tasks .task:has(.open:hover) { background: var(--soft); }
+#tasks .open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; font-weight: 500; background: none; color: var(--fg); border: 0; }
+#tasks .open:hover { opacity: 1; }
+#tasks .stop { flex: none; background: none; border: 0; color: var(--muted); padding: 3px 8px; font-size: 12.5px; }
+#tasks .stop:hover { color: var(--fg); background: var(--soft); opacity: 1; }
+#tasks .task i { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--fg); animation: pulse .9s ease-in-out infinite alternate; }
+#tasks .task b { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#tasks .task .mono { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .tool.running summary::before, #tasks .task i { animation: none; } }
 .perm { border: 2px solid var(--ask); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--panel); display: grid; gap: 8px; }
 .perm .q { display: flex; align-items: center; gap: 10px; font-weight: 700; }
 .perm .q .bdg { --c: var(--ask); width: 24px; height: 24px; }
@@ -326,7 +342,7 @@ dialog .row { margin-top: 16px; }
   #side { width: 220px; padding: 16px 10px; }
   .wsItem .pill { grid-column: 2 / 4; grid-row: 3; justify-self: start; margin-top: 2px; }
   .wsItem .bdg { grid-row: span 3; }
-  #thread, #composer, #perms { padding-left: 16px; padding-right: 16px; }
+  #thread, #composer, #perms, #tasks { padding-left: 16px; padding-right: 16px; }
 }
 
 /* header badge: drawn from data-n so #wsBranch keeps only the branch text */
