@@ -26,7 +26,7 @@ const SHELL = process.env.SHELL || '/bin/zsh'
 const clients = new Set()
 const broadcast = msg => { const s = JSON.stringify(msg); for (const c of clients) c.send(s) }
 const view = () => ({
-  repos: state.repos,
+  repos: state.repos.map(r => ({ ...r, logo: logos.has(r.id) ? `/logo/${r.id}` : null })),
   defaults: state.defaults ?? {},
   update: U.info(),
   usage: A.usageNow(),
@@ -35,6 +35,19 @@ const view = () => ({
 let pendingState = null
 const changed = () => { pendingState ??= setTimeout(() => { pendingState = null; broadcast({ t: 'state', ...view() }) }, 30) }
 A.wire(broadcast, changed)
+
+// ---------- project logos (lib/git.js findLogo), shown beside the repo name ----------
+// ponytail: scanned at startup and when a repo is added; a logo added later shows after a restart.
+const logos = new Map() // repo id -> absolute path
+const scanLogo = r => G.findLogo(r.path).then(f => { if (f) { logos.set(r.id, join(r.path, f)); changed() } }, () => {})
+const LOGO_TYPES = { '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' }
+function serveLogo(pathname, res) {
+  const file = logos.get(pathname.slice('/logo/'.length))
+  if (!file || !existsSync(file)) { res.writeHead(404); return res.end('not found') }
+  // An SVG from a cloned repo may carry script: never let it run, even opened on its own.
+  res.writeHead(200, { 'content-type': LOGO_TYPES[extname(file).toLowerCase()], 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", 'cache-control': 'private, max-age=300' })
+  createReadStream(file).pipe(res)
+}
 
 // ---------- terminals (shell + scripts), one pty per key ----------
 const terms = new Map() // key -> { p, buf, alive }
@@ -272,7 +285,7 @@ const routes = {
     const existing = state.repos.find(r => r.path === path)
     if (existing) return existing
     const repo = { id: newId(), path, name: basename(path), base: await G.defaultBranch(path) }
-    state.repos.push(repo); save(); changed()
+    state.repos.push(repo); save(); changed(); scanLogo(repo)
     return repo
   },
   'PATCH /api/repos/:id': ({ repo, body }) => { if (body.base) repo.base = body.base; save(); changed(); return repo },
@@ -370,7 +383,7 @@ const server = http.createServer(async (req, res) => {
   if (!sameOrigin(req)) { res.writeHead(403); return res.end('forbidden') }
   const url = new URL(req.url, 'http://x')
   if (!url.pathname.startsWith('/api/')) {
-    try { return url.pathname.startsWith('/attachments/') ? serveAttachment(url.pathname, res) : serveStatic(url.pathname, res) } catch { res.writeHead(500); return res.end() }
+    try { return url.pathname.startsWith('/attachments/') ? serveAttachment(url.pathname, res) : url.pathname.startsWith('/logo/') ? serveLogo(url.pathname, res) : serveStatic(url.pathname, res) } catch { res.writeHead(500); return res.end() }
   }
   const parts = url.pathname.split('/') // ['', 'api', kind, id, action]
   const key = `${req.method} ${parts.length > 3 ? ['', 'api', parts[2], ':id', ...parts.slice(4)].join('/') : url.pathname}`
@@ -443,6 +456,8 @@ for (const r of state.resumeScripts ?? []) {
   if (run) openTerm(ws.id + ':script', ws, run.command, r.id)
 }
 if (state.resumeScripts) { delete state.resumeScripts; save() }
+
+for (const r of state.repos) scanLogo(r)
 
 // Plan usage in the sidebar: now, every 3 min, and after each agent turn (lib/agent.js).
 A.refreshUsage(); setInterval(A.refreshUsage, 3 * 60_000).unref()
