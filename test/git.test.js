@@ -129,3 +129,20 @@ test('diff ignores ignored files and survives an unborn branch error cleanly', a
   await git(root, ['init', '-q', '-b', 'main', empty])
   await assert.rejects(snapshot(empty)) // no HEAD yet: callers skip the checkpoint
 })
+
+test('findLogo: logo before icon/favicon, shallowest, vector first; skips ignored, node_modules, tests', async () => {
+  const { findLogo } = await import('../lib/git.js')
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cgtest-logo-')))
+  const repo = join(root, 'repo')
+  await git(root, ['init', '-q', '-b', 'main', repo])
+  const put = f => { mkdirSync(join(repo, f, '..'), { recursive: true }); writeFileSync(join(repo, f), 'x') }
+  assert.equal(await findLogo(repo), null, 'nothing yet')
+  put('public/favicon.ico'); put('src/icons/arrow.svg'); put('iconify.txt')
+  assert.equal(await findLogo(repo), 'public/favicon.ico')
+  put('build/icon.png'); put('build/icon.svg')
+  assert.equal(await findLogo(repo), 'build/icon.svg', 'icon beats favicon, svg beats png')
+  put('src/assets/brand/Logo-dark.png'); put('assets/logo.png'); put('test/logo.svg'); put('node_modules/x/logo.svg')
+  writeFileSync(join(repo, '.gitignore'), 'dist/\n'); put('dist/logo.svg')
+  assert.equal(await findLogo(repo), 'assets/logo.png', 'logo beats icon, shallowest wins, ignored/test paths skipped')
+  rmSync(root, { recursive: true, force: true })
+})

@@ -95,6 +95,7 @@ function renderSide() {
     plus.onclick = guard(async () => { plus.disabled = true; try { select((await api('POST', '/workspaces', { repoId: r.id })).id) } finally { plus.disabled = false } })
     const more = ibtn('more', t('side.repoOptions'))
     more.onclick = () => { showSettings(true); $(`#setRepos [data-repo="${r.id}"] select`)?.focus() }
+    if (r.logo) { const img = h('img', 'repoLogo'); img.src = r.logo; img.alt = ''; img.onerror = () => img.remove(); head.append(img) }
     head.append(name, more, plus); g.append(head)
     const lines = h('div', 'lines')
     lines.append(h('div', 'terminus', r.base))
