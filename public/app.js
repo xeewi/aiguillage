@@ -304,22 +304,26 @@ async function addRepoDialog() {
 }
 $('#addRepo').onclick = $('#emptyAdd').onclick = addRepoDialog
 
-function renameDialog(w) {
+// One text field in the app's dialog: resolves to the text, or null when cancelled. Never window.prompt():
+// the desktop app (Electron) has none, it throws.
+function ask(title, field, value, maxLength) {
   const f = $('#dlgForm'); f.replaceChildren()
-  const input = h('input'); input.value = label(w); input.maxLength = 80
-  const lab = h('label', null, t('dialog.name')); lab.append(input)
+  const input = h('input'); input.value = value; if (maxLength) input.maxLength = maxLength
+  const lab = h('label', null, field); lab.append(input)
   const row = h('div', 'row')
   // type=button: Enter in the field submits with OK, not with the first button.
   const cancel = h('button', 'ghost', t('dialog.cancel')); cancel.type = 'button'; cancel.onclick = () => $('#dlg').close('cancel')
   const ok = h('button', null, t('dialog.ok')); ok.value = 'ok'
   row.append(h('span', 'grow'), cancel, ok)
-  f.append(h('h3', null, t('dialog.rename')), lab, row)
+  f.append(h('h3', null, title), lab, row)
   $('#dlg').returnValue = ''
   $('#dlg').showModal(); input.select()
-  $('#dlg').onclose = guard(async () => {
-    if ($('#dlg').returnValue === 'ok' && input.value.trim() !== label(w)) await api('PATCH', `/workspaces/${w.id}`, { title: input.value })
-  })
+  return new Promise(r => { $('#dlg').onclose = () => r($('#dlg').returnValue === 'ok' ? input.value : null) })
 }
+const renameDialog = guard(async w => {
+  const v = await ask(t('dialog.rename'), t('dialog.name'), label(w), 80)
+  if (v != null && v.trim() !== label(w)) await api('PATCH', `/workspaces/${w.id}`, { title: v })
+})
 $('#rename').onclick = () => { $('#moreMenu').hidePopover(); renameDialog(wsById(active)) }
 $('#wsName').ondblclick = () => renameDialog(wsById(active))
 
@@ -430,7 +434,7 @@ async function wsAct(w, act, app) {
   let body = { app }
   if (act === 'archive' && !confirm(t('head.confirmArchive', { name: w.name, branch: w.branch }))) return
   if (act === 'merge' && !confirm(t('head.confirmMerge', { branch: w.branch, base: w.base }))) return
-  if (act === 'commit') { const m = prompt(t('head.commitPrompt'), w.title || ''); if (m == null) return; body = { message: m } }
+  if (act === 'commit') { const m = await ask(t('head.commit'), t('head.commitPrompt'), w.title || ''); if (m == null) return; body = { message: m } }
   const r = await api('POST', `/workspaces/${w.id}/${act}`, body)
   if (r.message) toast(r.message)
   if (act === 'archive') { if (w.id === active) active = null; renderSide(); renderHead() } else if (w.id === active) loadDiff()
@@ -610,7 +614,7 @@ function renderPerms() {
     const no = h('button', 'ghost', t(plan ? 'perm.denyPlan' : 'perm.deny'))
     const yes = h('button', null, t(plan ? 'perm.approvePlan' : 'perm.allow'))
     no.onclick = guard(async () => {
-      const message = plan ? prompt(t('perm.planFeedback')) : undefined
+      const message = plan ? await ask(t('perm.denyPlan'), t('perm.planFeedback'), '') : undefined
       if (plan && message == null) return
       await api('POST', `/workspaces/${active}/permission`, { id: p.id, allow: false, message })
     })

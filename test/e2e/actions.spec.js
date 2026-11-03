@@ -19,8 +19,11 @@ test('Commit → Merge: refused while uncommitted, then merged into main', async
   await act(page, 'Merge').click()
   await expect(page.locator('#toast.bad')).toContainText('uncommitted changes')
 
-  page.once('dialog', d => { expect(d.type()).toBe('prompt'); d.accept('add feature') })
   await act(page, 'Commit').click()
+  const msg = page.locator('#dlg').getByLabel('Commit message')
+  await expect(msg).toBeFocused()
+  await msg.fill('add feature')
+  await msg.press('Enter')
   await expect(page.locator('#toast')).toHaveText('Commit created.')
   expect(git(w.path, 'log', '-1', '--format=%s')).toBe('add feature')
 
@@ -30,12 +33,14 @@ test('Commit → Merge: refused while uncommitted, then merged into main', async
   expect(readFileSync(join(repoPath, 'feature.txt'), 'utf8')).toBe('shipped\n')
 })
 
-test('Commit cancelled in the prompt does nothing', async ({ open, page }) => {
+test('Commit cancelled in its dialog does nothing; the message starts from the task name', async ({ open, page }) => {
   const { w } = await open()
   await say(page, 'write x.txt x')
   await expect(page.locator('#thread .msg.ai').last()).toHaveText('wrote x.txt')
-  page.once('dialog', d => d.dismiss())
   await act(page, 'Commit').click()
+  await expect(page.locator('#dlg').getByLabel('Commit message')).toHaveValue('Named: write x.txt x')
+  await page.locator('#dlg').getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.locator('#dlg')).toBeHidden()
   await expect(page.locator('#toast')).toBeHidden()
   expect(git(w.path, 'status', '--porcelain')).toContain('x.txt')
 })

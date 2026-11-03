@@ -3,6 +3,11 @@ import { startServer, makeRepo } from '../helpers.mjs'
 
 // srv: an isolated server per test. open(files, opts): repo + workspace created via the API, page opened on it.
 export const test = base.extend({
+  // Like the desktop app: Electron has no window.prompt() (it throws), Chromium has one. Dialogs must be the app's own.
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => { window.prompt = () => { throw new Error('prompt() is not supported.') } })
+    await use(page)
+  },
   srv: async ({}, use) => { const srv = await startServer(); await use(srv); await srv.stop() },
   open: async ({ srv, page }, use) => {
     await use(async (files, opts) => {
