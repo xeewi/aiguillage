@@ -25,6 +25,8 @@
     "new": "Nouveau",
     "agents_one": "{{count}} sous-agent",
     "agents_other": "{{count}} sous-agents",
+    "shells_one": "{{count}} shell",
+    "shells_other": "{{count}} shells",
     "script": "Script en cours · port {{port}}"
   },
   "empty": {
@@ -85,6 +87,8 @@
     "confirmRevert": "Restaurer les fichiers et la conversation à avant ce message ? Les changements suivants sont perdus.",
     "subagents_one": "{{count}} sous-agent actif",
     "subagents_other": "{{count}} sous-agents actifs",
+    "shells_one": "{{count}} shell en arrière-plan",
+    "shells_other": "{{count}} shells en arrière-plan",
     "stopSubagent": "Arrêter « {{name}} »",
     "subagentStopped": "Arrêté",
     "turns_one": "{{count}} tour",

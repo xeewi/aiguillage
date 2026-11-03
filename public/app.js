@@ -138,7 +138,7 @@ function renderUpdate() {
   const b = h('button', null, t(u.state === 'ready' ? 'update.restart' : 'update.download'))
   b.onclick = () => {
     if (u.state === 'manual') return open(u.url)
-    const n = S.workspaces.filter(w => w.busy || w.tasks?.length).length
+    const n = S.workspaces.filter(w => w.busy || w.tasks?.some(x => !x.shell)).length // background shells: see working() in lib/agent.js
     if (n && !confirm(t('update.busyWarning', { count: n }))) return
     b.disabled = true; b.textContent = t('update.restarting')
     api('POST', '/update').catch(() => {}) // the app quits before answering
@@ -230,10 +230,12 @@ function wsItem(w) {
   const n = lineOf(w)
   const el = h('div', `wsItem ${lineCls(n)}` + (w.id === active && !settingsOpen ? ' on' : ''))
   el.append(h('span', 'bdg', n), h('span', 'wsName', label(w)))
+  const agents = w.tasks?.filter(x => !x.shell).length ?? 0, shells = (w.tasks?.length ?? 0) - agents
   const pill = w.pending.length ? h('span', 'pill ask', t('status.ask'))
-    : w.busy || w.tasks?.length ? h('span', 'pill run', w.tasks?.length ? t('status.agents', { count: w.tasks.length }) : t('status.run'))
+    : w.busy || agents ? h('span', 'pill run', agents ? t('status.agents', { count: agents }) : t('status.run'))
     : w.failed ? h('span', 'pill err', t('status.err'))
-    : unread.has(w.id) ? h('span', 'pill new', t('status.new')) : null
+    : unread.has(w.id) ? h('span', 'pill new', t('status.new'))
+    : shells ? h('span', 'pill shell', t('status.shells', { count: shells })) : null
   el.title = label(w) + (pill ? ' · ' + pill.textContent : '') // the only label left when the sidebar is collapsed
   if (pill) { if (pill.matches('.run, .new')) pill.prepend(h('i')); if (pill.matches('.err')) pill.insertAdjacentHTML('afterbegin', svg('x')); el.append(pill) }
   else if (w.scriptRunning) { const r = h('span', 'pill script'); r.innerHTML = svg('play'); r.append(w.scriptRunning); r.title = t('status.script', { port: w.port }); el.append(r) }
@@ -549,6 +551,7 @@ function toolEl(c) {
     }
     d.append(pre)
   } else if (c.name !== 'Read') d.append(h('pre', null, typeof i.command === 'string' ? i.command : JSON.stringify(i, null, 2)))
+  if (typeof i.command === 'string') d.dataset.cmd = i.command // a background shell's row shows it
   const out = h('pre', 'out'); out.hidden = true
   d.append(out, h('div', 'sub'))
   toolEls.set(c.id, d)
@@ -556,20 +559,23 @@ function toolEl(c) {
   return d
 }
 
-// Subagents still working, over the composer: each opens its block in the thread, where its messages and tools land,
-// and can be stopped alone. The row stays until the CLI confirms; meanwhile its stop button waits.
+// Subagents still working and shells left running in the background, over the composer: each opens its block in the
+// thread, where its messages and tools land, and can be stopped alone. The row stays until the CLI confirms; meanwhile its stop button waits.
 const stopping = new Set()
 function renderTasks() {
   const tasks = wsById(active)?.tasks ?? [], box = $('#tasks')
   const ids = new Set(tasks.map(x => x.id))
-  for (const [id, el] of toolEls) if (el.matches('.agent')) el.classList.toggle('running', ids.has(id))
+  for (const [id, el] of toolEls) el.classList.toggle('running', ids.has(id))
   box.hidden = !tasks.length
   if (box.hidden) { box.replaceChildren(); return scroll() }
-  box.replaceChildren(h('div', 'tasksHead', t('chat.subagents', { count: tasks.length })), ...tasks.map(x => {
-    const row = h('div', 'task'), name = x.description || x.type
+  const shells = tasks.filter(x => x.shell).length, agents = tasks.length - shells
+  const head = [agents && t('chat.subagents', { count: agents }), shells && t('chat.shells', { count: shells })].filter(Boolean).join(' · ')
+  box.replaceChildren(h('div', 'tasksHead', head), ...tasks.map(x => {
+    const cmd = x.shell && toolEls.get(x.id)?.dataset.cmd
+    const row = h('div', 'task' + (x.shell ? ' shell' : '')), name = x.description || cmd || x.type
     const b = h('button', 'open')
-    b.append(h('i'), h('b', null, name), h('span', 'mono', x.last || x.type))
-    b.title = [x.type, x.description, x.last].filter(Boolean).join(' · ')
+    b.append(h('i'), h('b', null, name), h('span', 'mono', x.last || cmd || x.type))
+    b.title = [x.type, x.description, cmd || x.last].filter(Boolean).join(' · ')
     b.onclick = () => {
       const el = toolEls.get(x.id); if (!el) return
       el.open = true; el.scrollIntoView({ block: 'start', behavior: 'smooth' })

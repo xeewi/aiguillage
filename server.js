@@ -461,7 +461,7 @@ wss.on('connection', sock => {
 if (process.versions.electron) U.start({
   changed,
   enabled: () => state.defaults?.autoUpdate !== false,
-  busy: () => state.workspaces.filter(w => { const r = A.runtime(w.id); return r.busy || r.tasks.length }).length,
+  busy: () => state.workspaces.filter(w => A.working(A.runtime(w.id))).length,
   beforeInstall: () => {
     state.resumeScripts = state.workspaces.filter(w => terms.get(w.id + ':script')?.alive).map(w => ({ ws: w.id, id: terms.get(w.id + ':script').label }))
     save()

@@ -25,7 +25,7 @@ test('subagents: listed while they work, past the end of the turn; their message
   const { w } = await setup(srv)
   assert.equal(await srv.turn(w.id, 'subagent 1500'), 'subagent launched')
   const [task] = (await srv.ws(w.id)).tasks
-  assert.deepEqual(task, { id: task.id, taskId: task.taskId, description: 'Look around', type: 'general-purpose', background: true, last: 'Running List files' })
+  assert.deepEqual(task, { id: task.id, taskId: task.taskId, description: 'Look around', type: 'general-purpose', background: true, last: 'Running List files', shell: false })
   await waitFor(async () => !(await srv.ws(w.id)).tasks.length, { what: 'subagent done' })
   const log = await srv.log(w.id)
   assert.ok(log.some(e => e.type === 'task' && e.tool_use_id === task.id && e.status === 'completed'))
@@ -40,6 +40,16 @@ test('subagents: one can be stopped alone; it ends « stopped » and the session
   await waitFor(async () => !(await srv.ws(w.id)).tasks.length, { what: 'subagent stopped' })
   assert.ok((await srv.log(w.id)).some(e => e.type === 'task' && e.tool_use_id === task.id && e.status === 'stopped'))
   assert.equal(await srv.turn(w.id, 'still here'), 'ok: still here')
+})
+
+test('background shells: listed while they run, past the end of the turn; stop_task ends one « stopped »', async () => {
+  const { w } = await setup(srv)
+  assert.equal(await srv.turn(w.id, 'shell 60000'), 'shell launched')
+  const [task] = (await srv.ws(w.id)).tasks
+  assert.deepEqual(task, { id: task.id, taskId: task.taskId, description: 'Start the dev server', type: '', background: true, last: '', shell: true })
+  await srv.api('POST', `/workspaces/${w.id}/stop-task`, { id: task.id })
+  await waitFor(async () => !(await srv.ws(w.id)).tasks.length, { what: 'shell stopped' })
+  assert.ok((await srv.log(w.id)).some(e => e.type === 'task' && e.tool_use_id === task.id && e.status === 'stopped'))
 })
 
 test('naming: Claude names the workspace from the first message; a rename sticks; empty goes back to auto', async () => {

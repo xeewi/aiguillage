@@ -56,14 +56,19 @@ test('slim(): logs keep what the UI renders', () => {
   assert.deepEqual(m, { type: 'assistant', uuid: 'u', parent_tool_use_id: null, message: { content: [{ type: 'text', text: 'hi' }] } })
 })
 
-test('track(): subagents listed from task_started to task_notification, background shells left out', () => {
+test('track(): subagents and background shells listed from task_started to task_notification', () => {
   const tasks = new Map()
-  assert.ok(!A.track(tasks, { subtype: 'task_started', tool_use_id: 'b1', task_type: 'local_bash', description: 'npm run dev' }))
+  assert.ok(!A.track(tasks, { subtype: 'task_started', tool_use_id: 'w1', task_type: 'local_workflow', description: 'review' }))
+  assert.ok(A.track(tasks, { subtype: 'task_started', tool_use_id: 'b1', task_id: 'bx', task_type: 'local_bash', description: 'npm run dev', is_backgrounded: true }))
   assert.ok(A.track(tasks, { subtype: 'task_started', tool_use_id: 't1', task_type: 'local_agent', description: 'Look', subagent_type: 'Explore', is_backgrounded: true }))
   assert.ok(A.track(tasks, { subtype: 'task_progress', tool_use_id: 't1', description: 'Running ls' }))
-  assert.deepEqual([...tasks.values()], [{ id: 't1', taskId: undefined, description: 'Look', type: 'Explore', background: true, last: 'Running ls' }])
+  assert.deepEqual([...tasks.values()], [
+    { id: 'b1', taskId: 'bx', description: 'npm run dev', type: '', background: true, last: '', shell: true },
+    { id: 't1', taskId: undefined, description: 'Look', type: 'Explore', background: true, last: 'Running ls', shell: false }])
   assert.ok(!A.track(tasks, { subtype: 'task_updated', tool_use_id: 't1' }))
-  assert.ok(!A.track(tasks, { subtype: 'task_notification', tool_use_id: 'b1', status: 'completed' }))
+  assert.ok(!A.working({ busy: false, tasks: [tasks.get('b1')] }), 'a shell alone is not work')
+  assert.ok(A.working({ busy: false, tasks: [...tasks.values()] }))
+  assert.ok(A.track(tasks, { subtype: 'task_notification', tool_use_id: 'b1', status: 'completed' }))
   assert.ok(A.track(tasks, { subtype: 'task_notification', tool_use_id: 't1', status: 'completed' }))
   assert.equal(tasks.size, 0)
 })

@@ -63,6 +63,7 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 .pill.new i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
 .pill.script { border: 1px solid var(--line); color: var(--muted); font-family: var(--mono); font-weight: 500; gap: 4px; }
 .pill.script svg { width: 10px; height: 10px; }
+.pill.shell { border: 1px solid var(--line); color: var(--muted); }
 .pill.err { border: 1px solid var(--ask); color: var(--ask-text); gap: 4px; }
 .pill.err svg { width: 10px; height: 10px; }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none !important; } }
@@ -237,6 +238,8 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #tasks .task i { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--fg); animation: pulse .9s ease-in-out infinite alternate; }
 #tasks .task b { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #tasks .task .mono { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A shell may run for hours (a dev server): a steady square, not a pulse. */
+#tasks .task.shell i { border-radius: 2px; background: var(--muted); animation: none; }
 @media (prefers-reduced-motion: reduce) { .tool.running summary::before, #tasks .task i { animation: none; } }
 .perm { border: 2px solid var(--ask); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--panel); display: grid; gap: 8px; }
 .perm .q { display: flex; align-items: center; gap: 10px; font-weight: 700; }

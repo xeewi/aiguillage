@@ -13,6 +13,7 @@
 //   anything else: "ok: <text>"
 //   subagent <ms>          a background Agent that runs a Bash, works <ms> (default 800) after the turn, then reports;
 //                          the stop_task control ends it early with « stopped »
+//   shell <ms>             a Bash left running in the background (npm run dev), done after <ms> (default 800); stop_task too
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
 import readline from 'node:readline'
 import { execSync } from 'node:child_process'
@@ -85,7 +86,7 @@ function needsAsk(tool, input) {
   return true
 }
 
-const background = {} // task_id -> stop(): subagents still running (stop_task ends them)
+const background = {} // task_id -> stop(): subagents and shells still running (stop_task ends them)
 
 // ---- one turn ----
 let turns = 0
@@ -209,6 +210,25 @@ async function turn(text) {
       const timer = setTimeout(() => end('completed'), Number(rest[0]) || 800)
       background[task_id] = () => { clearTimeout(timer); end('stopped') }
       say('subagent launched')
+      break
+    }
+    case 'shell': {
+      // As the real CLI does it: task_started (local_bash), the Bash call answered at once, later task_notification
+      // and a turn of its own. No task_progress for shells.
+      const id = 'toolu_' + randomUUID().slice(0, 8), task_id = 'b' + randomUUID().slice(0, 8)
+      assistant([{ type: 'tool_use', id, name: 'Bash', input: { command: 'npm run dev', description: 'Start the dev server', run_in_background: true } }])
+      out({ type: 'system', subtype: 'task_started', task_id, tool_use_id: id, description: 'Start the dev server', task_type: 'local_bash', is_backgrounded: true, session_id: sid })
+      out({ type: 'user', uuid: randomUUID(), parent_tool_use_id: null, session_id: sid, message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: `Command running in background with ID: ${task_id}.` }] } })
+      const end = status => {
+        delete background[task_id]
+        out({ type: 'system', subtype: 'task_notification', task_id, tool_use_id: id, status, summary: 'shell ' + status, session_id: sid })
+        out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
+        assistant([{ type: 'text', text: 'the shell ' + status }])
+        out({ type: 'result', subtype: 'success', is_error: false, duration_ms: 1, total_cost_usd: 0, num_turns: 1, session_id: sid, uuid: randomUUID() })
+      }
+      const timer = setTimeout(() => end('completed'), Number(rest[0]) || 800)
+      background[task_id] = () => { clearTimeout(timer); end('stopped') }
+      say('shell launched')
       break
     }
     case 'markdown':

@@ -103,6 +103,23 @@ test('subagents: a row per running one over the composer and a count in the side
   await expect(block).toHaveClass(/done/)
 })
 
+test('background shells: a row with the command over the composer and a calm pill in the sidebar; Stop ends it', async ({ open, page }) => {
+  await open()
+  await say(page, 'shell 60000')
+  const row = page.locator('#tasks .task.shell')
+  await expect(page.locator('#tasks .tasksHead')).toHaveText('1 background shell running')
+  await expect(row).toContainText('Start the dev server')
+  await expect(row).toContainText('npm run dev')
+  await expect(page.locator('.wsItem.on .pill.shell')).toHaveText('1 shell') // once the turn is over
+  const block = page.locator('#thread details.tool', { hasText: 'npm run dev' })
+  await expect(block).toHaveClass(/running/)
+  await page.getByRole('button', { name: 'Stop “Start the dev server”' }).click()
+  await expect(page.locator('#tasks')).toBeHidden()
+  await expect(block).not.toHaveClass(/running|bad/)
+  await expect(block.locator('.sub > .meta')).toHaveText('Stopped')
+  await expect(page.locator('.wsItem.on .pill.shell')).toHaveCount(0)
+})
+
 test('subagents: the stop button ends one alone; its block ends filled and « Stopped », not red', async ({ open, page }) => {
   await open()
   await say(page, 'subagent 60000')
