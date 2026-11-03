@@ -52,6 +52,33 @@ test('background shells: listed while they run, past the end of the turn; stop_t
   assert.ok((await srv.log(w.id)).some(e => e.type === 'task' && e.tool_use_id === task.id && e.status === 'stopped'))
 })
 
+// « Working » follows the CLI's turns, not a count of messages sent: the CLI starts turns of its own and folds messages in.
+test('working: the turn a finished subagent starts on its own shows the agent working', async () => {
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'subagent 200')
+  await waitFor(async () => (await srv.ws(w.id)).busy, { what: 'notification turn shown as working' })
+  await srv.idle(w.id)
+  assert.equal(lastText(await srv.log(w.id)), 'the subagent completed')
+})
+
+test('working: a message landing behind a background task\'s empty turn stays working until its own turn ends', async () => {
+  const { w } = await setup(srv)
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'race' })
+  await waitFor(async () => (await srv.log(w.id)).some(e => e.type === 'result' && e.num_turns === 0), { what: 'empty turn' })
+  assert.ok((await srv.ws(w.id)).busy, 'still working after the empty turn')
+  await srv.idle(w.id)
+  assert.equal(lastText(await srv.log(w.id)), 'raced')
+})
+
+test('working: a message sent mid-turn joins it; one result, then idle', async () => {
+  const { w } = await setup(srv)
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'merge' })
+  await waitFor(async () => (await srv.log(w.id)).some(e => e.message?.content?.[0]?.type === 'tool_use'), { what: 'tool running' })
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'also this' })
+  await waitFor(async () => lastText(await srv.log(w.id)) === 'merged: also this', { what: 'merged reply' })
+  await srv.idle(w.id, 3000)
+})
+
 test('naming: Claude names the workspace from the first message; a rename sticks; empty goes back to auto', async () => {
   const { w } = await setup(srv)
   await srv.turn(w.id, 'fix the login page')

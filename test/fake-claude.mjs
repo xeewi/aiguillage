@@ -14,6 +14,10 @@
 //   subagent <ms>          a background Agent that runs a Bash, works <ms> (default 800) after the turn, then reports;
 //                          the stop_task control ends it early with « stopped »
 //   shell <ms>             a Bash left running in the background (npm run dev), done after <ms> (default 800); stop_task too
+//                          Both report back in a turn the CLI starts on its own, which takes NOTICE_MS.
+//   race                   lands right behind a background task's notification: that empty turn ends first (num_turns 0),
+//                          then this one works ~800 ms and says "raced"
+//   merge                  a tool that takes ~800 ms; messages sent meanwhile join this turn (one result for all)
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
 import readline from 'node:readline'
 import { execSync } from 'node:child_process'
@@ -87,6 +91,14 @@ function needsAsk(tool, input) {
 }
 
 const background = {} // task_id -> stop(): subagents and shells still running (stop_task ends them)
+const NOTICE_MS = 400
+// The turn the CLI starts by itself to tell the agent a background task ended: no user message behind it.
+async function notice(text) {
+  out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
+  await sleep(NOTICE_MS)
+  assistant([{ type: 'text', text }])
+  out({ type: 'result', subtype: 'success', is_error: false, duration_ms: NOTICE_MS, total_cost_usd: 0, num_turns: 1, session_id: sid, uuid: randomUUID() })
+}
 
 // ---- one turn ----
 let turns = 0
@@ -133,6 +145,10 @@ async function turn(text) {
       : arg === 'nope' ? `Model 'nope' not found` : name === 'model' ? (model = arg, `Set model to \`${arg}\` for this session only`) : arg === 'auto' ? 'Effort level set to auto (this session only)' : `Set effort level to ${arg} (this session only)`
     out({ type: 'assistant', uuid: randomUUID(), parent_tool_use_id: null, session_id: sid, message: { role: 'assistant', content: [{ type: 'text', text: reply }] } })
     return out({ type: 'result', subtype: 'success', is_error: false, duration_ms: 1, num_turns: 0, result: reply, local_command: name === 'permissions' ? undefined : name, session_id: sid, uuid: randomUUID() })
+  }
+  if (text.trim() === 'race') {
+    out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
+    out({ type: 'result', subtype: 'success', is_error: false, duration_ms: 80, total_cost_usd: 0, num_turns: 0, session_id: sid, uuid: randomUUID() })
   }
   interrupted = false; turns = 1
   out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
@@ -203,9 +219,7 @@ async function turn(text) {
         delete background[task_id]
         if (status === 'completed') sub('assistant', [{ type: 'text', text: 'subagent done' }])
         out({ type: 'system', subtype: 'task_notification', task_id, tool_use_id: id, status, summary: 'subagent ' + status, session_id: sid })
-        out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
-        assistant([{ type: 'text', text: 'the subagent ' + status }])
-        out({ type: 'result', subtype: 'success', is_error: false, duration_ms: 1, total_cost_usd: 0, num_turns: 1, session_id: sid, uuid: randomUUID() })
+        notice('the subagent ' + status)
       }
       const timer = setTimeout(() => end('completed'), Number(rest[0]) || 800)
       background[task_id] = () => { clearTimeout(timer); end('stopped') }
@@ -222,13 +236,22 @@ async function turn(text) {
       const end = status => {
         delete background[task_id]
         out({ type: 'system', subtype: 'task_notification', task_id, tool_use_id: id, status, summary: 'shell ' + status, session_id: sid })
-        out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
-        assistant([{ type: 'text', text: 'the shell ' + status }])
-        out({ type: 'result', subtype: 'success', is_error: false, duration_ms: 1, total_cost_usd: 0, num_turns: 1, session_id: sid, uuid: randomUUID() })
+        notice('the shell ' + status)
       }
       const timer = setTimeout(() => end('completed'), Number(rest[0]) || 800)
       background[task_id] = () => { clearTimeout(timer); end('stopped') }
       say('shell launched')
+      break
+    }
+    case 'race':
+      await sleep(800)
+      say('raced')
+      break
+    case 'merge': {
+      await tool('Bash', { command: 'sleep 1', description: 'fake' }, () => sleep(800).then(() => '(no output)'))
+      const joined = queue.splice(0)
+      for (const t of joined) messages.push({ uuid: randomUUID(), role: 'user', text: t })
+      say('merged: ' + joined.join(' | '))
       break
     }
     case 'markdown':
