@@ -56,6 +56,15 @@ test('slim(): logs keep what the UI renders', () => {
   assert.deepEqual(m, { type: 'assistant', uuid: 'u', parent_tool_use_id: null, message: { content: [{ type: 'text', text: 'hi' }] } })
 })
 
+test('trim(): no thinking, tool output as text, images as [image], cut at 8000', () => {
+  const out = A.trim([{ type: 'thinking', thinking: 'x', signature: 's' }, { type: 'text', text: 'hi' },
+    { type: 'tool_result', tool_use_id: 't', is_error: true, content: [{ type: 'text', text: 'shot:' }, { type: 'image', source: { data: 'A'.repeat(1e6) } }] },
+    { type: 'tool_result', tool_use_id: 'u', content: 'y'.repeat(9000) }])
+  assert.deepEqual(out.slice(0, 2), [{ type: 'text', text: 'hi' }, { type: 'tool_result', tool_use_id: 't', is_error: true, content: 'shot:\n[image]' }])
+  assert.equal(out[2].content, 'y'.repeat(8000) + '\n…')
+  assert.equal(A.trim('plain'), 'plain')
+})
+
 test('track(): subagents and background shells listed from task_started to task_notification', () => {
   const tasks = new Map()
   assert.ok(!A.track(tasks, { subtype: 'task_started', tool_use_id: 'w1', task_type: 'local_workflow', description: 'review' }))

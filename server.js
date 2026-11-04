@@ -9,7 +9,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
 import pty from 'node-pty'
-import { state, save, readLog, newId, WORKTREES, runLogPath, ATTACHMENTS, attachDir } from './lib/store.js'
+import { state, save, readLog, writeLog, newId, WORKTREES, runLogPath, ATTACHMENTS, attachDir } from './lib/store.js'
 import { config as readConfig, defaultRun } from './lib/config.js'
 import * as G from './lib/git.js'
 import * as A from './lib/agent.js'
@@ -472,6 +472,12 @@ for (const r of state.resumeScripts ?? []) {
   if (run) openTerm(ws.id + ':script', ws, run.command, r.id)
 }
 if (state.resumeScripts) { delete state.resumeScripts; save() }
+
+// Logs written before lib/agent.js trim() still hold screenshots and thinking: cut them once, like new ones.
+if (!state.logsTrimmed) {
+  for (const w of state.workspaces) { const log = readLog(w.id); if (log.length) writeLog(w.id, log.map(e => Array.isArray(e.message?.content) ? { ...e, message: { ...e.message, content: A.trim(e.message.content) } } : e)) }
+  state.logsTrimmed = true; save()
+}
 
 for (const r of state.repos) scanLogo(r)
 

@@ -528,8 +528,8 @@ function renderEv(ev) {
     else if (c.type === 'tool_use') into.append(toolEl(c))
     else if (c.type === 'tool_result') {
       const t = toolEls.get(c.tool_use_id); if (!t) continue
-      const text = typeof c.content === 'string' ? c.content : (c.content ?? []).map(x => x.text ?? `[${x.type}]`).join('\n')
-      const out = t.querySelector('.out'); out.textContent = text.length > 8000 ? text.slice(0, 8000) + '\n…' : text
+      const text = c.content ?? '' // already text, cut by the server (lib/agent.js trim)
+      const out = t.querySelector('.out'); out.textContent = text
       out.hidden = !text
       if (c.is_error) t.classList.add('bad')
       t.classList.add('done')
