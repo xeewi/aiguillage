@@ -33,6 +33,7 @@ const view = () => ({
   usage: A.usageNow(),
   workspaces: state.workspaces.map(w => ({ ...w, ...A.runtime(w.id), scriptRunning: terms.get(w.id + ':script')?.alive ? terms.get(w.id + ':script').label : null,
     claudeTerm: !!terms.get(w.id + ':claude')?.alive })),
+  telegram: R.info(),
   aiguilleur: state.aiguilleur && { ...state.aiguilleur, ...A.runtime('aiguilleur'), aiguilleur: true, brief: undefined },
 })
 let pendingState = null
@@ -299,6 +300,10 @@ const routes = {
     state.defaults = { model: String(body.model ?? ''), effort: String(body.effort ?? ''), permissionMode, autoUpdate: body.autoUpdate !== false }
     save(); changed(); return state.defaults
   },
+  // Settings → Telegram: a bot token ('' disconnects); the page then gets the link that ties the user's chat to it.
+  'POST /api/telegram': async ({ body }) => { await R.connect(body.token); return {} },
+  // Remote mode (sidebar button): Telegram gets the reports and requests, after a catch-up.
+  'PATCH /api/telegram': async ({ body }) => { await R.setRemote(!!body.remote); return {} },
   // Desktop app: restart into the downloaded update (lib/update.js).
   'POST /api/update': () => { U.install(); return {} },
   // Same as the app menu's « Check for updates… »; progress comes back through the state broadcasts.
@@ -513,8 +518,8 @@ if (!state.logsTrimmed) {
 
 for (const r of state.repos) scanLogo(r)
 
-// The aiguilleur (lib/remote.js), and Telegram when ~/.aiguillage/settings.toml has a [telegram] token.
-R.start({ port: PORT, send: (ws, text) => routes['POST /api/workspaces/:id/send']({ ws, body: { text } }) })
+// The aiguilleur, and Telegram once set up in Settings (lib/remote.js).
+R.start({ port: PORT, changed, send: (ws, text) => routes['POST /api/workspaces/:id/send']({ ws, body: { text } }) })
 
 // Plan usage in the sidebar: now, every 3 min, and after each agent turn (lib/agent.js).
 A.refreshUsage(); setInterval(A.refreshUsage, 3 * 60_000).unref()

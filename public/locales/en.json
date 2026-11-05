@@ -18,7 +18,10 @@
     "confirmDelete": "Delete {{name}} and branch {{branch}}?",
     "settings": "Settings",
     "collapse": "Collapse the sidebar",
-    "expand": "Expand the sidebar"
+    "expand": "Expand the sidebar",
+    "remote": "Remote mode",
+    "remoteOn": "Remote mode: on. Telegram gets the reports and requests. Click to turn it off.",
+    "remoteOff": "Remote mode: off. Click to get the reports and requests on Telegram."
   },
   "status": {
     "ask": "Needs you",
@@ -168,7 +171,17 @@
     "baseBranch": "Base branch for new workspaces",
     "removeRepo": "Remove",
     "confirmRemove": "Remove {{name}} from Aiguillage? Its folder stays on disk.",
-    "updates": "Updates"
+    "updates": "Updates",
+    "telegram": "Telegram",
+    "telegramHint": "Follow and steer your agents from your phone while the Mac runs: their reports, Allow / Deny buttons, and the Aiguilleur. In Telegram, create a bot with @BotFather (/newbot) and paste its token here.",
+    "telegramToken": "Bot token",
+    "telegramConnect": "Connect",
+    "telegramDisconnect": "Disconnect",
+    "telegramConfirmDisconnect": "Disconnect Telegram? The bot stops answering until you connect it again.",
+    "telegramWaiting": "Last step: open Telegram with this button and tap Start.",
+    "telegramOpen": "Open in Telegram",
+    "telegramManual": "Or send {{command}} to @{{bot}}.",
+    "telegramLinked": "Linked to {{name}}"
   },
   "errors": {
     "notRepo": "This folder is not a git repo.",
@@ -191,7 +204,9 @@
     "emptyMessage": "Write a message or attach a file.",
     "claudeInTerminal": "Claude Code is open in the Terminal tab on this conversation: quit it (/exit) to chat here again.",
     "badCommand": "Not a command.",
-    "agentBusy": "The agent is working: wait for it or stop it first."
+    "agentBusy": "The agent is working: wait for it or stop it first.",
+    "telegramToken": "Telegram refused this token. Copy it again from @BotFather.",
+    "telegramNotLinked": "Link Telegram first, in Settings."
   },
   "messages": {
     "committed": "Commit created.",
@@ -236,10 +251,17 @@
     "plan": "{{plan}} plan"
   },
   "telegram": {
-    "pair": "To link this chat to Aiguillage, add chat = {{chat}} under [telegram] in ~/.aiguillage/settings.toml, then restart Aiguillage.",
+    "pair": "This bot belongs to an Aiguillage. To link this chat, open the link shown in Aiguillage, in Settings → Telegram.",
     "none": "No active workspace.",
-    "muted": "Muted: no reports until /unmute (the aiguilleur still answers).",
-    "unmuted": "Reports are back on.",
-    "gone": "This workspace no longer exists."
+    "gone": "This workspace no longer exists.",
+    "linked": "Linked! Write anything to talk to the Aiguilleur. /remote and /local turn the reports on and off; /status lists the workspaces.",
+    "remoteOn": "📡 Remote mode on: reports and requests come here. /local to stop.",
+    "remoteOff": "Remote mode off: nothing comes here on its own any more. /remote to catch up and turn it back on.",
+    "cmd": {
+      "remote": "Remote mode: catch up, then get the reports and requests",
+      "local": "Back at the Mac: no more reports",
+      "status": "Where every workspace stands",
+      "stop": "Stop the Aiguilleur, or the agent of the report you reply to"
+    }
   }
 }

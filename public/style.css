@@ -119,7 +119,7 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 .electron.side-min #side { width: 94px; padding-top: 48px; }
 .electron.side-min .brand { padding-left: 0; }
 .side-min .wsItem::before,
-.side-min :is(.brand > :not(button), .repoHead > :not(.plus, .repoLogo, .repoMark), .terminus, .wsName, .wsTitle, #archived, #update, #usage, #addRepo span, #openSettings span) { display: none; }
+.side-min :is(.brand > :not(button), .repoHead > :not(.plus, .repoLogo, .repoMark), .terminus, .wsName, .wsTitle, #archived, #update, #usage, #addRepo span, #openSettings span, #remote span) { display: none; }
 .side-min .brand, .side-min .repoHead { padding: 0; justify-content: center; }
 /* the map survives the fold: each repo is a line from its sign (logo, or initial) down through its badges,
    then « + » for the next station; repos sit 16px apart */
@@ -139,7 +139,7 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 .side-min .wsItem .pill:is(.ask, .err) { background: var(--ask); }
 .side-min .wsItem .pill.script { background: var(--trunk); }
 /* every rail control is the same 32px square around a 16px icon */
-.side-min :is(#sideToggle, .repoHead .plus, #addRepo, #openSettings) { width: 32px; height: 32px; padding: 0; justify-content: center; }
+.side-min :is(#sideToggle, .repoHead .plus, #addRepo, #openSettings, #remote) { width: 32px; height: 32px; padding: 0; justify-content: center; }
 
 /* main */
 main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -406,6 +406,17 @@ dialog .row { margin-top: 16px; }
 /* settings page: takes the workspace's place in main */
 #openSettings { justify-content: flex-start; border-color: transparent; background: none; color: var(--muted); }
 #openSettings:hover, #openSettings.on { background: var(--soft); color: var(--fg); }
+/* remote mode: a switch in the sidebar's footer; on, it fills in like a lit signal */
+#remote { justify-content: flex-start; border-color: transparent; background: none; color: var(--muted); position: relative; }
+#remote:hover { background: var(--soft); color: var(--fg); }
+#remote > i { margin-left: auto; width: 26px; height: 15px; border-radius: 8px; background: var(--line); position: relative; flex: none; transition: background .15s; }
+#remote > i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--bg); transition: transform .15s; }
+#remote[aria-pressed="true"] { color: var(--fg); }
+#remote[aria-pressed="true"] > i { background: var(--ok); }
+#remote[aria-pressed="true"] > i::after { transform: translateX(11px); }
+.side-min #remote > i { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; margin: 0; }
+.side-min #remote > i::after { display: none; }
+@media (prefers-reduced-motion: reduce) { #remote > i, #remote > i::after { transition: none; } }
 #settings { flex: 1; min-height: 0; overflow-y: auto; }
 .setHead { display: flex; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); }
 .setHead h1 { flex: 1; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
@@ -416,6 +427,7 @@ dialog .row { margin-top: 16px; }
 .setRow > span { flex: 1; font-weight: 700; }
 .setRow > #updateNote { font-weight: 500; font-size: 13px; }
 .setRow select { min-width: 220px; }
+#setTelegram .err { margin: 8px 0 0; font-size: 13px; color: var(--ask-text); }
 .setRepo .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setRepo select { max-width: 200px; }
 #openBtn svg { width: 12px; height: 12px; }

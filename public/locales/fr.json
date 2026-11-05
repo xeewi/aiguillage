@@ -18,7 +18,10 @@
     "confirmDelete": "Supprimer {{name}} et la branche {{branch}} ?",
     "settings": "Réglages",
     "collapse": "Replier la barre latérale",
-    "expand": "Déplier la barre latérale"
+    "expand": "Déplier la barre latérale",
+    "remote": "Mode remote",
+    "remoteOn": "Mode remote activé : Telegram reçoit les comptes rendus et les demandes. Clique pour le couper.",
+    "remoteOff": "Mode remote coupé. Clique pour recevoir les comptes rendus et les demandes sur Telegram."
   },
   "status": {
     "ask": "Attend ta réponse",
@@ -168,7 +171,17 @@
     "baseBranch": "Branche de base des nouveaux workspaces",
     "removeRepo": "Retirer",
     "confirmRemove": "Retirer {{name}} d'Aiguillage ? Son dossier reste sur le disque.",
-    "updates": "Mises à jour"
+    "updates": "Mises à jour",
+    "telegram": "Telegram",
+    "telegramHint": "Suis et pilote tes agents depuis ton téléphone pendant que le Mac tourne : leurs comptes rendus, les boutons Autoriser / Refuser, et l'Aiguilleur. Dans Telegram, crée un bot avec @BotFather (/newbot) et colle son token ici.",
+    "telegramToken": "Token du bot",
+    "telegramConnect": "Connecter",
+    "telegramDisconnect": "Déconnecter",
+    "telegramConfirmDisconnect": "Déconnecter Telegram ? Le bot ne répondra plus jusqu'à ce que tu le reconnectes.",
+    "telegramWaiting": "Dernière étape : ouvre Telegram avec ce bouton et appuie sur Démarrer.",
+    "telegramOpen": "Ouvrir dans Telegram",
+    "telegramManual": "Ou envoie {{command}} à @{{bot}}.",
+    "telegramLinked": "Relié à {{name}}"
   },
   "errors": {
     "notRepo": "Ce dossier n'est pas un repo git.",
@@ -191,7 +204,9 @@
     "emptyMessage": "Écris un message ou joins un fichier.",
     "claudeInTerminal": "Claude Code est ouvert dans l’onglet Terminal sur cette conversation : quitte-le (/exit) pour reprendre le tchat ici.",
     "badCommand": "Ce n’est pas une commande.",
-    "agentBusy": "L’agent travaille : attends qu’il ait fini ou arrête-le."
+    "agentBusy": "L’agent travaille : attends qu’il ait fini ou arrête-le.",
+    "telegramToken": "Telegram refuse ce token. Recopie-le depuis @BotFather.",
+    "telegramNotLinked": "Relie d'abord Telegram, dans les Réglages."
   },
   "messages": {
     "committed": "Commit créé.",
@@ -236,10 +251,17 @@
     "plan": "Forfait {{plan}}"
   },
   "telegram": {
-    "pair": "Pour relier ce chat à Aiguillage, ajoute chat = {{chat}} sous [telegram] dans ~/.aiguillage/settings.toml, puis relance Aiguillage.",
+    "pair": "Ce bot appartient à un Aiguillage. Pour relier ce chat, ouvre le lien affiché dans Aiguillage, dans Réglages → Telegram.",
     "none": "Aucun workspace actif.",
-    "muted": "En sourdine : plus de comptes rendus jusqu'à /unmute (l'aiguilleur répond toujours).",
-    "unmuted": "Les comptes rendus reprennent.",
-    "gone": "Ce workspace n'existe plus."
+    "gone": "Ce workspace n'existe plus.",
+    "linked": "C'est relié ! Écris n'importe quoi pour parler à l'Aiguilleur. /remote et /local activent et coupent les comptes rendus ; /status liste les workspaces.",
+    "remoteOn": "📡 Mode remote activé : les comptes rendus et les demandes arrivent ici. /local pour arrêter.",
+    "remoteOff": "Mode remote coupé : plus rien n'arrive ici de soi-même. /remote pour tout rattraper et le réactiver.",
+    "cmd": {
+      "remote": "Mode remote : tout rattraper, puis recevoir comptes rendus et demandes",
+      "local": "De retour devant le Mac : plus de comptes rendus",
+      "status": "Où en est chaque workspace",
+      "stop": "Arrêter l'Aiguilleur, ou l'agent du compte rendu auquel tu réponds"
+    }
   }
 }

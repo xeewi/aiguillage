@@ -18,6 +18,7 @@
     <details id="archived"><summary data-i18n="side.archived">Archived</summary><div id="archivedList"></div></details>
     <div id="update" role="status" hidden></div>
     <div id="usage" role="group" tabindex="0" aria-describedby="usagePop" data-i18n-aria-label="usage.title" hidden></div>
+    <button id="remote" class="ghost ico" aria-pressed="false" hidden><span data-i18n="side.remote">Remote mode</span><i></i></button>
     <button id="openSettings" class="ghost ico"><span data-i18n="side.settings">Settings</span></button>
   </aside>
 
@@ -55,6 +56,10 @@
         <label class="setRow"><span data-i18n="head.model">Model</span><select id="defModel"></select></label>
         <label class="setRow"><span data-i18n="head.effort">Thinking effort</span><select id="defEffort"></select></label>
         <label class="setRow"><span data-i18n="head.permissions">Permissions</span><select id="defMode"></select></label>
+
+        <h2 data-i18n="settings.telegram">Telegram</h2>
+        <p class="muted" data-i18n="settings.telegramHint"></p>
+        <div id="setTelegram"></div>
 
         <h2 data-i18n="settings.repos">Repos</h2>
         <div id="setRepos"></div>

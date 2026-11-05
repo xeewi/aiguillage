@@ -1,28 +1,23 @@
 // Telegram routing (lib/remote.js): who is obeyed, and where each message goes.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, realpathSync } from 'node:fs'
+import { mkdtempSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, settings, journalLines, notesFile } = await import('../lib/remote.js')
+const { route, journalLines, notesFile } = await import('../lib/remote.js')
 
 const ME = 42
 const msg = (text, extra = {}) => ({ message: { message_id: 9, chat: { id: ME }, text, ...extra } })
 
-test('settings: off without a token, chat optional until paired', () => {
-  assert.equal(settings(HOME), null)
-  writeFileSync(join(HOME, 'settings.toml'), '[telegram]\ntoken = "1:abc"\n')
-  assert.deepEqual(settings(HOME), { token: '1:abc', chat: null })
-  writeFileSync(join(HOME, 'settings.toml'), '[telegram]\ntoken = "1:abc"\nchat = 42\n')
-  assert.deepEqual(settings(HOME), { token: '1:abc', chat: 42 })
-})
-
-test('strangers: told their id only while unpaired, ignored after', () => {
+test('linking: only the one-time code of the Settings link ties a chat; strangers are ignored once linked', () => {
   const u = { message: { chat: { id: 7 }, text: 'hi' } }
-  assert.deepEqual(route(u, null, new Map()), { kind: 'pair', chat: 7 })
+  assert.deepEqual(route(u, null, new Map(), 'c0de'), { kind: 'pair', chat: 7 })
+  assert.deepEqual(route({ message: { chat: { id: 7 }, text: '/start bad' } }, null, new Map(), 'c0de'), { kind: 'pair', chat: 7 })
+  assert.deepEqual(route({ message: { chat: { id: 7, first_name: 'Ada', last_name: 'L' }, text: '/start c0de' } }, null, new Map(), 'c0de'), { kind: 'link', chat: 7, name: 'Ada L' })
+  assert.deepEqual(route({ message: { chat: { id: 7 }, text: '/start ' } }, null, new Map(), null), { kind: 'pair', chat: 7 })
   assert.equal(route(u, ME, new Map()), null)
   const q = { callback_query: { id: 'q', data: 'p:ws1:1:req', message: { message_id: 3, chat: { id: 7 } } } }
   assert.equal(route(q, ME, new Map()), null)
@@ -36,6 +31,8 @@ test('messages: replies go to the agent reported on, the rest to the aiguilleur'
   // A report sent before a restart: the aiguilleur gets the quote.
   assert.deepEqual(route(msg('yes', { reply_to_message: { message_id: 1, text: 'Merge?' } }), ME, sent), { kind: 'send', ws: 'aiguilleur', text: '> Merge?\n\nyes' })
   assert.deepEqual(route(msg('/status'), ME, sent), { kind: 'status' })
+  assert.deepEqual(route(msg('/remote'), ME, sent), { kind: 'remote' })
+  assert.deepEqual(route(msg('/local@aig_bot'), ME, sent), { kind: 'local' })
   assert.deepEqual(route(msg('/stop', { reply_to_message: { message_id: 5 } }), ME, sent), { kind: 'stop', ws: 'ws1' })
   assert.deepEqual(route(msg('/stop'), ME, sent), { kind: 'stop', ws: 'aiguilleur' })
   assert.equal(route({ message: { chat: { id: ME } } }, ME, sent), null) // a sticker, a photo…

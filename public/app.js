@@ -44,6 +44,7 @@ const ICONS = {
   clip: '<path d="M13 7.5 8.2 12.3a3.3 3.3 0 0 1-4.7-4.7l5-5a2.2 2.2 0 0 1 3.1 3.1l-5 5a1.1 1.1 0 0 1-1.6-1.6L9.5 4.6"/>',
   file: '<path d="M9 1.75H4.5a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5.25z"/><path d="M9 1.75v3.5h3.5"/>',
   aiguilleur: '<circle cx="8" cy="8" r="2.25"/><path d="M8 1.75v2.5M8 11.75v2.5M1.75 8h2.5M11.75 8h2.5"/>',
+  phone: '<rect x="4.5" y="1.75" width="7" height="12.5" rx="1.5"/><path d="M7.25 11.75h1.5"/>',
   gear: '<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
 }
 const svg = n => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`
@@ -150,6 +151,9 @@ function renderSide() {
   if (!S.repos.length || !ready) $('#empty').hidden = false
   if (settingsOpen) $('#empty').hidden = true
   $('#openSettings').classList.toggle('on', settingsOpen)
+  // Remote mode, once Telegram is linked (Settings): the Mac runs on its own, Telegram gets reports and requests.
+  const r = $('#remote'), on = !!S.telegram?.remote
+  r.hidden = !S.telegram?.linked; r.setAttribute('aria-pressed', on); r.title = t(on ? 'side.remoteOn' : 'side.remoteOff')
 }
 
 // ---------- desktop app update (lib/update.js): downloaded in the background, one click to restart into it ----------
@@ -388,6 +392,7 @@ function renderSettings() {
     manual: t('update.availableTitle', { version: u.latest }), error: t('update.failed'), idle: checkAsked && t('update.upToDate') }[u.state]
   $('#updateNote').textContent = [t('update.version', { version: u.version }), note].filter(Boolean).join(' · ')
   $('#checkUpdate').disabled = ['checking', 'downloading', 'ready'].includes(u.state)
+  renderTelegram()
   // Rebuilt only when repos change: state arrives often, and rebuilding would close an open select.
   const key = S.repos.map(r => r.id + r.base).join()
   if (key === renderSettings.key) return
@@ -405,11 +410,38 @@ function renderSettings() {
   }))
   if (!S.repos.length) $('#setRepos').append(h('p', 'muted', t('settings.noRepos')))
 }
+// Telegram (lib/remote.js info()): a token, then the one-time link that ties the user's chat to the bot.
+// Rebuilt only when it changes, or a state broadcast would wipe a token being typed.
+function renderTelegram() {
+  const tg = S.telegram ?? {}, key = JSON.stringify(tg)
+  if (key === renderTelegram.key) return
+  renderTelegram.key = key
+  const box = $('#setTelegram'); box.replaceChildren()
+  if (!tg.on) {
+    const row = h('form', 'setRow'), input = h('input', 'grow'), b = h('button', null, t('settings.telegramConnect'))
+    input.type = 'password'; input.required = true; input.autocomplete = 'off'; input.placeholder = '123456:ABC-DEF…'; input.setAttribute('aria-label', t('settings.telegramToken'))
+    row.onsubmit = guard(async e => { e.preventDefault(); b.disabled = true; try { await api('POST', '/telegram', { token: input.value }) } finally { b.disabled = false } })
+    row.append(input, b)
+    return box.append(row)
+  }
+  const row = h('div', 'setRow'), who = h('div', 'grow'), off = h('button', 'ghost', t('settings.telegramDisconnect'))
+  who.append(h('b', null, '@' + tg.bot), tg.linked ? h('span', 'muted', ' · ' + t('settings.telegramLinked', { name: tg.chatName || '?' })) : '')
+  off.onclick = guard(async () => { if (confirm(t('settings.telegramConfirmDisconnect'))) await api('POST', '/telegram', { token: '' }) })
+  row.append(who, off); box.append(row)
+  if (!tg.linked) {
+    const step = h('div', 'setRow'), text = h('div', 'grow'), go = h('button', null, t('settings.telegramOpen'))
+    text.append(h('div', null, t('settings.telegramWaiting')), h('div', 'muted', t('settings.telegramManual', { command: `/start ${tg.code}`, bot: tg.bot })))
+    go.onclick = () => open(tg.link, '_blank') // the desktop app hands it to the browser, which hands it to Telegram
+    step.append(text, go); box.append(step)
+  }
+  if (tg.error) box.append(h('p', 'err', tg.error))
+}
 const saveDefaults = guard(() => api('PATCH', '/defaults', { model: $('#defModel').value, effort: $('#defEffort').value, permissionMode: $('#defMode').value, autoUpdate: $('#autoUpdate').checked }))
 $('#defModel').onchange = $('#defEffort').onchange = $('#defMode').onchange = $('#autoUpdate').onchange = saveDefaults
 let checkAsked = false
 $('#checkUpdate').onclick = guard(async () => { checkAsked = true; $('#checkUpdate').disabled = true; await api('POST', '/check-update') })
 $('#openSettings').onclick = () => showSettings(true)
+$('#remote').onclick = guard(async () => { const b = $('#remote'); b.disabled = true; try { await api('PATCH', '/telegram', { remote: !S.telegram?.remote }) } finally { b.disabled = false } })
 $('#closeSettings').onclick = () => showSettings(false)
 addEventListener('keydown', e => { if (e.key === 'Escape' && settingsOpen && !$('#dlg').open) showSettings(false) })
 
@@ -959,6 +991,7 @@ $('#langRow').hidden = $('#lang').options.length < 2
 for (const k of ['Model', 'Effort', 'Mode']) $('#def' + k).append(...[...$('#' + k.toLowerCase()).options].map(o => o.cloneNode(true)))
 $('#closeSettings').innerHTML = svg('x')
 $('#openSettings').insertAdjacentHTML('afterbegin', svg('gear'))
+$('#remote').insertAdjacentHTML('afterbegin', svg('phone'))
 $('#lang').onchange = async () => { await setLang($('#lang').value); location.reload() }
 $('#theme').value = theme()
 $('#theme').onchange = () => setTheme($('#theme').value)

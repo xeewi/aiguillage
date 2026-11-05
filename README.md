@@ -131,21 +131,19 @@ It runs in `~/.aiguillage/aiguilleur`, outside every repo, in Auto mode, and tha
 Leave the Mac running at home and keep the loop going from your phone. Off until you set it up:
 
 1. In Telegram, ask [@BotFather](https://t.me/BotFather) for a new bot (`/newbot`) and copy its token.
-2. Add it to `~/.aiguillage/settings.toml` and restart Aiguillage:
-   ```toml
-   [telegram]
-   token = "123456:ABC…"
-   ```
-3. Send your bot any message: it answers with your chat id. Add `chat = <that id>` under `[telegram]` and restart again. Only that chat is obeyed.
+2. In Aiguillage, **Settings → Telegram**: paste the token, **Connect**.
+3. **Open in Telegram**, then tap **Start**: that one-time link ties your chat to the bot (on the phone, send it the `/start …` command shown instead). Only that chat is obeyed; **Disconnect** turns it all off.
 
-Then:
+**Remote mode** decides when Telegram is pushed anything: the switch at the bottom of the sidebar, or `/remote` and `/local` from Telegram. Turning it on (it is on right after linking) catches you up: where every workspace stands, each agent's report missed meanwhile, the requests still waiting. Off, nothing comes on its own, but you can still write to the bot.
+
+In remote mode:
 
 - **Each agent reports** when its turn ends (✅/❌, the workspace and its last words). **Reply** to a report to talk to that agent; reply `/stop` to interrupt it.
 - **Permission requests and plans** arrive with Allow / Deny buttons.
 - **Anything else goes to the [aiguilleur](#aiguilleur)**, and only its answers to those messages come back to Telegram.
-- `/status` lists the workspaces (⏳ working, 🔐 waiting for you, ❌ failed, 💤 idle). `/mute` stops the reports while you're at the desk, `/unmute` brings them back.
+- `/status` lists the workspaces (⏳ working, 🔐 waiting for you, ❌ failed, 💤 idle), in either mode.
 
-Nothing listens on the network: Aiguillage polls Telegram. While it's on, the Mac doesn't go to sleep on its own (`caffeinate`), but closing the lid still does. Anyone who controls your Telegram account can drive your agents, and the aiguilleur can run commands on the Mac: keep your account protected (two-step verification).
+Nothing listens on the network: Aiguillage polls Telegram. In remote mode, the Mac doesn't go to sleep on its own (`caffeinate`), but closing the lid still does. Turning remote mode on from Telegram gives that chat nothing it couldn't already do: once linked, it can always talk to the aiguilleur. Anyone who controls your Telegram account can drive your agents, and the aiguilleur can run commands on the Mac: keep your account protected (two-step verification).
 
 ## Per-repo configuration
 
@@ -213,7 +211,7 @@ Translations use [i18next](https://www.i18next.com). Adding a language means add
 
 - Everything lives in `~/.aiguillage/` (`state.json`, `logs/`, `worktrees/`). Set `AIGUILLAGE_HOME` to move it.
 - Checkpoints are private git refs, `refs/aiguillage/*`, in your repo.
-- Only the `claude` CLI talks to the network, exactly as when you use it directly. Once you turn [Telegram](#remote-control-telegram) on, the reports and what you send go through Telegram too. API keys are stripped from the agent's environment, so usage is billed to your Claude account.
+- Only the `claude` CLI talks to the network, exactly as when you use it directly. Once you turn [Telegram](#remote-control-telegram) on, the reports and what you send go through Telegram too. Its bot token is kept in `state.json`. API keys are stripped from the agent's environment, so usage is billed to your Claude account.
 
 ## Architecture
 
