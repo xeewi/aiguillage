@@ -271,6 +271,18 @@
       "local": "De retour devant le Mac : plus de comptes rendus",
       "status": "Où en est chaque workspace",
       "stop": "Arrêter l'Aiguilleur, ou l'agent du compte rendu auquel tu réponds"
+    },
+    "board": {
+      "pending_one": "{{count}} attend",
+      "pending_other": "{{count}} attendent",
+      "working_one": "{{count}} en cours",
+      "working_other": "{{count}} en cours",
+      "failed_one": "{{count}} en erreur",
+      "failed_other": "{{count}} en erreur",
+      "idle_one": "{{count}} au repos",
+      "idle_other": "{{count}} au repos",
+      "asks": "demande {{tool}}",
+      "paused": "⏸ Mode remote coupé : ce tableau n'est plus mis à jour. /remote pour le relancer."
     }
   }
 }

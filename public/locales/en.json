@@ -271,6 +271,18 @@
       "local": "Back at the Mac: no more reports",
       "status": "Where every workspace stands",
       "stop": "Stop the Aiguilleur, or the agent of the report you reply to"
+    },
+    "board": {
+      "pending_one": "{{count}} waiting",
+      "pending_other": "{{count}} waiting",
+      "working_one": "{{count}} working",
+      "working_other": "{{count}} working",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed",
+      "idle_one": "{{count}} idle",
+      "idle_other": "{{count}} idle",
+      "asks": "asks to use {{tool}}",
+      "paused": "⏸ Remote mode off: this board no longer updates. /remote to turn it back on."
     }
   }
 }

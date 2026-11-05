@@ -1,5 +1,5 @@
 // Telegram bridge end to end, against a fake Bot API: the aiguilleur as the one interlocutor (turn reports, replies,
-// one conversation in the window and on Telegram), permission buttons.
+// one conversation in the window and on Telegram), permission buttons, the pinned board, Markdown rendered by Telegram.
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
@@ -23,7 +23,13 @@ const tg = http.createServer(async (req, res) => {
     await waitFor(() => updates.some(u => u.update_id >= b.offset), { timeout: 300 }).catch(() => {})
     return ok(updates.filter(u => u.update_id >= b.offset))
   }
-  if (method === 'sendMessage') { const m = { message_id: nextMsg++, chat: { id: b.chat_id }, text: b.text }; sent.push({ ...b, message_id: m.message_id }); return ok(m) }
+  if (method === 'sendRichMessage' && b.rich_message.markdown.includes('UNPARSABLE')) {
+    res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ ok: false, description: "Bad Request: can't parse rich message" }))
+  }
+  if (method === 'sendMessage' || method === 'sendRichMessage') {
+    const m = { message_id: nextMsg++, chat: { id: b.chat_id } }
+    sent.push({ ...b, text: b.text ?? b.rich_message.markdown, method, message_id: m.message_id }); return ok(m)
+  }
   if (method === 'getMe') {
     if (req.url.includes('/botbad/')) { res.writeHead(401, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ ok: false, description: 'Unauthorized' })) }
     return ok({ username: 'aig_bot' })
@@ -54,6 +60,8 @@ test('Settings: a bad token is refused; a good one gives a one-time link, and on
   const after = (await srv.state()).telegram
   assert.deepEqual([after.linked, after.chatName, after.link, after.remote], [true, 'Ada', undefined, true], 'linking from the phone turns remote mode on')
   await waitFor(() => calls.some(c => c.method === 'setMyCommands' && c.commands.some(x => x.command === 'remote')), { what: 'command menu' })
+  const board = await message(m => m.text === 'No active workspace.' && m.disable_notification, 'the board')
+  await waitFor(() => calls.some(c => c.method === 'pinChatMessage' && c.message_id === board.message_id), { what: 'board pinned' })
 })
 
 test('a plain message goes to the aiguilleur, which runs outside every repo with its own briefing', async () => {
@@ -69,9 +77,10 @@ test('a plain message goes to the aiguilleur, which runs outside every repo with
 test("a workspace's finished turn is the aiguilleur's report; a reply to it goes to the aiguilleur, saying which agent", async () => {
   const { repo, w } = await setup(srv)
   await srv.turn(w.id, 'hi')
-  const report = await message(m => m.text.startsWith(`✅ ${repo.name} / `) && m.text.endsWith('ok: hi'), 'turn report')
+  const report = await message(m => m.text.startsWith(`**✅ ${repo.name} / `) && m.text.endsWith('ok: hi'), 'turn report')
   const card = (await srv.log('aiguilleur')).find(e => e.type === 'cg_report' && e.ws === w.id)
-  assert.deepEqual([card.ok, card.text, report.text.split('\n')[0]], [true, 'ok: hi', `✅ ${card.label}`], 'the same report in the window')
+  assert.deepEqual([card.ok, card.text, report.text.split('\n')[0], report.method], [true, 'ok: hi', `**✅ ${card.label}**`, 'sendRichMessage'],
+    'the same report in the window; Telegram renders its Markdown')
   say('again', { reply_to_message: { message_id: report.message_id } })
   // The fake CLI echoes what its model reads: the unread report, then the reply and which agent it answers.
   const answer = await message(m => m.text.includes(`[Telegram] [Reply to the report of ${repo.name} / `) && m.text.endsWith(`(id ${w.id})] again`), "the aiguilleur's answer")
@@ -83,7 +92,7 @@ test("a workspace's finished turn is the aiguilleur's report; a reply to it goes
 
 test('remote mode: what is typed to the aiguilleur at the Mac shows on Telegram too, with its answer', async () => {
   await srv.turn('aiguilleur', 'from the desk')
-  await message(m => m.text === '🖥 You, at the Mac:\nfrom the desk', 'the message, mirrored')
+  await message(m => m.text === '🖥 You, at the Mac:\n\nfrom the desk', 'the message, mirrored')
   await message(m => m.text === 'ok: from the desk', 'its answer')
 })
 
@@ -91,8 +100,9 @@ test('a permission request comes with buttons; Allow lets the tool run', async (
   const { w } = await setup(srv)
   await srv.api('PATCH', `/workspaces/${w.id}`, { permissionMode: 'default' })
   await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'bash echo hi' })
-  const ask = await message(m => m.reply_markup && m.text.includes('echo hi'), 'permission message')
-  const [allow] = ask.reply_markup.inline_keyboard[0]
+  const ask = await message(m => m.reply_markup && m.text.includes('```\necho hi\n```'), 'permission message, the command as code')
+  const [allow, deny] = ask.reply_markup.inline_keyboard[0]
+  assert.deepEqual([allow.style, deny.style], ['success', 'danger'])
   push({ callback_query: { id: 'cb1', data: allow.callback_data, from: {}, message: { message_id: ask.message_id, chat: { id: ME } } } })
   await waitFor(async () => (await srv.log(w.id)).some(e => e.type === 'result'), { what: 'turn done after Allow' })
   await waitFor(() => calls.some(c => c.method === 'editMessageReplyMarkup' && c.message_id === ask.message_id), { what: 'buttons removed' })
@@ -122,11 +132,34 @@ test('remote mode off: nothing pushed, messages still go through; /remote from t
   assert.ok(!sent.some(m => m.text.endsWith('ok: quietly') || m.text.includes('echo waiting') || m.text.includes('at my desk')),
     'no report, request nor window conversation while off')
   say('/remote')
-  await message(m => m.text.startsWith('📡 Remote mode on') && m.text.includes(repo.name), 'catch-up with the status')
+  await message(m => m.text.startsWith('📡 Remote mode on'), 'told it is on')
+  await message(m => m.text.includes(repo.name) && m.text.includes('🔐') && m.disable_notification, 'a new board, where every workspace stands')
   await message(m => m.text.endsWith('ok: quietly'), 'the missed report')
   await message(m => m.reply_markup && m.text.includes('echo waiting'), 'the waiting request, with its buttons')
   assert.equal((await srv.state()).telegram.remote, true, 'the window sees it on')
   await srv.api('POST', `/workspaces/${w.id}/interrupt`)
+})
+
+test('the board follows the agents in place: who works, on what, who asks', async () => {
+  const { repo, w } = await setup(srv)
+  const before = sent.length
+  say('/status')
+  const board = await message(m => sent.indexOf(m) >= before && m.disable_notification, 'a new board')
+  await waitFor(() => calls.some(c => c.method === 'pinChatMessage' && c.message_id === board.message_id), { what: 'pinned' })
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'slow' })
+  const edits = () => calls.filter(c => c.method === 'editMessageText' && c.message_id === board.message_id)
+  await waitFor(() => edits().some(c => /^[^\n]*⏳ 1 working/.test(c.text) && c.text.includes(`\n⏳ ${repo.name} / `)), { what: 'shown working, counted in the first line' })
+  await srv.api('POST', `/workspaces/${w.id}/interrupt`)
+  await srv.idle(w.id)
+  await waitFor(() => !edits().at(-1).text.includes('⏳'), { what: 'back to idle' })
+  say('/status')
+  await waitFor(() => calls.some(c => c.method === 'deleteMessage' && c.message_id === board.message_id), { what: 'the old board replaced' })
+})
+
+test('a text Telegram refuses to render goes again as plain text', async () => {
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'UNPARSABLE')
+  await message(m => m.method === 'sendMessage' && m.text.endsWith('ok: UNPARSABLE'), 'the report, plain')
 })
 
 test('Disconnect stops the bot', async () => {

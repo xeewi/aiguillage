@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, journalLines, notesFile, prompt, stale, IDLE, FULL } = await import('../lib/remote.js')
+const { route, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md } = await import('../lib/remote.js')
+const { i18n } = await import('../lib/i18n.js')
 
 const ME = 42
 const msg = (text, extra = {}) => ({ message: { message_id: 9, chat: { id: ME }, text, ...extra } })
@@ -72,4 +73,34 @@ test('the aiguilleur starts afresh after an hour without a message or past FULL 
   assert.equal(stale([u(now - 60_000)], { used: FULL + 1 }, now), true)
   assert.equal(stale([u(now - IDLE - 1), { type: 'cg_report', ts: now }], null, now), true) // reports don't keep it warm
   assert.equal(stale([u(now - IDLE - 1), { type: 'cg_clear', ts: now - IDLE }], { used: FULL + 1 }, now), false)
+})
+
+test('the board: counts first (the pinned bar shows them), then who asks, works, failed, rests; durations to the minute', () => {
+  const t = (k, v) => i18n.t(k, { lng: 'fr', ...v }), now = 10 * 3600_000
+  const text = boardText([
+    { label: 'a / idle' },
+    { label: 'b / busy', working: true, what: 'Bash: npm test', since: now - 6 * 60_000 },
+    { label: 'c / asks', working: true, pending: 'Bash' },
+    { label: 'd / long', working: true, since: now - 75 * 60_000 },
+    { label: 'e / new', working: true, since: now - 20_000 },
+    { label: 'f / broke', failed: true },
+  ], { t, now })
+  assert.equal(text, [
+    '🔐 1 attend · ⏳ 3 en cours · ❌ 1 en erreur · 💤 1 au repos',
+    '🔐 c / asks — demande Bash',
+    '⏳ b / busy — Bash: npm test · 6 min',
+    '⏳ d / long — 1 h 15',
+    '⏳ e / new',
+    '❌ f / broke',
+    '💤 a / idle',
+  ].join('\n'))
+  assert.equal(boardText([], { t: (k, v) => i18n.t(k, v), paused: true }), "No active workspace.\n\n⏸ Remote mode off: this board no longer updates. /remote to turn it back on.")
+})
+
+test("what a tool call is doing, in a few words; our own text escaped inside Markdown", () => {
+  assert.equal(activity({ name: 'Bash', input: { command: 'npm test\nmore', description: 'Run the tests' } }), 'Bash: Run the tests')
+  assert.equal(activity({ name: 'Edit', input: { file_path: '/x/lib/remote.js' } }), 'Edit: remote.js')
+  assert.equal(activity({ name: 'Bash', input: { command: 'x'.repeat(80) } }), `Bash: ${'x'.repeat(49)}…`)
+  assert.equal(activity({ name: 'TodoWrite', input: { todos: [] } }), 'TodoWrite')
+  assert.equal(md('my_repo / *wip* [1] `x` #2'), 'my\\_repo / \\*wip\\* \\[1\\] \\`x\\` \\#2')
 })

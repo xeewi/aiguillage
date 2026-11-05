@@ -145,10 +145,10 @@ Leave the Mac running at home and keep the loop going from your phone. Off until
 
 In remote mode:
 
-- **The whole conversation with the [aiguilleur](#aiguilleur)** comes to Telegram: each agent's report when its turn ends, what you type to it at the Mac (🖥), its answers. What you write on Telegram shows in the window too (📱).
+- **A live board is pinned at the top of the chat**: the counts first (🔐 waiting for you, ⏳ working, ❌ failed, 💤 idle), always in sight in the pinned bar, then one line per workspace: what it waits for, or what it is doing (its last tool call) and for how long. It is edited in place, silently, as the agents work. `/status` posts it again at the bottom, in either mode; out of remote mode it stops updating.
+- **The whole conversation with the [aiguilleur](#aiguilleur)** comes to Telegram: each agent's report when its turn ends, what you type to it at the Mac (🖥), its answers. What you write on Telegram shows in the window too (📱). Telegram renders their Markdown (bold, lists, code, tables), as rich messages; one it refuses goes as plain text.
 - **Everything you write goes to the aiguilleur**, which relays. **Reply** to a report to answer that agent: the aiguilleur knows which one and passes it on; reply `/stop` to interrupt it.
 - **Permission requests and plans** arrive with Allow / Deny buttons.
-- `/status` lists the workspaces (⏳ working, 🔐 waiting for you, ❌ failed, 💤 idle), in either mode.
 
 Nothing listens on the network: Aiguillage polls Telegram. In remote mode, the Mac doesn't go to sleep on its own (`caffeinate`), but closing the lid still does. Turning remote mode on from Telegram gives that chat nothing it couldn't already do: once linked, it can always talk to the aiguilleur. Anyone who controls your Telegram account can drive your agents, and the aiguilleur can run commands on the Mac: keep your account protected (two-step verification).
 
