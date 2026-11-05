@@ -24,7 +24,7 @@ User loop: add a local repo → `+ Workspace` (worktree + `aig/<name>` branch, s
 - Listens on 127.0.0.1 only.
 - Desktop only (narrow windows down to ~820px); no phone layout.
 - Billing goes through the user's Claude account via the CLI; API keys are stripped from the agent env.
-- Existing features: workspaces list, chat stream, permissions, checkpoints, diff, xterm terminals, run scripts, commit/merge/PR, archive, plan usage (session and week limits).
+- Existing features: Telegram remote control with an aiguilleur agent (opt-in, outbound polling only), workspaces list, chat stream, permissions, checkpoints, diff, xterm terminals, run scripts, commit/merge/PR, archive, plan usage (session and week limits).
 
 ## Brand Commitments
 Name: Aiguillage. Voice: plain, direct; short labels, in every language.
@@ -33,7 +33,7 @@ Name: Aiguillage. Voice: plain, direct; short labels, in every language.
 README.md, docs/DNA.md. No users, testimonials or benchmarks yet; do not invent any.
 
 ## Product Principles
-1. Local first: nothing leaves the machine except what `claude` already sends.
+1. Local first: nothing leaves the machine except what `claude` already sends (and, once the user turns it on, the Telegram bridge).
 2. Isolation is visible: which workspace/branch an agent writes to is never ambiguous.
 3. Review before merge: the diff is always one click away.
 4. Simple to read: no framework, no build, no cleverness.

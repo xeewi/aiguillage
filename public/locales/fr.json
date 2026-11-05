@@ -1,5 +1,7 @@
 {
   "side": {
+    "aiguilleur": "Aiguilleur",
+    "aiguilleurSub": "Tous les projets",
     "addRepo": "Ajouter un repo",
     "archived": "Archivés",
     "newWorkspace": "Nouveau workspace",
@@ -72,6 +74,7 @@
     "renameHint": "Double-clic pour renommer"
   },
   "chat": {
+    "aiguilleurReady": "L'aiguilleur voit tous les dépôts et workspaces. Demande-lui où en sont les choses, ou dis-lui quoi transmettre à quel agent : il relaie tes instructions telles quelles et ne décide rien seul. Il garde ce qu'il apprend sur tes projets dans <code>{{path}}</code>.",
     "placeholder": "Demande quelque chose à l'agent…  (Entrée pour envoyer, Maj+Entrée pour une ligne)",
     "busy": "L'agent travaille…",
     "stop": "Stop",
@@ -231,5 +234,12 @@
     "min": "{{m}} min",
     "updated": "à jour {{ago}}",
     "plan": "Forfait {{plan}}"
+  },
+  "telegram": {
+    "pair": "Pour relier ce chat à Aiguillage, ajoute chat = {{chat}} sous [telegram] dans ~/.aiguillage/settings.toml, puis relance Aiguillage.",
+    "none": "Aucun workspace actif.",
+    "muted": "En sourdine : plus de comptes rendus jusqu'à /unmute (l'aiguilleur répond toujours).",
+    "unmuted": "Les comptes rendus reprennent.",
+    "gone": "Ce workspace n'existe plus."
   }
 }

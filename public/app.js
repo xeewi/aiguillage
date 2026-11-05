@@ -43,6 +43,7 @@ const ICONS = {
   panelRight: '<rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M9.5 2.5v11"/>',
   clip: '<path d="M13 7.5 8.2 12.3a3.3 3.3 0 0 1-4.7-4.7l5-5a2.2 2.2 0 0 1 3.1 3.1l-5 5a1.1 1.1 0 0 1-1.6-1.6L9.5 4.6"/>',
   file: '<path d="M9 1.75H4.5a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5.25z"/><path d="M9 1.75v3.5h3.5"/>',
+  aiguilleur: '<circle cx="8" cy="8" r="2.25"/><path d="M8 1.75v2.5M8 11.75v2.5M1.75 8h2.5M11.75 8h2.5"/>',
   gear: '<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
 }
 const svg = n => `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`
@@ -55,9 +56,10 @@ let tab = ['diff', 'term', 'run'].includes(localStorage.getItem('aig.tab')) ? lo
 // Sessions with a turn you haven't seen, or marked unread by hand (right-click); kept across restarts.
 const unread = new Set(JSON.parse(localStorage.getItem('aig.unread') || '[]'))
 const setUnread = (id, on) => { unread[on ? 'add' : 'delete'](id); localStorage.setItem('aig.unread', JSON.stringify([...unread])) }
-const wsById = id => S.workspaces.find(w => w.id === id)
+// The aiguilleur (lib/remote.js) opens like a workspace, minus the worktree: no branch, Diff, Terminal or Run.
+const wsById = id => id === 'aiguilleur' ? S.aiguilleur : S.workspaces.find(w => w.id === id)
 // Shown name: the task name (Claude's summary of the first message, or the user's rename), else the city.
-const label = w => w.title || w.name
+const label = w => w.aiguilleur ? t('side.aiguilleur') : w.title || w.name
 
 // ---------- server ----------
 async function api(method, path, body) {
@@ -86,13 +88,13 @@ const send = m => sock?.readyState === 1 && sock.send(JSON.stringify(m))
 function onMsg(m) {
   if (m.t === 'state') {
     S = m; renderSide(); renderHead(); renderPerms(); renderTasks(); renderSettings(); renderUpdate(); renderUsage()
-    if (tab === 'term' && wsById(active) && termShown !== termKey()) showTab('term') // the terminal Claude Code started or quit
+    if (tab === 'term' && wsById(active) && !wsById(active).aiguilleur && termShown !== termKey()) showTab('term') // the terminal Claude Code started or quit
   }
   else if (m.t === 'ev') {
     if (m.ws === active) { dropDraft(); renderEv(m.ev); scroll() }
     if (m.ev.type === 'result') {
       cmds.delete(m.ws)
-      if (m.ws === active) loadDiff()
+      if (m.ws === active && !wsById(m.ws)?.aiguilleur) loadDiff()
       if (m.ws === active && tab === 'run') loadScripts()
       if (m.ws !== active || document.hidden) { setUnread(m.ws, true); renderSide(); notify(m.ws, m.ev) }
     }
@@ -107,11 +109,12 @@ function onMsg(m) {
 function notify(id, ev) {
   if (Notification.permission !== 'granted') return
   const w = wsById(id)
-  new Notification(t(ev.is_error ? 'notify.failed' : 'notify.done', { name: w?.name ?? 'Agent' }), { body: w?.title ?? '' }).onclick = () => { focus(); select(id) }
+  new Notification(t(ev.is_error ? 'notify.failed' : 'notify.done', { name: w?.aiguilleur ? label(w) : w?.name ?? 'Agent' }), { body: w?.aiguilleur ? '' : w?.title ?? '' }).onclick = () => { focus(); select(id) }
 }
 
 // ---------- sidebar ----------
 function renderSide() {
+  $('#aiguilleur').replaceChildren(...(S.aiguilleur ? [aiguilleurItem(S.aiguilleur)] : []))
   const box = $('#repos'); box.replaceChildren()
   for (const r of S.repos) {
     const g = h('div', 'repo')
@@ -246,18 +249,35 @@ const live = () => S.repos.flatMap(r => S.workspaces.filter(w => w.repoId === r.
 const lineOf = w => live().indexOf(w) + 1
 const lineCls = n => 'ln' + ((n - 1) % 8 + 1)
 
-function wsItem(w) {
-  const n = lineOf(w)
-  const el = h('div', `wsItem ${lineCls(n)}` + (w.id === active && !settingsOpen ? ' on' : ''))
-  el.append(h('span', 'bdg', n), h('span', 'wsName', label(w)))
+function pillOf(w) {
   const agents = w.tasks?.filter(x => !x.shell).length ?? 0, shells = (w.tasks?.length ?? 0) - agents
   const pill = w.pending.length ? h('span', 'pill ask', t('status.ask'))
     : w.busy || agents ? h('span', 'pill run', agents ? t('status.agents', { count: agents }) : t('status.run'))
     : w.failed ? h('span', 'pill err', t('status.err'))
     : unread.has(w.id) ? h('span', 'pill new', t('status.new'))
     : shells ? h('span', 'pill shell', t('status.shells', { count: shells })) : null
+  if (pill?.matches('.run, .new')) pill.prepend(h('i'))
+  if (pill?.matches('.err')) pill.insertAdjacentHTML('afterbegin', svg('x'))
+  return pill
+}
+
+function aiguilleurItem(c) {
+  const el = h('div', 'wsItem cond' + (active === c.id && !settingsOpen ? ' on' : ''))
+  const mark = h('span', 'bdg'); mark.innerHTML = svg('aiguilleur')
+  const pill = pillOf(c)
+  el.append(mark, h('span', 'wsName', label(c)), pill ?? h('span'), h('span', 'wsTitle', t('side.aiguilleurSub')))
+  el.title = label(c) + (pill ? ' · ' + pill.textContent : '')
+  el.onclick = () => select(c.id)
+  return el
+}
+
+function wsItem(w) {
+  const n = lineOf(w)
+  const el = h('div', `wsItem ${lineCls(n)}` + (w.id === active && !settingsOpen ? ' on' : ''))
+  el.append(h('span', 'bdg', n), h('span', 'wsName', label(w)))
+  const pill = pillOf(w)
   el.title = label(w) + (pill ? ' · ' + pill.textContent : '') // the only label left when the sidebar is collapsed
-  if (pill) { if (pill.matches('.run, .new')) pill.prepend(h('i')); if (pill.matches('.err')) pill.insertAdjacentHTML('afterbegin', svg('x')); el.append(pill) }
+  if (pill) el.append(pill)
   else if (w.scriptRunning) { const r = h('span', 'pill script'); r.innerHTML = svg('play'); r.append(w.scriptRunning); r.title = t('status.script', { port: w.port }); el.append(r) }
   else el.append(h('span'))
   el.append(h('span', 'wsTitle', w.title ? w.name : t('side.newWorkspace')))
@@ -345,7 +365,7 @@ const renameDialog = guard(async w => {
   if (v != null && v.trim() !== label(w)) await api('PATCH', `/workspaces/${w.id}`, { title: v })
 })
 $('#rename').onclick = () => { $('#moreMenu').hidePopover(); renameDialog(wsById(active)) }
-$('#wsName').ondblclick = () => renameDialog(wsById(active))
+$('#wsName').ondblclick = () => { if (!wsById(active)?.aiguilleur) renameDialog(wsById(active)) }
 
 // ---------- settings: a page in place of the workspace ----------
 let settingsOpen = location.hash === '#settings'
@@ -397,7 +417,9 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && settingsOpen && !$(
 function select(id) {
   active = id; setUnread(id, false); settingsOpen = false
   history.replaceState(null, '', '#ws=' + id); localStorage.setItem('aig.ws', id)
-  renderSide(); renderHead(); renderPerms(); renderAtts(); loadThread(); showTab(tab)
+  renderSide(); renderHead(); renderPerms(); renderAtts(); loadThread()
+  if (wsById(id)?.aiguilleur) return
+  showTab(tab)
   if (tab !== 'diff') loadDiff() // the Diff tab's counts and the git bar, whatever tab is open
 }
 
@@ -406,10 +428,12 @@ function renderHead() {
   $('#settings').hidden = !settingsOpen
   $('#ws').hidden = settingsOpen || !ready || !w || !!w.archived
   if ($('#ws').hidden) return
+  const c = !!w.aiguilleur
   $('#wsName').textContent = label(w)
-  $('#wsBranch').textContent = `${w.branch} ← ${w.base}`
+  $('#wsBranch').textContent = `${w.branch} ← ${w.base}`; $('#wsBranch').hidden = c
   $('#wsBranch').title = w.path
-  const n = lineOf(w); $('#wsBranch').dataset.n = $('#tabs').dataset.n = n; $('#ws').className = lineCls(n)
+  $('#wsHead .actions').hidden = c; $('#split').classList.toggle('solo', c)
+  const n = lineOf(w); $('#wsBranch').dataset.n = $('#tabs').dataset.n = n; $('#ws').className = c ? 'cond' : lineCls(n)
   // /model or /effort typed in the chat may pick a value the menu doesn't list (fable, a full model id…): add it.
   for (const k of ['model', 'effort']) {
     const s = $('#' + k), v = w[k] || ''
@@ -484,7 +508,7 @@ async function loadThread() {
   const evs = await api('GET', `/workspaces/${id}/log`).catch(() => [])
   if (id !== active) return
   thread.replaceChildren(); toolEls = new Map()
-  if (!evs.length) { const p = h('div', 'hint'); p.innerHTML = t('chat.ready', { path: wsById(id)?.path ?? '', interpolation: { escapeValue: true } }); thread.append(p) }
+  if (!evs.length) { const p = h('div', 'hint'); p.innerHTML = t(wsById(id)?.aiguilleur ? 'chat.aiguilleurReady' : 'chat.ready', { path: wsById(id)?.path ?? '', interpolation: { escapeValue: true } }); thread.append(p) }
   evs.forEach(renderEv)
   renderTasks()
   thread.scrollTop = thread.scrollHeight
@@ -924,7 +948,7 @@ addEventListener('keydown', e => {
   const l = live()
   if (/^[1-9]$/.test(e.key) && l[e.key - 1]) { e.preventDefault(); select(l[e.key - 1].id) }
   const w = wsById(active)
-  if (e.shiftKey && e.key.toLowerCase() === 'a' && w && !w.archived && !settingsOpen && !$('#dlg').open) { e.preventDefault(); guard(wsAct)(w, 'archive') }
+  if (e.shiftKey && e.key.toLowerCase() === 'a' && w && !w.archived && !w.aiguilleur && !settingsOpen && !$('#dlg').open) { e.preventDefault(); guard(wsAct)(w, 'archive') }
 })
 
 translateDom()

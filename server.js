@@ -15,6 +15,7 @@ import * as G from './lib/git.js'
 import * as A from './lib/agent.js'
 import { fail, notice } from './lib/i18n.js'
 import * as U from './lib/update.js'
+import * as R from './lib/remote.js'
 
 const exec = promisify(execFile)
 const ROOT = dirname(fileURLToPath(import.meta.url))
@@ -32,10 +33,11 @@ const view = () => ({
   usage: A.usageNow(),
   workspaces: state.workspaces.map(w => ({ ...w, ...A.runtime(w.id), scriptRunning: terms.get(w.id + ':script')?.alive ? terms.get(w.id + ':script').label : null,
     claudeTerm: !!terms.get(w.id + ':claude')?.alive })),
+  aiguilleur: state.aiguilleur && { ...state.aiguilleur, ...A.runtime('aiguilleur'), aiguilleur: true, brief: undefined },
 })
 let pendingState = null
-const changed = () => { pendingState ??= setTimeout(() => { pendingState = null; broadcast({ t: 'state', ...view() }) }, 30) }
-A.wire(broadcast, changed)
+const changed = () => { pendingState ??= setTimeout(() => { pendingState = null; broadcast({ t: 'state', ...view() }); R.sync() }, 30) }
+A.wire(m => { broadcast(m); R.onEvent(m) }, changed)
 
 // ---------- project logos (lib/git.js findLogo), shown beside the repo name ----------
 // ponytail: scanned at startup and when a repo is added; a logo added later shows after a restart.
@@ -390,6 +392,9 @@ const routes = {
   },
 }
 
+const AIGUILLEUR_ROUTES = new Set(['GET /api/workspaces/:id/log', 'GET /api/workspaces/:id/commands', 'PATCH /api/workspaces/:id',
+  ...['send', 'upload', 'interrupt', 'stop-task', 'permission'].map(a => `POST /api/workspaces/:id/${a}`)])
+
 // Nothing rendered (e.g. an image in agent markdown) may reach the network.
 const CSP = `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:${PORT} ws://localhost:${PORT}; base-uri 'none'; form-action 'self'`
 const MIME = { '.html': 'text/html', '.json': 'application/json', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' }
@@ -441,7 +446,11 @@ const server = http.createServer(async (req, res) => {
     let json = ''
     if (!raw) for await (const c of req) { json += c; if (json.length > 1e6) return tooBig() }
     const ctx = { body: json ? JSON.parse(json) : {}, req, query: url.searchParams }
-    if (parts[3]) {
+    if (parts[3] === 'aiguilleur') {
+      // Not a worktree (lib/remote.js): only the chat routes apply to it.
+      if (!AIGUILLEUR_ROUTES.has(key)) throw fail('errors.notFound')
+      ctx.ws = state.aiguilleur
+    } else if (parts[3]) {
       ctx.ws = state.workspaces.find(w => w.id === parts[3])
       ctx.repo = state.repos.find(r => r.id === parts[3])
       if (!ctx[parts[2] === 'repos' ? 'repo' : 'ws']) throw fail('errors.notFound')
@@ -484,7 +493,7 @@ wss.on('connection', sock => {
 if (process.versions.electron) U.start({
   changed,
   enabled: () => state.defaults?.autoUpdate !== false,
-  busy: () => state.workspaces.filter(w => A.working(A.runtime(w.id))).length,
+  busy: () => [...state.workspaces, state.aiguilleur].filter(w => w && A.working(A.runtime(w.id))).length,
   beforeInstall: () => {
     state.resumeScripts = state.workspaces.filter(w => terms.get(w.id + ':script')?.alive).map(w => ({ ws: w.id, id: terms.get(w.id + ':script').label }))
     save()
@@ -504,6 +513,9 @@ if (!state.logsTrimmed) {
 
 for (const r of state.repos) scanLogo(r)
 
+// The aiguilleur (lib/remote.js), and Telegram when ~/.aiguillage/settings.toml has a [telegram] token.
+R.start({ port: PORT, send: (ws, text) => routes['POST /api/workspaces/:id/send']({ ws, body: { text } }) })
+
 // Plan usage in the sidebar: now, every 3 min, and after each agent turn (lib/agent.js).
 A.refreshUsage(); setInterval(A.refreshUsage, 3 * 60_000).unref()
 
@@ -519,6 +531,7 @@ export const ready = new Promise((ok, fail) => {
 if (!process.versions.electron) ready.catch(e => { console.error(`[aiguillage] ${e.message}`); process.exit(1) })
 export function shutdown() {
   for (const w of state.workspaces) A.stop(w)
+  if (state.aiguilleur) A.stop(state.aiguilleur)
   for (const t of terms.values()) if (t.alive) t.p.kill()
 }
 process.on('uncaughtException', e => console.error('[aiguillage]', e))

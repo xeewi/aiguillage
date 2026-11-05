@@ -1,5 +1,7 @@
 {
   "side": {
+    "aiguilleur": "Aiguilleur",
+    "aiguilleurSub": "Every project",
     "addRepo": "Add a repo",
     "archived": "Archived",
     "newWorkspace": "New workspace",
@@ -72,6 +74,7 @@
     "renameHint": "Double-click to rename"
   },
   "chat": {
+    "aiguilleurReady": "The aiguilleur (the switchman) sees every repo and workspace. Ask it where things stand, or tell it what to pass on to which agent: it relays your instructions as you give them and decides nothing on its own. It keeps what it learns about your projects in <code>{{path}}</code>.",
     "placeholder": "Ask the agent something…  (Enter to send, Shift+Enter for a new line)",
     "busy": "The agent is working…",
     "stop": "Stop",
@@ -231,5 +234,12 @@
     "min": "{{m}} min",
     "updated": "updated {{ago}}",
     "plan": "{{plan}} plan"
+  },
+  "telegram": {
+    "pair": "To link this chat to Aiguillage, add chat = {{chat}} under [telegram] in ~/.aiguillage/settings.toml, then restart Aiguillage.",
+    "none": "No active workspace.",
+    "muted": "Muted: no reports until /unmute (the aiguilleur still answers).",
+    "unmuted": "Reports are back on.",
+    "gone": "This workspace no longer exists."
   }
 }
