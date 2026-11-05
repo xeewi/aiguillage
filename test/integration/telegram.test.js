@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { startServer, setup, waitFor } from '../helpers.mjs'
 
@@ -14,11 +14,21 @@ const push = u => updates.push({ update_id: nextUpdate++, ...u })
 const say = (text, extra = {}) => push({ message: { message_id: nextMsg++, chat: { id: ME }, from: { language_code: 'en' }, text, ...extra } })
 
 const tg = http.createServer(async (req, res) => {
+  const ok = result => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, result })) }
   let body = ''
   for await (const c of req) body += c
-  const b = JSON.parse(body || '{}'), method = req.url.split('/').pop()
+  // A file's download: GET <api>/file/bot<token>/<file_path>, its bytes.
+  if (req.url.includes('/file/bot')) { res.writeHead(200); return res.end(`bytes of ${req.url.split('/').pop()}`) }
+  const method = req.url.split('/').pop()
+  // An upload (sendPhoto, sendDocument…): multipart, kept raw. A photo Telegram refuses: thin.png.
+  if (req.headers['content-type']?.startsWith('multipart/')) {
+    calls.push({ method, body })
+    if (method === 'sendPhoto' && body.includes('thin.png')) { res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ ok: false, description: 'Bad Request: PHOTO_INVALID_DIMENSIONS' })) }
+    return ok({ message_id: nextMsg++ })
+  }
+  const b = JSON.parse(body || '{}')
   calls.push({ method, ...b })
-  const ok = result => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, result })) }
+  if (method === 'getFile') return ok({ file_id: b.file_id, file_path: `photos/${b.file_id}.jpg` })
   if (method === 'getUpdates') {
     await waitFor(() => updates.some(u => u.update_id >= b.offset), { timeout: 300 }).catch(() => {})
     return ok(updates.filter(u => u.update_id >= b.offset))
@@ -160,6 +170,48 @@ test('a text Telegram refuses to render goes again as plain text', async () => {
   const { w } = await setup(srv)
   await srv.turn(w.id, 'UNPARSABLE')
   await message(m => m.method === 'sendMessage' && m.text.endsWith('ok: UNPARSABLE'), 'the report, plain')
+})
+
+test('photos, an album, a document from Telegram reach the aiguilleur as attachments; it passes them on to an agent', async () => {
+  const { w } = await setup(srv)
+  const said = text => waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_user' && e.text === text), { what: text })
+  say(undefined, { photo: [{ file_id: 'small', file_size: 9 }, { file_id: 'big', file_size: 99 }], caption: 'look' })
+  const photo = (await said('look')).files
+  assert.equal(photo.length, 1)
+  assert.match(photo[0].path, new RegExp(`^${srv.home}/attachments/aiguilleur/[^/]+/photo-\\d+\\.jpg$`))
+  assert.equal(readFileSync(photo[0].path, 'utf8'), 'bytes of big.jpg', 'the largest size')
+  assert.ok(photo[0].url, 'a thumbnail in the window')
+  await message(m => m.text.includes('[Telegram] look') && m.text.includes(photo[0].path), 'the aiguilleur read it with its path')
+
+  say(undefined, { photo: [{ file_id: 'a1' }], media_group_id: 'g' })
+  say(undefined, { photo: [{ file_id: 'a2' }], media_group_id: 'g', caption: 'both' })
+  assert.deepEqual((await said('both')).files.map(f => readFileSync(f.path, 'utf8')), ['bytes of a1.jpg', 'bytes of a2.jpg'], 'an album: one message')
+
+  say(undefined, { document: { file_id: 'huge', file_name: 'huge.mov', file_size: 30e6 } })
+  await message(m => m.text.startsWith('⚠️ huge.mov is too big for a Telegram bot'), 'too big: told so')
+
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'see', files: [photo[0].path, '/etc/hosts', join(srv.home, 'state.json')] })
+  const got = await waitFor(async () => (await srv.log(w.id)).findLast(e => e.type === 'cg_user' && e.text === 'see'), { what: "the agent's message" })
+  assert.equal(got.files.length, 1, 'only the aiguilleur\'s attachments, nothing else on disk')
+  assert.ok(got.files[0].path.startsWith(`${srv.home}/attachments/${w.id}/`), 'a copy in its own folder')
+  assert.equal(readFileSync(got.files[0].path, 'utf8'), 'bytes of big.jpg')
+  await srv.idle(w.id)
+})
+
+test("the media an agent shows in its report come to Telegram as files: a photo, a refused one as a document, a missing one said", async () => {
+  const { w } = await setup(srv)
+  writeFileSync(join(w.path, 'shot.png'), 'PNG')
+  writeFileSync(join(w.path, 'thin.png'), 'PNG')
+  await srv.turn(w.id, 'see ![the home page](shot.png) ![](thin.png) ![gone](nope.png)')
+  const report = await message(m => m.text.endsWith('ok: see 📎 the home page 📎 thin.png 📎 gone'), 'the report, a 📎 for each')
+  const card = (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id)
+  assert.ok(card.text.includes(`![the home page](<${join(w.path, 'shot.png')}>)`), 'absolute in the window and for the aiguilleur')
+  const photo = await waitFor(() => calls.find(c => c.method === 'sendPhoto' && c.body.includes('shot.png')), { what: 'the photo' })
+  assert.match(photo.body, /name="caption"\r\n\r\nthe home page\r\n/)
+  assert.match(photo.body, /\r\n\r\nPNG\r\n/)
+  await waitFor(() => calls.find(c => c.method === 'sendDocument' && c.body.includes('thin.png')), { what: 'refused as a photo: sent as a file' })
+  await message(m => m.text === '⚠️ nope.png: file not found.', 'the missing one, said')
+  assert.ok(sent.indexOf(report) < sent.findIndex(m => m.text.startsWith('⚠️ nope.png')), 'after the text')
 })
 
 test('Disconnect stops the bot', async () => {

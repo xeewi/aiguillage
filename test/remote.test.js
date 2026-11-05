@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md } = await import('../lib/remote.js')
+const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md } = await import('../lib/remote.js')
 const { i18n } = await import('../lib/i18n.js')
 
 const ME = 42
@@ -37,7 +37,29 @@ test('messages: all go to the aiguilleur; a reply to a report says which agent i
   assert.deepEqual(route(msg('/local@aig_bot'), ME, sent), { kind: 'local' })
   assert.deepEqual(route(msg('/stop', { reply_to_message: { message_id: 5 } }), ME, sent), { kind: 'stop', ws: 'ws1' })
   assert.deepEqual(route(msg('/stop'), ME, sent), { kind: 'stop', ws: 'aiguilleur' })
-  assert.equal(route({ message: { chat: { id: ME } } }, ME, sent), null) // a sticker, a photo…
+  assert.equal(route({ message: { chat: { id: ME } } }, ME, sent), null) // a sticker, a location…
+})
+
+test('media: the file a message carries goes to the aiguilleur, its caption as the text; an album is marked to gather', () => {
+  const sent = new Map([[5, 'ws1']])
+  const photo = [{ file_id: 's', file_size: 10 }, { file_id: 'L', file_size: 900 }]
+  assert.deepEqual(route(msg(undefined, { photo, caption: ' look ' }), ME, sent), { kind: 'send', text: 'look', files: [{ id: 'L', name: 'photo-9.jpg', size: 900 }] })
+  assert.deepEqual(route(msg(undefined, { document: { file_id: 'd', file_name: 'spec.pdf', mime_type: 'application/pdf' }, reply_to_message: { message_id: 5 } }), ME, sent),
+    { kind: 'send', about: 'ws1', text: '', files: [{ id: 'd', name: 'spec.pdf', size: undefined }] })
+  assert.deepEqual(route(msg(undefined, { photo, media_group_id: 'g1' }), ME, sent).album, 'g1')
+  assert.deepEqual(route(msg(undefined, { photo, caption: '/status' }), ME, sent).kind, 'send', 'a caption is never a command')
+  assert.equal(media({ message_id: 3, voice: { file_id: 'v', mime_type: 'audio/ogg' } }).name, 'voice-3.ogg')
+  assert.equal(media({ message_id: 3, video_note: { file_id: 'n' } }).name, 'video_note-3.mp4')
+  assert.equal(media({ message_id: 3, sticker: { file_id: 'k' } }), null)
+})
+
+test("media shown: an agent's paths made absolute in its report; on Telegram, a 📎 caption in the text and the files after it", () => {
+  const text = 'Done: ![home page](shots/home.png), [demo](</tmp/a b.mp4>), [docs](https://x.dev/a.png), ![](~/s.gif) and [notes](notes.md)'
+  assert.equal(absolute(text, '/wt'), 'Done: ![home page](</wt/shots/home.png>), [demo](</tmp/a b.mp4>), [docs](https://x.dev/a.png), ![](<~/s.gif>) and [notes](notes.md)')
+  const s = forTelegram(absolute(text, '/wt'), '/aig')
+  assert.equal(s.text, 'Done: 📎 home page, 📎 demo, [docs](https://x.dev/a.png), 📎 s.gif and [notes](notes.md)')
+  assert.deepEqual(s.files.map(f => [f.path.replace(process.env.HOME, '~'), f.caption]), [['/wt/shots/home.png', 'home page'], ['/tmp/a b.mp4', 'demo'], ['~/s.gif', '']])
+  assert.deepEqual(forTelegram('![x](out%20dir/x.png)', '/aig').files, [{ path: '/aig/out dir/x.png', caption: 'x' }], "the aiguilleur's own paths, from its folder")
 })
 
 test('buttons: Allow / Deny of a permission request', () => {

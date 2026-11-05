@@ -9,7 +9,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
 import pty from 'node-pty'
-import { state, save, readLog, writeLog, newId, HOME, WORKTREES, runLogPath, ATTACHMENTS, attachDir } from './lib/store.js'
+import { state, save, readLog, writeLog, newId, HOME, WORKTREES, runLogPath, ATTACHMENTS, attachDir, fileName } from './lib/store.js'
 import { config as readConfig, defaultRun } from './lib/config.js'
 import * as G from './lib/git.js'
 import * as A from './lib/agent.js'
@@ -263,7 +263,7 @@ const fileInfo = path => {
 async function upload(ws, name, req) {
   // One folder per upload: the agent sees the file under its own name, and same-name files don't collide.
   const dir = join(attachDir(ws.id), newId())
-  const path = join(dir, basename(String(name ?? '')).replace(/[\x00-\x1f\\:]/g, '_').replace(/^\.+/, '').slice(-150) || 'file')
+  const path = join(dir, fileName(name))
   mkdirSync(dir, { recursive: true })
   let n = 0
   try {
@@ -271,9 +271,18 @@ async function upload(ws, name, req) {
   } catch (e) { rmSync(dir, { recursive: true, force: true }); throw e }
   return fileInfo(path)
 }
-// What the page sends back: only paths of this workspace's own uploads.
+// What the page sends back: only paths of this workspace's own uploads. The aiguilleur also passes its own on to an
+// agent (what the user sent it from Telegram): copied, as an agent only reads its own folder.
 const attached = (ws, paths) => (Array.isArray(paths) ? paths : []).map(p => resolve(String(p)))
-  .filter(p => p.startsWith(attachDir(ws.id) + sep) && existsSync(p)).map(fileInfo)
+  .filter(p => statSync(p, { throwIfNoEntry: false })?.isFile())
+  .map(p => p.startsWith(attachDir(ws.id) + sep) ? p : p.startsWith(attachDir('aiguilleur') + sep) ? passOn(ws, p) : null)
+  .filter(Boolean).map(fileInfo)
+function passOn(ws, p) {
+  const to = join(attachDir(ws.id), newId(), basename(p))
+  mkdirSync(dirname(to), { recursive: true })
+  copyFileSync(p, to)
+  return to
+}
 function serveAttachment(pathname, res) {
   const file = resolve(ATTACHMENTS, '.' + decodeURIComponent(pathname.slice('/attachments'.length)))
   const type = IMAGES[extname(file).toLowerCase()]
@@ -547,7 +556,7 @@ if (!state.logsTrimmed) {
 for (const r of state.repos) scanLogo(r)
 
 // The aiguilleur, and Telegram once set up in Settings (lib/remote.js).
-R.start({ port: PORT, changed, send: sendTo })
+R.start({ port: PORT, changed, send: (ws, text, paths, opts) => sendTo(ws, text, attached(ws, paths), opts) })
 
 // Plan usage in the sidebar: now, every 3 min, and after each agent turn (lib/agent.js).
 A.refreshUsage(); setInterval(A.refreshUsage, 3 * 60_000).unref()
