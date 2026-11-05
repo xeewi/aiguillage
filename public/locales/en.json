@@ -21,7 +21,11 @@
     "expand": "Expand the sidebar",
     "remote": "Remote mode",
     "remoteOn": "Remote mode: on. Telegram gets the reports and requests. Click to turn it off.",
-    "remoteOff": "Remote mode: off. Click to get the reports and requests on Telegram."
+    "remoteOff": "Remote mode: off. Click to get the reports and requests on Telegram.",
+    "sessions": "Sessions",
+    "newSession": "New session",
+    "newSessionTitle": "New session, tied to no project",
+    "confirmDeleteSession": "Delete {{name}} and its folder?"
   },
   "status": {
     "ask": "Needs you",
@@ -74,7 +78,8 @@
     "rename": "Rename",
     "open": "Open",
     "more": "More actions",
-    "renameHint": "Double-click to rename"
+    "renameHint": "Double-click to rename",
+    "confirmArchiveSession": "Archive {{name}}? Its folder is kept."
   },
   "chat": {
     "viaTelegram": "Sent from Telegram",
@@ -110,7 +115,8 @@
     "noFolders": "Folders can't be attached: drop the files inside them.",
     "tooLarge": "{{name}} is over 100 MB.",
     "interactiveOnly": "{{cmd}} opens its own screen, which the chat can’t show. Run it in the real Claude Code, on this same conversation:",
-    "openInTerminal": "Open {{cmd}} in the terminal"
+    "openInTerminal": "Open {{cmd}} in the terminal",
+    "sessionReady": "A session tied to no project, in <code>{{path}}</code>. Give the agent its task."
   },
   "notify": {
     "done": "{{name}} finished",

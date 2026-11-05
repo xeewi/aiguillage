@@ -30,6 +30,6 @@ test('add repo: a plain folder is offered to become a git repo', async ({ page }
     await page.locator('#dlg input').fill(dir)
     page.once('dialog', d => { expect(d.message()).toContain('not a git repo yet'); d.accept() })
     await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await expect(page.locator('.repoHead')).toContainText(basename(dir))
+    await expect(page.locator('.repoHead').last()).toContainText(basename(dir))
   } finally { await srv.stop() }
 })

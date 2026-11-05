@@ -43,6 +43,7 @@ const ICONS = {
   panelRight: '<rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M9.5 2.5v11"/>',
   clip: '<path d="M13 7.5 8.2 12.3a3.3 3.3 0 0 1-4.7-4.7l5-5a2.2 2.2 0 0 1 3.1 3.1l-5 5a1.1 1.1 0 0 1-1.6-1.6L9.5 4.6"/>',
   file: '<path d="M9 1.75H4.5a1 1 0 0 0-1 1v10.5a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V5.25z"/><path d="M9 1.75v3.5h3.5"/>',
+  chat: '<path d="M4 2.5h8a1.5 1.5 0 0 1 1.5 1.5v5.5a1.5 1.5 0 0 1-1.5 1.5H7.5l-3 2.5V11H4a1.5 1.5 0 0 1-1.5-1.5V4A1.5 1.5 0 0 1 4 2.5z"/>',
   aiguilleur: '<circle cx="8" cy="8" r="2.25"/><path d="M8 1.75v2.5M8 11.75v2.5M1.75 8h2.5M11.75 8h2.5"/>',
   phone: '<rect x="4.5" y="1.75" width="7" height="12.5" rx="1.5"/><path d="M7.25 11.75h1.5"/>',
   gear: '<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>',
@@ -59,6 +60,8 @@ const unread = new Set(JSON.parse(localStorage.getItem('aig.unread') || '[]'))
 const setUnread = (id, on) => { unread[on ? 'add' : 'delete'](id); localStorage.setItem('aig.unread', JSON.stringify([...unread])) }
 // The aiguilleur (lib/remote.js) opens like a workspace, minus the worktree: no branch, Diff, Terminal or Run.
 const wsById = id => id === 'aiguilleur' ? S.aiguilleur : S.workspaces.find(w => w.id === id)
+// Chat only, no Diff / Terminal / Run panel: the aiguilleur, and the sessions tied to no project (w.free, server.js createSession).
+const solo = w => !!(w?.aiguilleur || w?.free)
 // Shown name: the task name (Claude's summary of the first message, or the user's rename), else the city.
 const label = w => w.aiguilleur ? t('side.aiguilleur') : w.title || w.name
 
@@ -89,13 +92,13 @@ const send = m => sock?.readyState === 1 && sock.send(JSON.stringify(m))
 function onMsg(m) {
   if (m.t === 'state') {
     S = m; renderSide(); renderHead(); renderPerms(); renderTasks(); renderSettings(); renderUpdate(); renderUsage()
-    if (tab === 'term' && wsById(active) && !wsById(active).aiguilleur && termShown !== termKey()) showTab('term') // the terminal Claude Code started or quit
+    if (tab === 'term' && wsById(active) && !solo(wsById(active)) && termShown !== termKey()) showTab('term') // the terminal Claude Code started or quit
   }
   else if (m.t === 'ev') {
     if (m.ws === active) { dropDraft(); renderEv(m.ev); scroll() }
     if (m.ev.type === 'result') {
       cmds.delete(m.ws)
-      if (m.ws === active && !wsById(m.ws)?.aiguilleur) loadDiff()
+      if (m.ws === active && !solo(wsById(m.ws))) loadDiff()
       if (m.ws === active && tab === 'run') loadScripts()
       if (m.ws !== active || document.hidden) { setUnread(m.ws, true); renderSide(); notify(m.ws, m.ev) }
     }
@@ -116,13 +119,13 @@ function notify(id, ev) {
 // ---------- sidebar ----------
 function renderSide() {
   $('#aiguilleur').replaceChildren(...(S.aiguilleur ? [aiguilleurItem(S.aiguilleur)] : []))
-  const box = $('#repos'); box.replaceChildren()
+  const box = $('#repos'); box.replaceChildren(sessionsGroup())
   for (const r of S.repos) {
     const g = h('div', 'repo')
     const head = h('div', 'repoHead')
     const name = h('span', 'grow', r.name); name.title = r.path
     const plus = ibtn('plus', t('side.newWorkspace'), 'plus'); plus.title = t('side.newWorkspaceFrom', { base: r.base })
-    plus.onclick = guard(async () => { plus.disabled = true; try { select((await api('POST', '/workspaces', { repoId: r.id })).id) } finally { plus.disabled = false } })
+    plus.onclick = create(plus, '/workspaces', { repoId: r.id })
     const more = ibtn('more', t('side.repoOptions'))
     more.onclick = () => { showSettings(true); $(`#setRepos [data-repo="${r.id}"] select`)?.focus() }
     // the collapsed rail heads each group with the logo, or the initial when there is none (or it fails to load)
@@ -143,17 +146,35 @@ function renderSide() {
     const back = ibtn('undo', t('side.restore'))
     back.onclick = guard(async () => { await api('POST', `/workspaces/${w.id}/unarchive`); select(w.id) })
     const del = ibtn('x', t('side.delete')); del.title = t('side.deleteTitle')
-    del.onclick = guard(async () => { if (confirm(t('side.confirmDelete', { name: w.name, branch: w.branch }))) await api('DELETE', `/workspaces/${w.id}`) })
+    del.onclick = guard(async () => { if (confirm(t(w.free ? 'side.confirmDeleteSession' : 'side.confirmDelete', { name: w.name, branch: w.branch }))) await api('DELETE', `/workspaces/${w.id}`) })
     row.oncontextmenu = e => ctxMenu(e, [[t('side.restore'), back.onclick], [t('side.deleteTitle'), del.onclick]])
     row.append(back, del); return row
   }))
   $('#empty').hidden = !!wsById(active) && !wsById(active).archived
-  if (!S.repos.length || !ready) $('#empty').hidden = false
+  if (!ready) $('#empty').hidden = false
   if (settingsOpen) $('#empty').hidden = true
   $('#openSettings').classList.toggle('on', settingsOpen)
   // Remote mode, once Telegram is linked (Settings): the Mac runs on its own, Telegram gets reports and requests.
   const r = $('#remote'), on = !!S.telegram?.remote
   r.hidden = !S.telegram?.linked; r.setAttribute('aria-pressed', on); r.title = t(on ? 'side.remoteOn' : 'side.remoteOff')
+}
+
+// Known at once, before the state broadcast: the new chat's hint shows its path.
+const create = (btn, path, body) => guard(async () => {
+  btn.disabled = true
+  try { const w = await api('POST', path, body); if (!wsById(w.id)) S.workspaces.push({ pending: [], ...w }); select(w.id) } finally { btn.disabled = false }
+})
+
+// Sessions tied to no project, right under the aiguilleur: « + » opens one, for a task that belongs to no repo.
+function sessionsGroup() {
+  const g = h('div', 'repo'), head = h('div', 'repoHead'), lines = h('div', 'lines')
+  const mark = h('span', 'repoMark'); mark.innerHTML = svg('chat'); mark.title = t('side.sessions')
+  const plus = ibtn('plus', t('side.newSessionTitle'), 'plus')
+  plus.onclick = create(plus, '/sessions')
+  head.append(mark, h('span', 'grow', t('side.sessions')), plus)
+  lines.append(...live().filter(w => w.free).map(wsItem))
+  g.append(head, lines)
+  return g
 }
 
 // ---------- desktop app update (lib/update.js): downloaded in the background, one click to restart into it ----------
@@ -249,7 +270,7 @@ async function checkSetup() {
 $('#recheck').onclick = guard(checkSetup)
 
 // Line number = position in the ⌘1–9 order; it also picks the line colour (8 colours, then they loop).
-const live = () => S.repos.flatMap(r => S.workspaces.filter(w => w.repoId === r.id && !w.archived))
+const live = () => [...S.workspaces.filter(w => w.free), ...S.repos.flatMap(r => S.workspaces.filter(w => w.repoId === r.id))].filter(w => !w.archived)
 const lineOf = w => live().indexOf(w) + 1
 const lineCls = n => 'ln' + ((n - 1) % 8 + 1)
 
@@ -284,7 +305,7 @@ function wsItem(w) {
   if (pill) el.append(pill)
   else if (w.scriptRunning) { const r = h('span', 'pill script'); r.innerHTML = svg('play'); r.append(w.scriptRunning); r.title = t('status.script', { port: w.port }); el.append(r) }
   else el.append(h('span'))
-  el.append(h('span', 'wsTitle', w.title ? w.name : t('side.newWorkspace')))
+  el.append(h('span', 'wsTitle', w.title ? w.name : t(w.free ? 'side.newSession' : 'side.newWorkspace')))
   el.onclick = () => select(w.id)
   el.oncontextmenu = e => ctxMenu(e, [
     [t('head.codeTitle'), () => wsAct(w, 'open', 'code')],
@@ -292,7 +313,7 @@ function wsItem(w) {
     null,
     [t('head.rename'), () => renameDialog(w)],
     [t(unread.has(w.id) ? 'side.markRead' : 'side.markUnread'), () => { setUnread(w.id, !unread.has(w.id)); renderSide() }],
-    [t('side.copyBranch'), () => copy(w.branch)],
+    !w.free && [t('side.copyBranch'), () => copy(w.branch)],
     [t('side.copyPath'), () => copy(w.path)],
     null,
     w.busy && [t('chat.stop'), () => api('POST', `/workspaces/${w.id}/interrupt`)],
@@ -450,7 +471,7 @@ function select(id) {
   active = id; setUnread(id, false); settingsOpen = false
   history.replaceState(null, '', '#ws=' + id); localStorage.setItem('aig.ws', id)
   renderSide(); renderHead(); renderPerms(); renderAtts(); loadThread()
-  if (wsById(id)?.aiguilleur) return
+  if (solo(wsById(id))) return
   showTab(tab)
   if (tab !== 'diff') loadDiff() // the Diff tab's counts and the git bar, whatever tab is open
 }
@@ -462,9 +483,9 @@ function renderHead() {
   if ($('#ws').hidden) return
   const c = !!w.aiguilleur
   $('#wsName').textContent = label(w)
-  $('#wsBranch').textContent = `${w.branch} ← ${w.base}`; $('#wsBranch').hidden = c
+  $('#wsBranch').textContent = `${w.branch} ← ${w.base}`; $('#wsBranch').hidden = c || w.free
   $('#wsBranch').title = w.path
-  $('#wsHead .actions').hidden = c; $('#split').classList.toggle('solo', c)
+  $('#wsHead .actions').hidden = c; $('#split').classList.toggle('solo', solo(w))
   const n = lineOf(w); $('#wsBranch').dataset.n = $('#tabs').dataset.n = n; $('#ws').className = c ? 'cond' : lineCls(n)
   // /model or /effort typed in the chat may pick a value the menu doesn't list (fable, a full model id…): add it.
   for (const k of ['model', 'effort']) {
@@ -508,7 +529,7 @@ $('#stop').onclick = guard(() => api('POST', `/workspaces/${active}/interrupt`))
 // Open / Archive live in the header menus (and a session's right-click menu), Commit / Merge / PR in the Diff tab's bar.
 async function wsAct(w, act, app) {
   let body = { app }
-  if (act === 'archive' && !confirm(t('head.confirmArchive', { name: w.name, branch: w.branch }))) return
+  if (act === 'archive' && !confirm(t(w.free ? 'head.confirmArchiveSession' : 'head.confirmArchive', { name: w.name, branch: w.branch }))) return
   if (act === 'merge' && !confirm(t('head.confirmMerge', { branch: w.branch, base: w.base }))) return
   if (act === 'commit') { const m = await ask(t('head.commit'), t('head.commitPrompt'), w.title || ''); if (m == null) return; body = { message: m } }
   const r = await api('POST', `/workspaces/${w.id}/${act}`, body)
@@ -540,7 +561,7 @@ async function loadThread() {
   const evs = await api('GET', `/workspaces/${id}/log`).catch(() => [])
   if (id !== active) return
   thread.replaceChildren(); toolEls = new Map()
-  if (!evs.length) { const p = h('div', 'hint'); p.innerHTML = t(wsById(id)?.aiguilleur ? 'chat.aiguilleurReady' : 'chat.ready', { path: wsById(id)?.path ?? '', interpolation: { escapeValue: true } }); thread.append(p) }
+  if (!evs.length) { const p = h('div', 'hint'); p.innerHTML = t(wsById(id)?.aiguilleur ? 'chat.aiguilleurReady' : wsById(id)?.free ? 'chat.sessionReady' : 'chat.ready', { path: wsById(id)?.path ?? '', interpolation: { escapeValue: true } }); thread.append(p) }
   evs.forEach(renderEv)
   renderTasks()
   thread.scrollTop = thread.scrollHeight

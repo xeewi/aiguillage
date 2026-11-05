@@ -9,7 +9,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
 import pty from 'node-pty'
-import { state, save, readLog, writeLog, newId, WORKTREES, runLogPath, ATTACHMENTS, attachDir } from './lib/store.js'
+import { state, save, readLog, writeLog, newId, HOME, WORKTREES, runLogPath, ATTACHMENTS, attachDir } from './lib/store.js'
 import { config as readConfig, defaultRun } from './lib/config.js'
 import * as G from './lib/git.js'
 import * as A from './lib/agent.js'
@@ -144,10 +144,7 @@ async function createWorkspace({ repoId, name, base }) {
     mkdirSync(dirname(join(path, f)), { recursive: true })
     copyFileSync(join(repo.path, f), join(path, f))
   }
-  const used = new Set(state.workspaces.map(w => w.port))
-  let port = 40000
-  while (used.has(port)) port += 10
-  const ws = { id: newId(), repoId, name: n, branch: `aig/${n}`, base, baseRef, path, port, createdAt: Date.now(), permissionMode: state.defaults?.permissionMode || 'auto', model: state.defaults?.model ?? '', effort: state.defaults?.effort ?? '' }
+  const ws = { id: newId(), repoId, name: n, branch: `aig/${n}`, base, baseRef, path, ...fresh() }
   state.workspaces.push(ws)
   save()
   const { setup } = config(ws)
@@ -156,7 +153,30 @@ async function createWorkspace({ repoId, name, base }) {
   return ws
 }
 
+// What every new workspace or session starts with: free ports and the defaults from Settings.
+function fresh() {
+  const used = new Set(state.workspaces.map(w => w.port))
+  let port = 40000
+  while (used.has(port)) port += 10
+  return { port, createdAt: Date.now(), permissionMode: state.defaults?.permissionMode || 'auto', model: state.defaults?.model ?? '', effort: state.defaults?.effort ?? '' }
+}
+
+// A session tied to no project (the sidebar's « Sessions »): an agent in a folder of its own, no repo or worktree.
+// The folder is a git repo of its own: checkpoints and revert work, and git never walks up into a tracked $HOME.
+async function createSession() {
+  const id = newId(), path = join(HOME, 'sessions', id)
+  mkdirSync(path, { recursive: true })
+  await G.git(path, ['init', '-q'])
+  await G.git(path, ['commit', '-q', '--allow-empty', '-m', 'Start'], G.ID)
+  const taken = new Set(state.workspaces.filter(w => w.free).map(w => w.name))
+  const ws = { id, free: true, name: NAMES.find(x => !taken.has(x)) || 'session', branch: '', base: '', path, ...fresh() }
+  state.workspaces.push(ws)
+  save(); changed()
+  return ws
+}
+
 async function archive(ws) {
+  if (ws.free) { A.stop(ws); killTerms(ws.id); ws.archived = Date.now(); save(); changed(); return }
   const { archive: script } = config(ws)
   if (script) await exec(SHELL, ['-lc', script], { cwd: ws.path, env: A.envFor(ws), timeout: 60_000 }).catch(() => {})
   A.stop(ws)
@@ -173,6 +193,7 @@ async function archive(ws) {
 }
 
 async function unarchive(ws) {
+  if (ws.free) { delete ws.archived; save(); changed(); return }
   const repo = state.repos.find(r => r.id === ws.repoId)
   await G.git(repo.path, ['worktree', 'add', ws.path, ws.branch])
   if (ws.archiveCp) await G.restore(ws.path, ws.archiveCp)
@@ -326,6 +347,7 @@ const routes = {
   },
   'GET /api/repos/:id/branches': ({ repo }) => G.branches(repo.path),
   'POST /api/workspaces': ({ body }) => createWorkspace(body),
+  'POST /api/sessions': createSession,
   'GET /api/workspaces/:id/log': ({ ws }) => readLog(ws.id),
   'GET /api/workspaces/:id/diff': async ({ ws }) => ({ diff: (await G.diff(ws.path, ws.baseRef || ws.base)).slice(0, 3_000_000), status: await G.status(ws.path) }),
   'PATCH /api/workspaces/:id': ({ ws, body }) => {
@@ -355,9 +377,12 @@ const routes = {
   'POST /api/workspaces/:id/unarchive': async ({ ws }) => { await unarchive(ws); return {} },
   'DELETE /api/workspaces/:id': async ({ ws }) => {
     if (!ws.archived) await archive(ws)
-    const repo = state.repos.find(r => r.id === ws.repoId)
-    await G.git(repo.path, ['branch', '-D', ws.branch]).catch(() => {})
-    await G.dropRefs(repo.path, `refs/aiguillage/${ws.id}/`).catch(() => {})
+    if (ws.free) rmSync(ws.path, { recursive: true, force: true })
+    else {
+      const repo = state.repos.find(r => r.id === ws.repoId)
+      await G.git(repo.path, ['branch', '-D', ws.branch]).catch(() => {})
+      await G.dropRefs(repo.path, `refs/aiguillage/${ws.id}/`).catch(() => {})
+    }
     rmSync(attachDir(ws.id), { recursive: true, force: true })
     state.workspaces = state.workspaces.filter(w => w !== ws); save(); changed(); return {}
   },

@@ -21,7 +21,11 @@
     "expand": "Déplier la barre latérale",
     "remote": "Mode remote",
     "remoteOn": "Mode remote activé : Telegram reçoit les comptes rendus et les demandes. Clique pour le couper.",
-    "remoteOff": "Mode remote coupé. Clique pour recevoir les comptes rendus et les demandes sur Telegram."
+    "remoteOff": "Mode remote coupé. Clique pour recevoir les comptes rendus et les demandes sur Telegram.",
+    "sessions": "Sessions",
+    "newSession": "Nouvelle session",
+    "newSessionTitle": "Nouvelle session, rattachée à aucun projet",
+    "confirmDeleteSession": "Supprimer {{name}} et son dossier ?"
   },
   "status": {
     "ask": "Attend ta réponse",
@@ -74,7 +78,8 @@
     "rename": "Renommer",
     "open": "Ouvrir",
     "more": "Plus d'actions",
-    "renameHint": "Double-clic pour renommer"
+    "renameHint": "Double-clic pour renommer",
+    "confirmArchiveSession": "Archiver {{name}} ? Son dossier est gardé."
   },
   "chat": {
     "viaTelegram": "Envoyé depuis Telegram",
@@ -110,7 +115,8 @@
     "noFolders": "Un dossier ne peut pas être joint : dépose les fichiers qu'il contient.",
     "tooLarge": "{{name}} dépasse 100 Mo.",
     "interactiveOnly": "{{cmd}} ouvre son propre écran, que le tchat ne peut pas afficher. Lance-le dans le vrai Claude Code, sur cette même conversation :",
-    "openInTerminal": "Ouvrir {{cmd}} dans le terminal"
+    "openInTerminal": "Ouvrir {{cmd}} dans le terminal",
+    "sessionReady": "Une session rattachée à aucun projet, dans <code>{{path}}</code>. Donne sa tâche à l'agent."
   },
   "notify": {
     "done": "{{name}} a terminé",
