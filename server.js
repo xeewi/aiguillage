@@ -421,6 +421,7 @@ async function sendTo(ws, text, files = [], opts = {}) {
   if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
   // Two CLIs writing the same session would fork it: the chat waits for the terminal one to quit.
   if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
+  if (ws === state.aiguilleur && !A.working(A.runtime(ws.id)) && R.stale(readLog(ws.id), ws.context)) A.forget(ws)
   await A.send(ws, text, files, ws === state.aiguilleur ? { via: opts.via, prompt: t => R.prompt(t, opts) } : {})
 }
 

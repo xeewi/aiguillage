@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, journalLines, notesFile, prompt } = await import('../lib/remote.js')
+const { route, journalLines, notesFile, prompt, stale, IDLE, FULL } = await import('../lib/remote.js')
 
 const ME = 42
 const msg = (text, extra = {}) => ({ message: { message_id: 9, chat: { id: ME }, text, ...extra } })
@@ -62,4 +62,14 @@ test("prompt: the reports since the user's last message head it, then where the 
   const q = prompt('?', {}, many)
   assert.match(q, /\(2 older ones left out/)
   assert.ok(!q.includes('w1\n') && q.includes('(workspace id w31)') && q.includes('x'.repeat(2000) + '…') && !q.includes('x'.repeat(2001)))
+})
+
+test('the aiguilleur starts afresh after an hour without a message or past FULL tokens, not after a clear', () => {
+  const now = 10 * IDLE, u = ts => ({ type: 'cg_user', ts })
+  assert.equal(stale([], null, now), false)
+  assert.equal(stale([u(now - 60_000)], { used: 50_000 }, now), false)
+  assert.equal(stale([u(now - IDLE - 1)], { used: 50_000 }, now), true)
+  assert.equal(stale([u(now - 60_000)], { used: FULL + 1 }, now), true)
+  assert.equal(stale([u(now - IDLE - 1), { type: 'cg_report', ts: now }], null, now), true) // reports don't keep it warm
+  assert.equal(stale([u(now - IDLE - 1), { type: 'cg_clear', ts: now - IDLE }], { used: FULL + 1 }, now), false)
 })
