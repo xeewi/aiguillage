@@ -242,7 +242,8 @@ img.media { border: 1px solid var(--line); cursor: zoom-in; }
 /* permissions + composer */
 #perms { padding: 0 28px; }
 /* subagents still working: one row each, a click opens its block in the thread */
-#tasks { padding: 8px 28px 10px; display: grid; gap: 4px; }
+/* minmax(0, 1fr): an auto column grows to a long name's full width, and the ellipsis below never kicks in */
+#tasks { padding: 8px 28px 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
 #tasks[hidden] { display: none; }
 .tasksHead { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 #tasks .task { display: flex; align-items: center; gap: 2px; padding-right: 4px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
