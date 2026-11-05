@@ -97,24 +97,25 @@ test('the aiguilleur starts afresh after an hour without a message or past FULL 
   assert.equal(stale([u(now - IDLE - 1), { type: 'cg_clear', ts: now - IDLE }], { used: FULL + 1 }, now), false)
 })
 
-test('the board: counts first (the pinned bar shows them), then who asks, works, failed, rests; durations to the minute', () => {
+test('the board: counts first (the pinned bar shows them), the plan usage, then each repo once, short titles, the resting ones on one line', () => {
   const t = (k, v) => i18n.t(k, { lng: 'fr', ...v }), now = 10 * 3600_000
+  const usage = { limits: [{ kind: 'weekly_all', pct: 42, resetsAt: now + 3 * 86400_000 }, { kind: 'session', pct: 93, resetsAt: now + 130 * 60_000 }, { kind: 'weekly_opus', pct: 5 }] }
   const text = boardText([
-    { label: 'a / idle' },
-    { label: 'b / busy', working: true, what: 'Bash: npm test', since: now - 6 * 60_000 },
-    { label: 'c / asks', working: true, pending: 'Bash' },
-    { label: 'd / long', working: true, since: now - 75 * 60_000 },
-    { label: 'e / new', working: true, since: now - 20_000 },
-    { label: 'f / broke', failed: true },
-  ], { t, now })
+    { repo: 'a', title: 'idle' },
+    { repo: 'b', title: 'busy', working: true, what: 'Bash: npm test', since: now - 6 * 60_000 },
+    { repo: 'c', title: 'asks', working: true, pending: 'Bash' },
+    { repo: 'b', title: 'long', working: true, since: now - 75 * 60_000 },
+    { repo: 'b', title: 'new', working: true, since: now - 20_000 },
+    { repo: 'a', title: 'broke', failed: true },
+    { repo: 'a', title: 'Plugin Tamagotchi façon Jota Magotchi' },
+  ], { t, now, usage, lang: 'fr' })
   assert.equal(text, [
-    '🔐 1 attend · ⏳ 3 en cours · ❌ 1 en erreur · 💤 1 au repos',
-    '🔐 c / asks — demande Bash',
-    '⏳ b / busy — Bash: npm test · 6 min',
-    '⏳ d / long — 1 h 15',
-    '⏳ e / new',
-    '❌ f / broke',
-    '💤 a / idle',
+    '🔐 1 attend · ⏳ 3 en cours · ❌ 1 en erreur · 💤 2 au repos',
+    '🔴 Session 93 % · reset dans 2 h 10',
+    `📊 Semaine 42 % · reset ${new Intl.DateTimeFormat('fr', { weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(now + 3 * 86400_000)}`,
+    '', '▸ c', '🔐 asks — demande Bash',
+    '', '▸ b', '⏳ busy — Bash: npm test · 6 min', '⏳ long — 1 h 15', '⏳ new',
+    '', '▸ a', '❌ broke', '💤 idle · Plugin Tamagotchi façon Jota…',
   ].join('\n'))
   assert.equal(boardText([], { t: (k, v) => i18n.t(k, v), paused: true }), "No active workspace.\n\n⏸ Remote mode off: this board no longer updates. /remote to turn it back on.")
 })

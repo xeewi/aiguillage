@@ -70,7 +70,7 @@ test('Settings: a bad token is refused; a good one gives a one-time link, and on
   const after = (await srv.state()).telegram
   assert.deepEqual([after.linked, after.chatName, after.link, after.remote], [true, 'Ada', undefined, true], 'linking from the phone turns remote mode on')
   await waitFor(() => calls.some(c => c.method === 'setMyCommands' && c.commands.some(x => x.command === 'remote')), { what: 'command menu' })
-  const board = await message(m => m.text === 'No active workspace.' && m.disable_notification, 'the board')
+  const board = await message(m => m.text.startsWith('No active workspace.') && m.disable_notification, 'the board')
   await waitFor(() => calls.some(c => c.method === 'pinChatMessage' && c.message_id === board.message_id), { what: 'board pinned' })
 })
 
@@ -158,7 +158,7 @@ test('the board follows the agents in place: who works, on what, who asks', asyn
   await waitFor(() => calls.some(c => c.method === 'pinChatMessage' && c.message_id === board.message_id), { what: 'pinned' })
   await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'slow' })
   const edits = () => calls.filter(c => c.method === 'editMessageText' && c.message_id === board.message_id)
-  await waitFor(() => edits().some(c => /^[^\n]*⏳ 1 working/.test(c.text) && c.text.includes(`\n⏳ ${repo.name} / `)), { what: 'shown working, counted in the first line' })
+  await waitFor(() => edits().some(c => /^[^\n]*⏳ 1 working/.test(c.text) && c.text.includes(`\n▸ ${repo.name}\n`) && c.text.includes('\n⏳ ') && c.text.includes('\n📊 Session 42 % · ') && c.text.includes('\n🔴 Week 93 % · ')), { what: 'shown working under its repo, counted in the first line, with the plan usage' })
   await srv.api('POST', `/workspaces/${w.id}/interrupt`)
   await srv.idle(w.id)
   await waitFor(() => !edits().at(-1).text.includes('⏳'), { what: 'back to idle' })
