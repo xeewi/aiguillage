@@ -319,6 +319,7 @@ img.media { border: 1px solid var(--line); cursor: zoom-in; }
 .att > svg { flex: none; margin-left: 4px; color: var(--muted); }
 .att img { flex: none; width: 28px; height: 28px; object-fit: cover; border-radius: 5px; }
 .att .name { overflow: hidden; text-overflow: ellipsis; }
+.msg .att:has(img) { cursor: zoom-in; }
 .att .rm { flex: none; min-width: 22px; padding: 2px; margin-right: -6px; }
 .att.loading { color: var(--muted); }
 .att.loading > svg { animation: pulse 1s ease-in-out infinite alternate; }

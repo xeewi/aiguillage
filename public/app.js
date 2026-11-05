@@ -527,7 +527,7 @@ for (const el of [$('#wsHead .actions'), $('#gitBar')]) el.addEventListener('cli
 let toolEls = new Map()
 const thread = $('#thread')
 // A chat image opens full size; a click anywhere or Escape closes it.
-thread.addEventListener('click', e => { const i = e.target.closest('img.media'); if (!i) return; const z = $('#zoom'); z.firstChild.src = i.src; z.firstChild.alt = i.alt; z.showModal() })
+thread.addEventListener('click', e => { const i = e.target.closest('img.media, .att:has(img)'); if (!i) return; const img = i.querySelector('img') ?? i, z = $('#zoom'); z.firstChild.src = img.src; z.firstChild.alt = img.alt || i.title; z.showModal() })
 $('#zoom').onclick = () => $('#zoom').close()
 const scroll = () => { const t = thread; if (t.scrollHeight - t.scrollTop - t.clientHeight < 300) t.scrollTop = t.scrollHeight }
 const draft = () => thread.querySelector('.draft') ?? thread.appendChild(h('div', 'msg ai draft'))

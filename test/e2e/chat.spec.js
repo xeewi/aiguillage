@@ -248,3 +248,16 @@ test('media: a chat image opens full size on click; a click or Escape closes it'
   await page.keyboard.press('Escape')
   await expect(zoom).toBeHidden()
 })
+
+test('media: an image I sent opens full size from its chip in my message', async ({ open, page }) => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+  await open()
+  await page.locator('#fileInput').setInputFiles({ name: 'mine.png', mimeType: 'image/png', buffer: png })
+  await expect(page.locator('#atts .att img')).toHaveCount(1)
+  await say(page, 'look')
+  await page.locator('#thread .msg.me .att').click()
+  const zoom = page.locator('#zoom')
+  await expect(zoom).toBeVisible()
+  await expect(zoom.locator('img')).toHaveAttribute('src', /\/attachments\/.*mine\.png$/)
+  await expect(zoom.locator('img')).toHaveJSProperty('naturalWidth', 1)
+})
