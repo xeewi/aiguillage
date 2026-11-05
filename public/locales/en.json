@@ -77,7 +77,9 @@
     "renameHint": "Double-click to rename"
   },
   "chat": {
-    "aiguilleurReady": "The aiguilleur (the switchman) sees every repo and workspace. Ask it where things stand, or tell it what to pass on to which agent: it relays your instructions as you give them and decides nothing on its own. It keeps what it learns about your projects in <code>{{path}}</code>.",
+    "viaTelegram": "Sent from Telegram",
+    "openReport": "Open this workspace",
+    "aiguilleurReady": "The aiguilleur (the switchman) sees every repo and workspace. Ask it where things stand, or tell it what to pass on to which agent: it relays your instructions as you give them and decides nothing on its own. The agents' reports arrive here. It keeps what it learns about your projects in <code>{{path}}</code>.",
     "placeholder": "Ask the agent something…  (Enter to send, Shift+Enter for a new line)",
     "busy": "The agent is working…",
     "stop": "Stop",
@@ -173,7 +175,7 @@
     "confirmRemove": "Remove {{name}} from Aiguillage? Its folder stays on disk.",
     "updates": "Updates",
     "telegram": "Telegram",
-    "telegramHint": "Follow and steer your agents from your phone while the Mac runs: their reports, Allow / Deny buttons, and the Aiguilleur. In Telegram, create a bot with @BotFather (/newbot) and paste its token here.",
+    "telegramHint": "Follow and steer your agents from your phone while the Mac runs: the Aiguilleur, who passes on their reports and your answers, and Allow / Deny buttons. In Telegram, create a bot with @BotFather (/newbot) and paste its token here.",
     "telegramToken": "Bot token",
     "telegramConnect": "Connect",
     "telegramDisconnect": "Disconnect",
@@ -254,8 +256,9 @@
     "pair": "This bot belongs to an Aiguillage. To link this chat, open the link shown in Aiguillage, in Settings → Telegram.",
     "none": "No active workspace.",
     "gone": "This workspace no longer exists.",
+    "fromMac": "🖥 You, at the Mac:",
     "linked": "Linked! Write anything to talk to the Aiguilleur. /remote and /local turn the reports on and off; /status lists the workspaces.",
-    "remoteOn": "📡 Remote mode on: reports and requests come here. /local to stop.",
+    "remoteOn": "📡 Remote mode on: the conversation with the Aiguilleur, the agents' reports and the requests come here. /local to stop.",
     "remoteOff": "Remote mode off: nothing comes here on its own any more. /remote to catch up and turn it back on.",
     "cmd": {
       "remote": "Remote mode: catch up, then get the reports and requests",

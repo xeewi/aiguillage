@@ -123,13 +123,15 @@ The agent knows its worktree, its ports and the Run script's log file, which it 
 | **Notifications** | System notification when an agent finishes or needs you. <kbd>⌘</kbd><kbd>1</kbd>…<kbd>9</kbd> switches workspaces, <kbd>⇧</kbd><kbd>⌘</kbd><kbd>A</kbd> archives the open one. |
 | **Settings** | Theme (System / Light / Dark), language, defaults for new workspaces, repos, updates, Telegram. |
 | **Aiguilleur** | One agent above all workspaces: reports on them and relays your instructions, with a memory of each project. See [Aiguilleur](#aiguilleur). |
-| **Telegram** | Away from the Mac: agents report to you on Telegram, you answer them there or through the aiguilleur. See [Remote control](#remote-control-telegram). |
+| **Telegram** | Away from the Mac: the same conversation with the aiguilleur, which passes on the agents' reports and your answers. See [Remote control](#remote-control-telegram). |
 
 ## Aiguilleur
 
 **Aiguilleur** (French for the switchman who sets the points), at the top of the sidebar, is a Claude Code agent of its own that sees every repo and workspace. It reports and relays, it never decides: ask it where things stand or to read a diff, and tell it what to pass on to which agent (or to start a task in a new workspace); it sends your instruction as you gave it and does nothing you didn't ask for. It acts through Aiguillage's local API and leaves the code to the workspaces' agents.
 
-It runs in `~/.aiguillage/aiguilleur`, outside every repo, in Auto mode, and that folder is its memory, the only place it writes: `CLAUDE.md` (loaded at each session: your standing preferences and one line per project) and `projects/<repo>.md` (purpose, stack, how to run it, work in progress, your decisions), built the first time it needs a project and kept up to date. After each agent turn, a quick Haiku call adds what's worth keeping (done, decided, in progress, blocked) to the end of that project's file, under `## Journal`, dated, with the workspace's name; the aiguilleur folds it into the rest when it reads the notes. They're plain Markdown: read or edit them yourself. Same conversation in the window and on [Telegram](#remote-control-telegram).
+It is your one interlocutor: when an agent finishes a turn, its report (✅/❌, project / workspace, its last words) lands in the aiguilleur's conversation, and a click on it opens the workspace. The aiguilleur reads the reports it hasn't seen yet at the top of your next message, so it knows where things stand without being woken for each one.
+
+It runs in `~/.aiguillage/aiguilleur`, outside every repo, in Auto mode, and that folder is its memory, the only place it writes: `CLAUDE.md` (loaded at each session: your standing preferences and one line per project) and `projects/<repo>.md` (purpose, stack, how to run it, work in progress, your decisions), built the first time it needs a project and kept up to date. After each agent turn, a quick Haiku call adds what's worth keeping (done, decided, in progress, blocked) to the end of that project's file, under `## Journal`, dated, with the workspace's name; the aiguilleur folds it into the rest when it reads the notes. They're plain Markdown: read or edit them yourself. One conversation, the same in the window and on [Telegram](#remote-control-telegram).
 
 ## Remote control (Telegram)
 
@@ -139,13 +141,13 @@ Leave the Mac running at home and keep the loop going from your phone. Off until
 2. In Aiguillage, **Settings → Telegram**: paste the token, **Connect**.
 3. **Open in Telegram**, then tap **Start**: that one-time link ties your chat to the bot (on the phone, send it the `/start …` command shown instead). Only that chat is obeyed; **Disconnect** turns it all off.
 
-**Remote mode** decides when Telegram is pushed anything: the switch at the bottom of the sidebar, or `/remote` and `/local` from Telegram. Turning it on (it is on right after linking) catches you up: where every workspace stands, each agent's report missed meanwhile, the requests still waiting. Off, nothing comes on its own, but you can still write to the bot.
+**Remote mode** decides when Telegram is pushed anything: the switch at the bottom of the sidebar, or `/remote` and `/local` from Telegram. Turning it on (it is on right after linking) catches you up: where every workspace stands, each agent's report missed meanwhile, the requests still waiting. Off, nothing comes on its own, but you can still write to the aiguilleur from there and get its answers.
 
 In remote mode:
 
-- **Each agent reports** when its turn ends (✅/❌, the workspace and its last words). **Reply** to a report to talk to that agent; reply `/stop` to interrupt it.
+- **The whole conversation with the [aiguilleur](#aiguilleur)** comes to Telegram: each agent's report when its turn ends, what you type to it at the Mac (🖥), its answers. What you write on Telegram shows in the window too (📱).
+- **Everything you write goes to the aiguilleur**, which relays. **Reply** to a report to answer that agent: the aiguilleur knows which one and passes it on; reply `/stop` to interrupt it.
 - **Permission requests and plans** arrive with Allow / Deny buttons.
-- **Anything else goes to the [aiguilleur](#aiguilleur)**, and only its answers to those messages come back to Telegram.
 - `/status` lists the workspaces (⏳ working, 🔐 waiting for you, ❌ failed, 💤 idle), in either mode.
 
 Nothing listens on the network: Aiguillage polls Telegram. In remote mode, the Mac doesn't go to sleep on its own (`caffeinate`), but closing the lid still does. Turning remote mode on from Telegram gives that chat nothing it couldn't already do: once linked, it can always talk to the aiguilleur. Anyone who controls your Telegram account can drive your agents, and the aiguilleur can run commands on the Mac: keep your account protected (two-step verification).

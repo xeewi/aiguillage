@@ -223,3 +223,22 @@ test('the aiguilleur sits on top of the sidebar and opens as a chat of its own, 
   await expect(page.locator('#panel')).toBeVisible()
   await expect(page.locator('#wsBranch')).toHaveText('aig/tokyo ← main')
 })
+
+test("an agent's finished turn shows in the aiguilleur's chat as a report that opens its workspace", async ({ srv, page }) => {
+  const repo = await srv.api('POST', '/repos', { path: makeRepo() })
+  const w = await srv.api('POST', '/workspaces', { repoId: repo.id })
+  await page.goto(srv.base)
+  await page.locator('#aiguilleur .wsItem').click()
+  await srv.turn(w.id, 'fix the login')
+  const report = page.locator('#thread .msg.report')
+  await expect(report).toContainText('ok: fix the login')
+  await expect(report.locator('.head')).toContainText(`${repo.name} / `)
+  await say(page, 'and now?')
+  // The aiguilleur's model read the report first; the window shows only what the user typed.
+  await expect(page.locator('#thread .msg.me').last()).toHaveText('and now?')
+  await expect(page.locator('#thread .msg.ai').last()).toContainText('[Reports from the agents since your last message]')
+  if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT })
+  await report.locator('.head').click()
+  await expect(page.locator('#panel')).toBeVisible()
+  await expect(page.locator('#wsBranch')).toHaveText(`${w.branch} ← main`)
+})

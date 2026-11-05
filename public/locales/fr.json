@@ -77,7 +77,9 @@
     "renameHint": "Double-clic pour renommer"
   },
   "chat": {
-    "aiguilleurReady": "L'aiguilleur voit tous les dépôts et workspaces. Demande-lui où en sont les choses, ou dis-lui quoi transmettre à quel agent : il relaie tes instructions telles quelles et ne décide rien seul. Il garde ce qu'il apprend sur tes projets dans <code>{{path}}</code>.",
+    "viaTelegram": "Envoyé depuis Telegram",
+    "openReport": "Ouvrir ce workspace",
+    "aiguilleurReady": "L'aiguilleur voit tous les dépôts et workspaces. Demande-lui où en sont les choses, ou dis-lui quoi transmettre à quel agent : il relaie tes instructions telles quelles et ne décide rien seul. Les comptes rendus des agents arrivent ici. Il garde ce qu'il apprend sur tes projets dans <code>{{path}}</code>.",
     "placeholder": "Demande quelque chose à l'agent…  (Entrée pour envoyer, Maj+Entrée pour une ligne)",
     "busy": "L'agent travaille…",
     "stop": "Stop",
@@ -173,7 +175,7 @@
     "confirmRemove": "Retirer {{name}} d'Aiguillage ? Son dossier reste sur le disque.",
     "updates": "Mises à jour",
     "telegram": "Telegram",
-    "telegramHint": "Suis et pilote tes agents depuis ton téléphone pendant que le Mac tourne : leurs comptes rendus, les boutons Autoriser / Refuser, et l'Aiguilleur. Dans Telegram, crée un bot avec @BotFather (/newbot) et colle son token ici.",
+    "telegramHint": "Suis et pilote tes agents depuis ton téléphone pendant que le Mac tourne : l'Aiguilleur, qui te transmet leurs comptes rendus et leur passe tes réponses, et les boutons Autoriser / Refuser. Dans Telegram, crée un bot avec @BotFather (/newbot) et colle son token ici.",
     "telegramToken": "Token du bot",
     "telegramConnect": "Connecter",
     "telegramDisconnect": "Déconnecter",
@@ -254,8 +256,9 @@
     "pair": "Ce bot appartient à un Aiguillage. Pour relier ce chat, ouvre le lien affiché dans Aiguillage, dans Réglages → Telegram.",
     "none": "Aucun workspace actif.",
     "gone": "Ce workspace n'existe plus.",
+    "fromMac": "🖥 Toi, sur le Mac :",
     "linked": "C'est relié ! Écris n'importe quoi pour parler à l'Aiguilleur. /remote et /local activent et coupent les comptes rendus ; /status liste les workspaces.",
-    "remoteOn": "📡 Mode remote activé : les comptes rendus et les demandes arrivent ici. /local pour arrêter.",
+    "remoteOn": "📡 Mode remote activé : la conversation avec l'Aiguilleur, les comptes rendus des agents et les demandes arrivent ici. /local pour arrêter.",
     "remoteOff": "Mode remote coupé : plus rien n'arrive ici de soi-même. /remote pour tout rattraper et le réactiver.",
     "cmd": {
       "remote": "Mode remote : tout rattraper, puis recevoir comptes rendus et demandes",

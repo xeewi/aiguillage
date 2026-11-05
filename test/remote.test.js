@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, journalLines, notesFile } = await import('../lib/remote.js')
+const { route, journalLines, notesFile, prompt } = await import('../lib/remote.js')
 
 const ME = 42
 const msg = (text, extra = {}) => ({ message: { message_id: 9, chat: { id: ME }, text, ...extra } })
@@ -24,12 +24,13 @@ test('linking: only the one-time code of the Settings link ties a chat; stranger
   assert.equal(route(q, null, new Map()), null)
 })
 
-test('messages: replies go to the agent reported on, the rest to the aiguilleur', () => {
-  const sent = new Map([[5, 'ws1']])
-  assert.deepEqual(route(msg('fix it', { reply_to_message: { message_id: 5, text: '✅ app / login' } }), ME, sent), { kind: 'send', ws: 'ws1', text: 'fix it' })
-  assert.deepEqual(route(msg('how are things?'), ME, sent), { kind: 'send', ws: 'aiguilleur', text: 'how are things?' })
+test('messages: all go to the aiguilleur; a reply to a report says which agent it is about', () => {
+  const sent = new Map([[5, 'ws1'], [6, 'aiguilleur']])
+  assert.deepEqual(route(msg('fix it', { reply_to_message: { message_id: 5, text: '✅ app / login' } }), ME, sent), { kind: 'send', about: 'ws1', text: 'fix it' })
+  assert.deepEqual(route(msg('how are things?'), ME, sent), { kind: 'send', text: 'how are things?' })
+  assert.deepEqual(route(msg('and?', { reply_to_message: { message_id: 6, text: 'All idle.' } }), ME, sent), { kind: 'send', text: 'and?' })
   // A report sent before a restart: the aiguilleur gets the quote.
-  assert.deepEqual(route(msg('yes', { reply_to_message: { message_id: 1, text: 'Merge?' } }), ME, sent), { kind: 'send', ws: 'aiguilleur', text: '> Merge?\n\nyes' })
+  assert.deepEqual(route(msg('yes', { reply_to_message: { message_id: 1, text: 'Merge?' } }), ME, sent), { kind: 'send', text: '> Merge?\n\nyes' })
   assert.deepEqual(route(msg('/status'), ME, sent), { kind: 'status' })
   assert.deepEqual(route(msg('/remote'), ME, sent), { kind: 'remote' })
   assert.deepEqual(route(msg('/local@aig_bot'), ME, sent), { kind: 'local' })
@@ -49,4 +50,16 @@ test('journal: bullets cleaned and capped, NOTHING means nothing; one notes file
   assert.deepEqual(journalLines('- Login fixed\n* Tests: npm test\n\n1. PR open'), ['Login fixed', 'Tests: npm test', 'PR open'])
   assert.equal(journalLines('a\nb\nc\nd\ne\nf').length, 5)
   assert.equal(notesFile('/c', { name: 'my app/v2' }), '/c/projects/my-app-v2.md')
+})
+
+test("prompt: the reports since the user's last message head it, then where the message comes from", () => {
+  const report = (ws, text, ok = true) => ({ type: 'cg_report', ws, label: `app / ${ws}`, ok, text })
+  assert.equal(prompt('hi', {}, []), 'hi')
+  assert.equal(prompt('hi', { via: 'telegram' }, [report('old', 'seen'), { type: 'cg_user', text: 'x' }]), '[Telegram] hi')
+  const p = prompt('go on', {}, [report('a', 'seen'), { type: 'cg_user', text: 'x' }, report('b', 'Done.'), report('c', 'Broke', false)])
+  assert.equal(p, '[Reports from the agents since your last message]\n\n✅ app / b\n\nDone.\n(workspace id b)\n\n❌ app / c\n\nBroke\n(workspace id c)\n\n---\n\ngo on')
+  const many = Array.from({ length: 32 }, (_, i) => report('w' + i, 'x'.repeat(3000)))
+  const q = prompt('?', {}, many)
+  assert.match(q, /\(2 older ones left out/)
+  assert.ok(!q.includes('w1\n') && q.includes('(workspace id w31)') && q.includes('x'.repeat(2000) + '…') && !q.includes('x'.repeat(2001)))
 })

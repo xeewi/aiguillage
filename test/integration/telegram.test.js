@@ -1,4 +1,5 @@
-// Telegram bridge end to end, against a fake Bot API: aiguilleur, turn reports, replies, permission buttons.
+// Telegram bridge end to end, against a fake Bot API: the aiguilleur as the one interlocutor (turn reports, replies,
+// one conversation in the window and on Telegram), permission buttons.
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
@@ -65,13 +66,25 @@ test('a plain message goes to the aiguilleur, which runs outside every repo with
   assert.ok(!st.workspaces.some(w => w.id === 'aiguilleur') && st.aiguilleur.aiguilleur, 'apart from the workspaces')
 })
 
-test("a workspace's finished turn is reported; replying to the report talks to that agent", async () => {
+test("a workspace's finished turn is the aiguilleur's report; a reply to it goes to the aiguilleur, saying which agent", async () => {
   const { repo, w } = await setup(srv)
   await srv.turn(w.id, 'hi')
   const report = await message(m => m.text.startsWith(`✅ ${repo.name} / `) && m.text.endsWith('ok: hi'), 'turn report')
+  const card = (await srv.log('aiguilleur')).find(e => e.type === 'cg_report' && e.ws === w.id)
+  assert.deepEqual([card.ok, card.text, report.text.split('\n')[0]], [true, 'ok: hi', `✅ ${card.label}`], 'the same report in the window')
   say('again', { reply_to_message: { message_id: report.message_id } })
-  await message(m => m.text.endsWith('ok: again'), 'second report')
-  assert.ok((await srv.log(w.id)).some(e => e.type === 'cg_user' && e.text === 'again'))
+  // The fake CLI echoes what its model reads: the unread report, then the reply and which agent it answers.
+  const answer = await message(m => m.text.includes(`[Telegram] [Reply to the report of ${repo.name} / `) && m.text.endsWith(`(id ${w.id})] again`), "the aiguilleur's answer")
+  assert.match(answer.text, new RegExp(`^ok: \\[Reports from the agents since your last message\\]\\n\\n✅ ${repo.name} / [^\\n]+\\n\\nok: hi\\n\\(workspace id ${w.id}\\)`))
+  const said = (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_user')
+  assert.deepEqual([said.text, said.via], ['again', 'telegram'], 'the window shows what the user wrote, marked as from Telegram')
+  assert.ok(!(await srv.log(w.id)).some(e => e.type === 'cg_user' && e.text === 'again'), 'not straight to the agent')
+})
+
+test('remote mode: what is typed to the aiguilleur at the Mac shows on Telegram too, with its answer', async () => {
+  await srv.turn('aiguilleur', 'from the desk')
+  await message(m => m.text === '🖥 You, at the Mac:\nfrom the desk', 'the message, mirrored')
+  await message(m => m.text === 'ok: from the desk', 'its answer')
 })
 
 test('a permission request comes with buttons; Allow lets the tool run', async () => {
@@ -103,9 +116,11 @@ test('remote mode off: nothing pushed, messages still go through; /remote from t
   await srv.api('PATCH', `/workspaces/${w.id}`, { permissionMode: 'default' })
   await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'bash echo waiting' })
   await waitFor(async () => (await srv.ws(w.id)).pending.length, { what: 'a pending request' })
+  await srv.turn('aiguilleur', 'at my desk')
   say('still there?')
-  await message(m => m.text === 'ok: [Telegram] still there?', 'the aiguilleur answers anyway')
-  assert.ok(!sent.some(m => m.text.endsWith('ok: quietly') || m.text.includes('echo waiting')), 'no report nor request while off')
+  await message(m => m.text.endsWith('[Telegram] still there?'), 'the aiguilleur answers anyway')
+  assert.ok(!sent.some(m => m.text.endsWith('ok: quietly') || m.text.includes('echo waiting') || m.text.includes('at my desk')),
+    'no report, request nor window conversation while off')
   say('/remote')
   await message(m => m.text.startsWith('📡 Remote mode on') && m.text.includes(repo.name), 'catch-up with the status')
   await message(m => m.text.endsWith('ok: quietly'), 'the missed report')

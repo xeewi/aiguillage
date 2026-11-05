@@ -554,6 +554,7 @@ function toolSummary(name, i = {}) {
 function renderEv(ev) {
   if (ev.type === 'cg_user') {
     const m = h('div', 'msg me'), body = h('div', 'body', ev.text)
+    if (ev.via === 'telegram') { m.classList.add('via'); m.title = t('chat.viaTelegram'); m.dataset.via = '📱' }
     if (ev.files?.length) { const l = h('div', 'atts'); l.append(...ev.files.map(fileChip)); body.append(l) }
     m.append(body)
     if (ev.cp) {
@@ -574,6 +575,16 @@ function renderEv(ev) {
   }
   if (ev.type === 'system') return thread.append(h('div', 'meta', `session ${ev.session_id.slice(0, 8)} · ${ev.model}`))
   if (ev.type === 'cg_error') return thread.append(h('div', 'msg err', ev.key ? t(ev.key, ev.vars) : ev.text))
+  // An agent's finished turn, in the aiguilleur's conversation (lib/remote.js): its project / workspace, then its words.
+  if (ev.type === 'cg_report') {
+    const m = h('div', 'msg report' + (ev.ok ? '' : ' bad')), head = h('button', 'ghost head')
+    head.insertAdjacentHTML('afterbegin', svg(ev.ok ? 'check' : 'x')); head.append(h('span', null, ev.label))
+    head.title = t('chat.openReport'); head.disabled = !wsById(ev.ws) || wsById(ev.ws).archived
+    head.onclick = () => select(ev.ws)
+    m.append(head)
+    if (ev.text) m.append(md(ev.text))
+    return thread.append(m)
+  }
   if (ev.type === 'task') {
     // Stopped is a choice, not a failure: a filled station and a word, red only when it broke.
     const b = toolEls.get(ev.tool_use_id)

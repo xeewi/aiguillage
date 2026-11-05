@@ -334,13 +334,7 @@ const routes = {
     A.configure(ws, body); changed(); return {}
   },
   'POST /api/workspaces/:id/upload': ({ ws, req, query }) => upload(ws, query.get('name'), req),
-  'POST /api/workspaces/:id/send': async ({ ws, body }) => {
-    const text = String(body.text ?? ''), files = attached(ws, body.files)
-    if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
-    // Two CLIs writing the same session would fork it: the chat waits for the terminal one to quit.
-    if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
-    await A.send(ws, text, files); return {}
-  },
+  'POST /api/workspaces/:id/send': async ({ ws, body }) => { await sendTo(ws, String(body.text ?? ''), attached(ws, body.files)); return {} },
   'GET /api/workspaces/:id/commands': ({ ws }) => A.commands(ws),
   // Commands with a full-screen UI (/permissions, /resume, /memory…) don't exist in -p mode: run them in the real,
   // interactive Claude Code, on this same conversation, in the Terminal tab. The idle chat process steps aside.
@@ -395,6 +389,14 @@ const routes = {
     spawn(...cmd, { detached: true, stdio: 'ignore' }).on('error', () => {}).unref()
     return {}
   },
+}
+
+// The chat's send, and Telegram's (lib/remote.js). The aiguilleur's model also reads the agents' reports it hasn't seen.
+async function sendTo(ws, text, files = [], opts = {}) {
+  if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
+  // Two CLIs writing the same session would fork it: the chat waits for the terminal one to quit.
+  if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
+  await A.send(ws, text, files, ws === state.aiguilleur ? { via: opts.via, prompt: t => R.prompt(t, opts) } : {})
 }
 
 const AIGUILLEUR_ROUTES = new Set(['GET /api/workspaces/:id/log', 'GET /api/workspaces/:id/commands', 'PATCH /api/workspaces/:id',
@@ -519,7 +521,7 @@ if (!state.logsTrimmed) {
 for (const r of state.repos) scanLogo(r)
 
 // The aiguilleur, and Telegram once set up in Settings (lib/remote.js).
-R.start({ port: PORT, changed, send: (ws, text) => routes['POST /api/workspaces/:id/send']({ ws, body: { text } }) })
+R.start({ port: PORT, changed, send: sendTo })
 
 // Plan usage in the sidebar: now, every 3 min, and after each agent turn (lib/agent.js).
 A.refreshUsage(); setInterval(A.refreshUsage, 3 * 60_000).unref()
