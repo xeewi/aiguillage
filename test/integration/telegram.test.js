@@ -214,6 +214,20 @@ test("the media an agent shows in its report come to Telegram as files: a photo,
   assert.ok(sent.indexOf(report) < sent.findIndex(m => m.text.startsWith('⚠️ nope.png')), 'after the text')
 })
 
+test('a long text goes whole, in several messages: rich ones, or plain ones of 4096 characters at most', async () => {
+  const { w } = await setup(srv)
+  const words = Array.from({ length: 3000 }, (_, i) => `line ${i} of a long answer`).join('\n')
+  for (const [ask, method, max] of [['LONG', 'sendRichMessage', 16_000], ['UNPARSABLE', 'sendMessage', 4096]]) {
+    const before = sent.length
+    await srv.turn(w.id, `${ask}\n${words}`)
+    await message(m => sent.indexOf(m) >= before && m.text.endsWith('line 2999 of a long answer'), `the end of the ${ask} report`)
+    const parts = sent.slice(before).filter(m => m.method === method)
+    assert.ok(parts.length > 1 && parts.every(m => m.text.length <= max), `${ask}: several messages, each under the limit`)
+    // Only the part with UNPARSABLE is refused: it goes plain, the next ones still rich.
+    assert.ok(sent.slice(before).map(m => m.text).join('\n').endsWith(`ok: ${ask}\n${words}`), `${ask}: nothing lost`)
+  }
+})
+
 test('Disconnect stops the bot', async () => {
   await srv.api('POST', '/telegram', { token: '' })
   assert.deepEqual((await srv.state()).telegram, { on: false, linked: false, remote: false })

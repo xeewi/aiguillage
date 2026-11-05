@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md } = await import('../lib/remote.js')
+const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md, split } = await import('../lib/remote.js')
 const { i18n } = await import('../lib/i18n.js')
 
 const ME = 42
@@ -125,4 +125,20 @@ test("what a tool call is doing, in a few words; our own text escaped inside Mar
   assert.equal(activity({ name: 'Bash', input: { command: 'x'.repeat(80) } }), `Bash: ${'x'.repeat(49)}…`)
   assert.equal(activity({ name: 'TodoWrite', input: { todos: [] } }), 'TodoWrite')
   assert.equal(md('my_repo / *wip* [1] `x` #2'), 'my\\_repo / \\*wip\\* \\[1\\] \\`x\\` \\#2')
+})
+
+test('a long text: parts under the limit, cut between lines, nothing lost; a code block cut in two closed and reopened', () => {
+  assert.deepEqual(split('short', 100), ['short'])
+  const text = Array.from({ length: 40 }, (_, i) => `line ${i}`).join('\n')
+  const parts = split(text, 100)
+  assert.ok(parts.length > 1 && parts.every(p => p.length <= 100))
+  assert.equal(parts.join('\n'), text, 'cut between lines')
+  const long = split('x'.repeat(250), 100)
+  assert.ok(long.every(p => p.length <= 100) && long.join('') === 'x'.repeat(250), 'a line too long is cut too')
+  const code = ['intro', '```js', ...Array.from({ length: 30 }, (_, i) => `f(${i})`), '```', 'outro'].join('\n')
+  const cut = split(code, 100)
+  assert.ok(cut.length > 1 && cut.every(p => p.length <= 100))
+  assert.ok(cut.every(p => (p.match(/^```/gm) ?? []).length % 2 === 0), 'each part has its code blocks closed')
+  assert.ok(cut.slice(1, -1).every(p => p.startsWith('```js\n')), 'reopened with its language')
+  assert.equal(cut.join('\n').replace(/\n```\n```js/g, ''), code, 'nothing else added')
 })
