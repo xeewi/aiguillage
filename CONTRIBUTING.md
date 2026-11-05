@@ -24,7 +24,7 @@ The tests never call the real Claude: `test/fake-claude.mjs` mimics the CLI. To 
 - **The server listens on `127.0.0.1` only.**
 - **No hard-coded UI text.** Every user-facing string goes through i18next (see below), with English as the base.
 - **One PR, one topic**, with a test that fails without your change.
-- Visual changes follow [DESIGN.md](DESIGN.md); include a before/after screenshot.
+- Visual changes follow [DESIGN.md](DESIGN.md); include a before/after screenshot. `node docs/screenshots/shoot.mjs` regenerates the README's screenshots (isolated server, fake `claude`).
 
 ## Translations
 

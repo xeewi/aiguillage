@@ -70,13 +70,13 @@ test('run: nonconcurrent stops the other workspace of the same repo; concurrent 
   }
 })
 
-test('run: AIGUILLAGE_* variables are visible to scripts', async () => {
-  const cmd = 'echo P=$AIGUILLAGE_PORT N=$AIGUILLAGE_WORKSPACE_NAME R=$AIGUILLAGE_ROOT_PATH B=$AIGUILLAGE_DEFAULT_BRANCH L=$AIGUILLAGE_IS_LOCAL I=$AIGUILLAGE_WORKSPACE_ID W=$AIGUILLAGE_WORKSPACE_PATH'
+test('run: AIGUILLAGE_* variables and PORT are visible to scripts', async () => {
+  const cmd = 'echo P=$AIGUILLAGE_PORT N=$AIGUILLAGE_WORKSPACE_NAME R=$AIGUILLAGE_ROOT_PATH B=$AIGUILLAGE_DEFAULT_BRANCH L=$AIGUILLAGE_IS_LOCAL I=$AIGUILLAGE_WORKSPACE_ID W=$AIGUILLAGE_WORKSPACE_PATH PORT=$PORT'
   const { repoPath, w } = await setup(srv, { 'aiguillage.json': JSON.stringify({ run: cmd }) })
   await srv.api('POST', `/workspaces/${w.id}/run`, {})
   await waitLog(w.id, /\[exit 0\]/)
   const line = runLog(w.id).split('\n').find(l => l.startsWith('P='))
-  assert.equal(line, `P=${w.port} N=${w.name} R=${repoPath} B=main L=1 I=${w.id} W=${w.path}`)
+  assert.equal(line, `P=${w.port} N=${w.name} R=${repoPath} B=main L=1 I=${w.id} W=${w.path} PORT=${w.port}`)
 })
 
 test('run log: ANSI escape codes are stripped', async () => {

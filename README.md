@@ -10,7 +10,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node ≥ 22](https://img.shields.io/badge/node-%E2%89%A5%2022-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![macOS · browser](https://img.shields.io/badge/macOS%20%C2%B7%20browser-lightgrey?logo=apple)](#install)
-[![Tests](https://img.shields.io/badge/tests-83%20%2B%2026%20e2e-brightgreen)](#tests)
+[![Tests](https://img.shields.io/badge/tests-127%20%2B%2050%20e2e-brightgreen)](#tests)
 [![i18n](https://img.shields.io/badge/i18n-English%20%C2%B7%20Fran%C3%A7ais-orange)](#languages)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -68,8 +68,8 @@ To publish a version: bump `version` in `package.json`, commit, then `git tag v0
 
 ## How it works
 
-1. **Add a local repo**, then click `+`: a worktree and its `aig/<city>` branch are created from `origin/<base>`, and your `setup` script runs.
-2. **Talk to the agent.** Replies stream in, with tool calls and todos shown as they happen. You can interrupt at any time.
+1. **Add a local repo** (or a plain folder, turned into one), then click `+`: a worktree and its `aig/<city>` branch are created from `origin/<base>`, and your `setup` script runs. Claude names the workspace from your first message; double-click to rename it.
+2. **Talk to the agent.** Replies stream in, with tool calls and todos shown as they happen. Attach files, use any `/` command. You can interrupt at any time.
 3. **Review the diff, test in the terminal** or with your Run scripts.
 4. **Open a PR** (via `gh`) or **merge locally**, then **archive** the workspace.
 
@@ -90,7 +90,7 @@ Four modes per workspace:
 - **Auto edits**: file edits go through, everything else asks you.
 - **Plan**: you approve the agent's plan, or reject it with a comment.
 
-Model and thinking effort are also set per workspace.
+Model (every CLI alias: Fable, Opus, Sonnet, Haiku, the 1M variants, Opus Plan) and thinking effort are also set per workspace, under the message box. **Settings** holds the defaults for new workspaces.
 
 </td>
 <td width="50%"><img src="docs/screenshots/permissions.png" alt="Permission card: the agent wants to run git push, with Deny and Allow buttons"></td>
@@ -111,12 +111,17 @@ The agent knows its worktree, its ports and the Run script's log file, which it 
 
 | | |
 |---|---|
-| **Chat** | One `claude` process per workspace (stream-json): streaming, tool calls and todos, nested subagents, Stop button. Sessions resume with `--resume`. |
+| **Chat** | One `claude` process per workspace (stream-json): streaming, tool calls and todos, nested subagents, Stop button. Sessions resume with `--resume`. The composer shows the context left until auto-compact. |
+| **Slash commands** | Every Claude Code command, skill and plugin command in a `/` menu (`/clear`, `/model`…); full-screen ones open in the terminal. |
+| **Attachments and media** | Drop files anywhere on the window, paste them, or use the paperclip (up to 100 MB each). Images, videos and sounds the agent embeds by local path play in the thread; click an image to see it full size. |
+| **Background work** | Running subagents and background shells are listed above the composer, each with its own Stop. |
 | **Checkpoints** | ↺ on any of your messages rolls back the files **and** the conversation to just before it. |
 | **Diff** | Everything that changed since the base branch: commits, modified files, new files, uncommitted changes included. |
 | **Shipping** | Commit, local merge into the base branch, PR via `gh`, archive (worktree removed, branch kept and restorable). |
 | **Ignored files** | Files listed in `.worktreeinclude` (else `file_include_globs`, else `.env*`) are copied into every new worktree. |
-| **Notifications** | System notification when an agent finishes or needs you. <kbd>⌘</kbd><kbd>1</kbd>…<kbd>9</kbd> switches workspaces. |
+| **Sidebar** | Each repo with its logo, its workspaces and their state; right-click a workspace to open, rename, copy its branch or path, mark it unread, stop or archive it. Your plan usage (session and week limits) at the bottom, live. Collapsible, with a resizable split. |
+| **Notifications** | System notification when an agent finishes or needs you. <kbd>⌘</kbd><kbd>1</kbd>…<kbd>9</kbd> switches workspaces, <kbd>⇧</kbd><kbd>⌘</kbd><kbd>A</kbd> archives the open one. |
+| **Settings** | Theme (System / Light / Dark), language, defaults for new workspaces, repos, updates, Telegram. |
 | **Aiguilleur** | One agent above all workspaces: reports on them and relays your instructions, with a memory of each project. See [Aiguilleur](#aiguilleur). |
 | **Telegram** | Away from the Mac: agents report to you on Telegram, you answer them there or through the aiguilleur. See [Remote control](#remote-control-telegram). |
 
@@ -196,7 +201,7 @@ command = "pnpm test --watch"
 
 ## Languages
 
-The interface follows your browser or system language, and you can switch it from the sidebar. English and French ship today.
+The interface follows your browser or system language, and you can switch it in **Settings**. English and French ship today.
 
 <details>
 <summary>Screenshot in French</summary>
@@ -211,7 +216,7 @@ Translations use [i18next](https://www.i18next.com). Adding a language means add
 
 - Everything lives in `~/.aiguillage/` (`state.json`, `logs/`, `worktrees/`). Set `AIGUILLAGE_HOME` to move it.
 - Checkpoints are private git refs, `refs/aiguillage/*`, in your repo.
-- Only the `claude` CLI talks to the network, exactly as when you use it directly. Once you turn [Telegram](#remote-control-telegram) on, the reports and what you send go through Telegram too. Its bot token is kept in `state.json`. API keys are stripped from the agent's environment, so usage is billed to your Claude account.
+- Only the `claude` CLI talks to the network, exactly as when you use it directly, plus the [update check](#updates), which you can turn off. Once you turn [Telegram](#remote-control-telegram) on, the reports and what you send go through Telegram too. Its bot token is kept in `state.json`. API keys are stripped from the agent's environment, so usage is billed to your Claude account.
 
 ## Architecture
 
@@ -224,8 +229,9 @@ lib/remote.js      Telegram bridge and aiguilleur
 lib/git.js         worktrees, diff, checkpoints
 lib/config.js      per-repo settings (TOML / JSON)
 lib/i18n.js        server-side messages (i18next)
+lib/update.js      self-update from GitHub releases
 lib/store.js       persisted state
-public/            UI (index.html, app.js, i18n.js, style.css)
+public/            UI (index.html, app.js, i18n.js, theme.js, style.css)
 public/locales/    translations, one JSON file per language
 electron/main.js   macOS app window
 ```
@@ -235,8 +241,8 @@ More: [docs/DNA.md](docs/DNA.md) (project principles, in French) and [DESIGN.md]
 ## Tests
 
 ```bash
-npm test           # unit + integration (83 tests, ~5 s)
-npm run test:e2e   # browser flows, Playwright (26 tests, ~10 s)
+npm test           # unit + integration (127 tests, ~12 s)
+npm run test:e2e   # browser flows, Playwright (50 tests, ~25 s)
 npm run test:all   # both
 ```
 
