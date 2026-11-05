@@ -219,3 +219,32 @@ test('attachments: paperclip and window-wide drop add chips; sent files show in 
   await expect(page.locator('#thread .msg.ai').last()).toContainText('Attached files')
   await expect(page.locator('#thread .msg.ai').last()).toContainText('notes.md')
 })
+
+test('media: local images, videos and sounds in a reply show in the chat; web images stay blocked', async ({ open, page }) => {
+  // 1×1 PNG, committed in the repo so the worktree has it.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+  await open({ 'shots/home.png': png })
+  await say(page, '![home](shots/home.png) [demo](out/demo.mp4) [voice](./a.mp3) [readme](README.md) ![web](https://example.com/x.png)')
+  const reply = page.locator('#thread .msg.ai').last()
+  await expect(reply.locator('img.media')).toHaveJSProperty('naturalWidth', 1)
+  await expect(reply.locator('img.media')).toHaveAttribute('alt', 'home')
+  await expect(reply.locator('video.media')).toHaveAttribute('src', /^\/media\?path=.*out%2Fdemo\.mp4$/)
+  await expect(reply.locator('audio.media')).toHaveAttribute('controls', '')
+  await expect(reply.locator('a[href="README.md"]')).toHaveText('readme')
+  await expect(reply.locator('img:not(.media)')).toHaveAttribute('src', 'https://example.com/x.png') // CSP keeps it off the network
+})
+
+test('media: a chat image opens full size on click; a click or Escape closes it', async ({ open, page }) => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+  await open({ 'shot.png': png })
+  await say(page, '![shot](shot.png)')
+  const zoom = page.locator('#zoom')
+  await page.locator('#thread img.media').click()
+  await expect(zoom).toBeVisible()
+  await expect(zoom.locator('img')).toHaveAttribute('src', /shot\.png$/)
+  await zoom.click()
+  await expect(zoom).toBeHidden()
+  await page.locator('#thread img.media').click()
+  await page.keyboard.press('Escape')
+  await expect(zoom).toBeHidden()
+})

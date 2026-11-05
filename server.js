@@ -258,6 +258,29 @@ function serveAttachment(pathname, res) {
   createReadStream(file).pipe(res)
 }
 
+// ---------- media the agent shows in the chat: ![caption](path/to/shot.png | demo.mp4 | sound.mp3) ----------
+// Typed by extension, with nosniff and a sandbox: a file only ever plays as the image, video or sound it claims to be.
+// ponytail: any local path with a media extension, not only the worktree (screenshots often land in /tmp).
+const MEDIA = { ...IMAGES, '.avif': 'image/avif', '.svg': 'image/svg+xml',
+  '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/mp4', // a .mov is H.264 nearly always; Chromium only plays it typed mp4
+  '.webm': 'video/webm', '.ogv': 'video/ogg', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac' }
+function serveMedia(query, req, res) {
+  const file = resolve(String(query.get('path') ?? '').replace(/^~(?=$|\/)/, homedir()))
+  const type = MEDIA[extname(file).toLowerCase()], st = type && statSync(file, { throwIfNoEntry: false })
+  if (!st?.isFile()) { res.writeHead(404); return res.end('not found') }
+  // same-origin: another site can't even embed it to probe which files you have.
+  const head = { 'content-type': type, 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    'cross-origin-resource-policy': 'same-origin', 'accept-ranges': 'bytes', 'cache-control': 'no-cache' }
+  // Ranges, or a video can't seek.
+  const [, a, b] = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '') ?? []
+  if (a === undefined) { res.writeHead(200, { ...head, 'content-length': st.size }); return createReadStream(file).on('error', () => res.destroy()).pipe(res) }
+  const start = a ? +a : Math.max(0, st.size - +b), end = a && b ? Math.min(+b, st.size - 1) : st.size - 1
+  if (start > end) { res.writeHead(416, { 'content-range': `bytes */${st.size}` }); return res.end() }
+  res.writeHead(206, { ...head, 'content-range': `bytes ${start}-${end}/${st.size}`, 'content-length': end - start + 1 })
+  createReadStream(file, { start, end }).on('error', () => res.destroy()).pipe(res)
+}
+
 // ---------- HTTP API ----------
 const routes = {
   'GET /api/state': () => view(),
@@ -399,7 +422,7 @@ const server = http.createServer(async (req, res) => {
   if (!sameOrigin(req)) { res.writeHead(403); return res.end('forbidden') }
   const url = new URL(req.url, 'http://x')
   if (!url.pathname.startsWith('/api/')) {
-    try { return url.pathname.startsWith('/attachments/') ? serveAttachment(url.pathname, res) : url.pathname.startsWith('/logo/') ? serveLogo(url.pathname, res) : serveStatic(url.pathname, res) } catch { res.writeHead(500); return res.end() }
+    try { return url.pathname.startsWith('/attachments/') ? serveAttachment(url.pathname, res) : url.pathname === '/media' ? serveMedia(url.searchParams, req, res) : url.pathname.startsWith('/logo/') ? serveLogo(url.pathname, res) : serveStatic(url.pathname, res) } catch { res.writeHead(500); return res.end() }
   }
   const parts = url.pathname.split('/') // ['', 'api', kind, id, action]
   const key = `${req.method} ${parts.length > 3 ? ['', 'api', parts[2], ':id', ...parts.slice(4)].join('/') : url.pathname}`

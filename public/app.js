@@ -6,7 +6,27 @@ import { t, LANGS, lang, setLang, translateDom } from '/i18n.js'
 
 const $ = s => document.querySelector(s)
 const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e }
-const md = s => DOMPurify.sanitize(marked.parse(s || ''))
+const md = s => embedMedia(DOMPurify.sanitize(marked.parse(s || ''), { RETURN_DOM_FRAGMENT: true }))
+// Local files the agent embeds or links (![shot](out/home.png), [demo](/tmp/demo.mp4)) show in the chat, served by /media.
+const VIDEO = /\.(mp4|m4v|mov|webm|ogv)$/i, AUDIO = /\.(mp3|wav|ogg|m4a|aac|flac)$/i, IMAGE = /\.(png|jpe?g|gif|webp|avif|svg)$/i
+const mediaUrl = p => '/media?path=' + encodeURIComponent(p)
+function localMedia(ref) {
+  if (!ref || /^[a-z][\w+.-]*:|^\/attachments\/|^#/i.test(ref)) return null // web, data:, the app's own URLs
+  let p = ref.split(/[?#]/)[0]; try { p = decodeURIComponent(p) } catch {}
+  if (!VIDEO.test(p) && !AUDIO.test(p) && !IMAGE.test(p)) return null
+  const w = wsById(active)
+  return /^[/~]/.test(p) ? p : w && w.path + '/' + p.replace(/^\.\//, '')
+}
+function embedMedia(frag) {
+  for (const n of frag.querySelectorAll('img[src], a[href]')) {
+    const p = localMedia(n.getAttribute(n.tagName === 'IMG' ? 'src' : 'href')); if (!p) continue
+    const m = h(VIDEO.test(p) ? 'video' : AUDIO.test(p) ? 'audio' : 'img', 'media')
+    m.src = mediaUrl(p)
+    if (m.tagName === 'IMG') { m.alt = n.alt || n.textContent; m.title = p } else { m.controls = true; m.preload = 'metadata' }
+    n.replaceWith(m)
+  }
+  return frag
+}
 // One small icon set, same 16px grid and stroke.
 const ICONS = {
   plus: '<path d="M8 3v10M3 8h10"/>',
@@ -450,6 +470,9 @@ for (const el of [$('#wsHead .actions'), $('#gitBar')]) el.addEventListener('cli
 // ---------- chat ----------
 let toolEls = new Map()
 const thread = $('#thread')
+// A chat image opens full size; a click anywhere or Escape closes it.
+thread.addEventListener('click', e => { const i = e.target.closest('img.media'); if (!i) return; const z = $('#zoom'); z.firstChild.src = i.src; z.firstChild.alt = i.alt; z.showModal() })
+$('#zoom').onclick = () => $('#zoom').close()
 const scroll = () => { const t = thread; if (t.scrollHeight - t.scrollTop - t.clientHeight < 300) t.scrollTop = t.scrollHeight }
 const draft = () => thread.querySelector('.draft') ?? thread.appendChild(h('div', 'msg ai draft'))
 const dropDraft = () => thread.querySelector('.draft')?.remove()
@@ -515,7 +538,7 @@ function renderEv(ev) {
   if (typeof content === 'string') return into.append(h('div', 'meta', content))
   for (const c of content ?? []) {
     if (c.type === 'text' && ev.type === 'assistant') {
-      const m = h('div', 'msg ai' + (parent ? ' small' : '')); m.innerHTML = md(c.text); into.append(m)
+      const m = h('div', 'msg ai' + (parent ? ' small' : '')); m.append(md(c.text)); into.append(m)
       // A full-screen command the CLI has no -p version of: offer the real Claude Code, on this conversation.
       const cmd = !parent && c.text.match(/^(\/[\w:.-]+) isn't available in this environment\.?$/)?.[1]
       if (cmd) {
@@ -554,6 +577,9 @@ function toolEl(c) {
       for (const l of String(e.new_string ?? '').split('\n')) pre.append(h('div', 'add', '+ ' + l))
     }
     d.append(pre)
+  } else if (c.name === 'Read' && IMAGE.test(i.file_path ?? '')) {
+    // The image the agent looked at (its base64 isn't kept: lib/agent.js trim), read again from disk.
+    const img = h('img', 'media'); img.src = mediaUrl(i.file_path); img.alt = rel(i.file_path); d.append(img)
   } else if (c.name !== 'Read') d.append(h('pre', null, typeof i.command === 'string' ? i.command : JSON.stringify(i, null, 2)))
   if (typeof i.command === 'string') d.dataset.cmd = i.command // a background shell's row shows it
   const out = h('pre', 'out'); out.hidden = true
@@ -606,7 +632,7 @@ function renderPerms() {
     const card = h('div', 'perm')
     if (plan) {
       card.append(permQ(t('perm.proposesPlan')))
-      const body = h('div', 'msg ai plan'); body.innerHTML = md(p.input.plan); card.append(body)
+      const body = h('div', 'msg ai plan'); body.append(md(p.input.plan)); card.append(body)
     } else {
       card.append(permQ(t('perm.wantsTool', { tool: p.tool })), h('pre', null, String(toolSummary(p.tool, p.input) || JSON.stringify(p.input, null, 2))))
     }
