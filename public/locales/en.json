@@ -371,5 +371,17 @@
       "queued_one": "{{count}} queued",
       "queued_other": "{{count}} queued"
     }
+  },
+  "queue": {
+    "head_one": "{{count}} message waiting to be sent",
+    "head_other": "{{count}} messages waiting to be sent",
+    "why_cap": "agent cap",
+    "why_quota": "plan's session",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "cancel": "Cancel",
+    "cancelTitle": "Take it out of the queue: it won't be sent",
+    "dropped_one": "Archived with {{count}} queued message, dropped without being sent:\n{{list}}",
+    "dropped_other": "Archived with {{count}} queued messages, dropped without being sent:\n{{list}}"
   }
 }

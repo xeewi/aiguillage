@@ -189,7 +189,16 @@ async function createSession() {
   return ws
 }
 
+// Archived, its queued messages are dropped (never sent): one report lists them.
+function dropQueue(ws) {
+  const q = ws.queued
+  if (!q?.length) return
+  delete ws.queued
+  R.report(ws, { ok: true, key: 'queue.dropped', vars: { count: q.length, list: q.map(x => '- ' + (x.text.trim().split('\n')[0] || x.files.map(f => f.name).join(', ')).slice(0, 100)) } })
+}
+
 async function archive(ws) {
+  dropQueue(ws)
   if (ws.free) { A.stop(ws); killTerms(ws.id); ws.archived = Date.now(); save(); changed(); return }
   const { archive: script } = config(ws)
   if (script) await exec(SHELL, ['-lc', script], { cwd: ws.path, env: A.envFor(ws), timeout: 60_000 }).catch(() => {})
@@ -471,6 +480,12 @@ const routes = {
   // The page asks before queueing (errors.wouldQueue), then says force (send now) or queue; the aiguilleur's sends just queue.
   'POST /api/workspaces/:id/send': async ({ ws, body, caller }) =>
     (await sendTo(ws, String(body.text ?? ''), attached(ws, body.files), {}, caller === 'page' ? body.force ? 'force' : body.queue ? 'queue' : 'ask' : 'queue')) ?? {},
+  // The page's Cancel on a queued message (never sent, then). Not the aiguilleur's: not on its list.
+  'DELETE /api/workspaces/:id/queued/:item': ({ ws, item }) => {
+    const i = ws.queued?.findIndex(q => q.id === item) ?? -1
+    if (i < 0) throw fail('errors.notFound') // sent meanwhile
+    ws.queued.splice(i, 1); save(); changed(); return {}
+  },
   'GET /api/workspaces/:id/commands': ({ ws }) => A.commands(ws),
   // Commands with a full-screen UI (/permissions, /resume, /memory…) don't exist in -p mode: run them in the real,
   // interactive Claude Code, on this same conversation, in the Terminal tab. The idle chat process steps aside.
@@ -603,13 +618,16 @@ async function sendTo(ws, text, files = [], opts = {}, hold = 'queue') {
   if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
   // Two CLIs writing the same session would fork it: the chat waits for the terminal one to quit.
   if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
-  // Behind what already waits for this workspace, for the same reason: messages keep their order.
-  const reason = hold !== 'force' && ws !== state.aiguilleur && !A.working(A.runtime(ws.id)) && !starting.has(ws.id) && (held() || ws.queued?.at(-1)?.reason)
-  if (reason && hold === 'ask') throw fail('errors.wouldQueue', { reason, ...load() })
+  const idle = hold !== 'force' && ws !== state.aiguilleur && !A.working(A.runtime(ws.id)) && !starting.has(ws.id), now = idle && held()
+  if (now && hold === 'ask') throw fail('errors.wouldQueue', { reason: now, ...load() })
+  // Behind what already waits for this workspace, for the same reason: messages keep their order. Nothing holds it but
+  // them: no question, it joins them and drain() sends them all if it can.
+  const reason = now || idle && ws.queued?.length && reasonOf(ws.queued.at(-1))
   if (reason) {
-    (ws.queued ??= []).push({ text, files, opts, reason, at: Date.now() })
+    (ws.queued ??= []).push({ id: newId(), text, files, opts, reason, at: Date.now() })
     save(); changed()
     metric('queue', { ws: ws.id, reason })
+    if (!now) drain()
     return { queued: true, reason }
   }
   await deliver(ws, text, files, opts)
@@ -624,19 +642,22 @@ function held() {
   const l = load()
   return l.working >= l.max ? 'cap' : l.pct >= QUOTA_HOLD_PCT ? 'quota' : null
 }
+// A queued item saved without a reason (an older version) waited for the cap: it keeps its place as such.
+const reasonOf = q => q.reason ?? 'cap'
 // Sends the queued messages whose turn has come, oldest first: a workspace's all at once (the first starts its turn,
 // the others fold into it). Called on every state change (changed() below: turn ends, usage refreshes, Settings) and at startup.
 // ponytail: an item leaves the queue before it is sent: a crash meanwhile loses it rather than sending it twice.
-// Until the first usage probe ends (lib/agent.js usageKnown, 30 s at most), nothing is sent: after a restart, what waited
-// for the quota would otherwise go out before the quota is known.
+// Until the first usage probe ends (lib/agent.js usageKnown, 30 s at most), what waited for the quota stays: after a
+// restart it would otherwise go out before the quota is known. What waited for the cap goes under the cap rule.
 let draining = false
 async function drain() {
-  if (draining || !A.usageKnown()) return
+  if (draining) return
   draining = true
   try {
     for (;;) {
       const free = !held()
-      const ws = state.workspaces.filter(w => w.queued?.length && !w.archived && !terms.get(w.id + ':claude')?.alive && (free || A.working(A.runtime(w.id))))
+      const ws = state.workspaces.filter(w => w.queued?.length && !w.archived && !terms.get(w.id + ':claude')?.alive
+        && (A.working(A.runtime(w.id)) || free && (A.usageKnown() || reasonOf(w.queued[0]) !== 'quota')))
         .sort((a, b) => a.queued[0].at - b.queued[0].at)[0]
       if (!ws) return
       while (ws.queued.length) {
@@ -708,6 +729,20 @@ const caller = req => {
   return req.headers['sec-fetch-site'] === 'same-origin' || req.headers.origin === `http://${req.headers.host}` ? 'page' : null
 }
 
+// The workspace or repo a route's :id names, on ctx (a confirmed request is bound again at the click: decide()).
+function bind(ctx, key, id) {
+  if (!id) return
+  if (id === 'aiguilleur') {
+    // Not a worktree (lib/remote.js): only the chat routes apply to it.
+    if (!AIGUILLEUR_ROUTES.has(key)) throw fail('errors.notFound')
+    ctx.ws = state.aiguilleur
+    return
+  }
+  ctx.ws = state.workspaces.find(w => w.id === id)
+  ctx.repo = state.repos.find(r => r.id === id)
+  if (!ctx[key.includes(' /api/repos/') ? 'repo' : 'ws']) throw fail('errors.notFound')
+}
+
 const refuse = (res, status, k) => { const { message: error, key } = notice(k); res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error, key })) }
 
 const server = http.createServer(async (req, res) => {
@@ -718,8 +753,8 @@ const server = http.createServer(async (req, res) => {
   }
   const who = caller(req)
   if (!who) return refuse(res, 401, 'errors.unauthorized')
-  const parts = url.pathname.split('/') // ['', 'api', kind, id, action]
-  const key = `${req.method} ${parts.length > 3 ? ['', 'api', parts[2], ':id', ...parts.slice(4)].join('/') : url.pathname}`
+  const parts = url.pathname.split('/') // ['', 'api', kind, id, action, item]
+  const key = `${req.method} ${parts.length > 3 ? ['', 'api', parts[2], ':id', ...parts.slice(4, 5), ...parts.slice(5).map(() => ':item')].join('/') : url.pathname}`
   if (who === 'aiguilleur') res.on('finish', () => metric('api', { route: key, status: res.statusCode })) // every exit: 404, 413, 415…
   // Uploads are the one raw body: still not a type a cross-site form can send without a preflight.
   const raw = key === 'POST /api/workspaces/:id/upload'
@@ -735,16 +770,8 @@ const server = http.createServer(async (req, res) => {
   try {
     let json = ''
     if (!raw) for await (const c of req) { json += c; if (json.length > 1e6) return tooBig() }
-    const ctx = { body: json ? JSON.parse(json) : {}, req, query: url.searchParams, caller: who }
-    if (parts[3] === 'aiguilleur') {
-      // Not a worktree (lib/remote.js): only the chat routes apply to it.
-      if (!AIGUILLEUR_ROUTES.has(key)) throw fail('errors.notFound')
-      ctx.ws = state.aiguilleur
-    } else if (parts[3]) {
-      ctx.ws = state.workspaces.find(w => w.id === parts[3])
-      ctx.repo = state.repos.find(r => r.id === parts[3])
-      if (!ctx[parts[2] === 'repos' ? 'repo' : 'ws']) throw fail('errors.notFound')
-    }
+    const ctx = { body: json ? JSON.parse(json) : {}, req, query: url.searchParams, caller: who, route: key, id: parts[3], item: parts[5] && decodeURIComponent(parts[5]) }
+    bind(ctx, key, parts[3])
     if (who === 'aiguilleur' && !forAiguilleur(key, ctx)) return refuse(res, 403, 'errors.notForAiguilleur')
     const out = await route(ctx)
     res.writeHead(200, { 'content-type': 'application/json' })

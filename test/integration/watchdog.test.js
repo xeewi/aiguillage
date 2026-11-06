@@ -1,7 +1,7 @@
 // The watchdog (lib/agent.js stalled) and the agent cap's queue (server.js sendTo / drain).
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { startServer, setup, waitFor, sleep } from '../helpers.mjs'
 
@@ -63,9 +63,11 @@ test('the queue survives a restart and is sent once a slot is free, in order, ea
     await s.stop()
     const saved = JSON.parse(readFileSync(join(s.home, 'state.json'), 'utf8')).workspaces.find(w => w.id === b.id)
     assert.equal(saved.queued[0].text, 'after restart')
-    // Nothing is sent before the plan's usage is known; a message meanwhile queues behind the older one.
-    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_USAGE_MS: '1500' } })
-    assert.deepEqual(await s.api('POST', `/workspaces/${b.id}/send`, { text: 'two', queue: true }), { queued: true, reason: 'cap' })
+    // What waited for the cap goes as soon as the cap allows, without waiting for the plan's usage (only the quota does).
+    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_USAGE_MS: '3000' } })
+    await waitFor(async () => (await s.log(b.id)).some(e => e.type === 'cg_user'), { what: 'sent at once after the restart' })
+    assert.equal((await s.state()).usage, null, "before the plan's usage is known")
+    await s.api('POST', `/workspaces/${b.id}/send`, { text: 'two', queue: true })
     await waitFor(async () => (await results(s, b.id)) === 2, { what: 'both sent after the restart' })
     assert.deepEqual((await s.log(b.id)).filter(e => e.type === 'cg_user').map(e => e.text), ['after restart', 'two'])
     assert.ok(!(await s.ws(b.id)).queued?.length)
@@ -143,10 +145,101 @@ test('a brief that has to wait says so: queued in the page\'s answer, and in the
     await srv.api('POST', `/workspaces/${a.id}/send`, { text: 'hang 1500' })
     await waitFor(async () => (await srv.ws(a.id)).busy, { what: 'a working' })
     assert.deepEqual(await srv.api('POST', `/workspaces/${b.id}/brief`, { goal: 'From the page' }), { queued: true, reason: 'cap' })
+    assert.equal((await srv.ws(b.id)).task.goal, 'From the page', 'queued is given: kept on the workspace')
     const r = await srv.asAiguilleur('POST', `/workspaces/${b.id}/brief`, { goal: 'From the aiguilleur' })
     await srv.api('POST', '/workspaces/aiguilleur/permission', { id: r.pending, allow: true })
     const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === b.id), { what: 'the brief report' })
     assert.deepEqual([rep.key, rep.vars.text.some(l => typeof l === 'string' && l.includes('From the aiguilleur')), rep.queued], ['confirm.brief', true, 'cap'])
     await waitFor(async () => (await results(srv, b.id)) === 2, { what: 'both briefs sent once a ends' })
+  } finally { await cap(srv, 5) }
+})
+
+// state.json, edited while the server is stopped.
+const edit = (home, fn) => { const f = join(home, 'state.json'), st = JSON.parse(readFileSync(f, 'utf8')); fn(st); writeFileSync(f, JSON.stringify(st)) }
+
+test('a page send behind older queued messages, nothing else holding it: no question, it joins them and goes with them', async () => {
+  let s = await startServer({ env: { ...env, FAKE_CLAUDE_SESSION_PCT: '95' } })
+  try {
+    const { w } = await setup(s)
+    await waitFor(async () => (await s.state()).usage, { what: 'usage known' })
+    assert.deepEqual(await s.api('POST', `/workspaces/${w.id}/send`, { text: 'older', queue: true }), { queued: true, reason: 'quota' })
+    await s.stop()
+    // Back below 90 %, but not known yet: the older message waits for the probe, nothing else holds the new one.
+    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_USAGE_MS: '2500' } })
+    assert.deepEqual(await s.api('POST', `/workspaces/${w.id}/send`, { text: 'newer' }), { queued: true, reason: 'quota' }, 'not asked: 0 agents at work')
+    await waitFor(async () => (await results(s, w.id)) === 2, { what: 'both sent once usage is known' })
+    assert.deepEqual((await s.log(w.id)).filter(e => e.type === 'cg_user').map(e => e.text), ['older', 'newer'], 'in order')
+  } finally { await s.stop() }
+})
+
+test('after a restart only the quota waits for the usage probe; an item saved without a reason waits as the cap\'s', async () => {
+  let s = await startServer({ env })
+  try {
+    const { w: a, repo } = await setup(s)
+    const b = await s.api('POST', '/workspaces', { repoId: repo.id })
+    await s.stop()
+    edit(s.home, st => {
+      st.workspaces.find(w => w.id === a.id).queued = [{ text: 'from an older version', files: [], opts: {}, at: 1 }]
+      st.workspaces.find(w => w.id === b.id).queued = [{ text: 'held for the quota', files: [], opts: {}, reason: 'quota', at: 2 }]
+    })
+    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_SESSION_PCT: '95', FAKE_CLAUDE_USAGE_MS: '3000' } })
+    await waitFor(() => results(s, a.id), { what: 'the reasonless item sent at once' })
+    assert.equal((await s.state()).usage, null, 'before the usage probe answered')
+    const held = (await s.ws(b.id)).queued
+    assert.deepEqual([held.length, typeof held[0].id], [1, 'string'], 'the quota one still waits (and got an id to cancel it by)')
+    await waitFor(async () => (await s.state()).usage, { what: 'usage known' })
+    await sleep(300)
+    assert.equal((await s.ws(b.id)).queued.length, 1, 'held: 95 %')
+  } finally { await s.stop() }
+})
+
+test("a session limit whose reset time has passed holds nothing, whatever its %", async () => {
+  const s = await startServer({ env: { ...env, FAKE_CLAUDE_SESSION_PCT: '95', FAKE_CLAUDE_SESSION_RESETS_H: '-1' } })
+  try {
+    const { w } = await setup(s)
+    await waitFor(async () => (await s.state()).usage, { what: 'usage known' })
+    assert.deepEqual(await s.api('POST', `/workspaces/${w.id}/send`, { text: 'go', queue: true }), {})
+    await waitFor(() => results(s, w.id), { what: 'sent' })
+  } finally { await s.stop() }
+})
+
+test('the page cancels a queued message: it leaves the queue and is never sent; the aiguilleur cannot', async () => {
+  const { w: a, repo } = await setup(srv)
+  const b = await srv.api('POST', '/workspaces', { repoId: repo.id })
+  await cap(srv, 1)
+  try {
+    await srv.api('POST', `/workspaces/${a.id}/send`, { text: 'hang 1200' })
+    await waitFor(async () => (await srv.ws(a.id)).busy, { what: 'a working' })
+    await srv.api('POST', `/workspaces/${b.id}/send`, { text: 'keep', queue: true })
+    await srv.api('POST', `/workspaces/${b.id}/send`, { text: 'drop me', files: [], queue: true })
+    const [keep, drop] = (await srv.ws(b.id)).queued
+    assert.deepEqual([drop.text, drop.reason, typeof drop.at, typeof drop.id], ['drop me', 'cap', 'number', 'string'], 'what the page shows')
+    await assert.rejects(srv.asAiguilleur('DELETE', `/workspaces/${b.id}/queued/${drop.id}`), e => e.status === 403)
+    assert.deepEqual(await srv.api('DELETE', `/workspaces/${b.id}/queued/${drop.id}`), {})
+    assert.deepEqual((await srv.ws(b.id)).queued.map(q => q.id), [keep.id])
+    await assert.rejects(srv.api('DELETE', `/workspaces/${b.id}/queued/${drop.id}`), e => e.key === 'errors.notFound', 'gone already')
+    await waitFor(() => results(srv, b.id), { what: 'the other one sent once a ends' })
+    await srv.idle(b.id)
+    assert.deepEqual((await srv.log(b.id)).filter(e => e.type === 'cg_user').map(e => e.text), ['keep'])
+  } finally { await cap(srv, 5) }
+})
+
+test('archiving a workspace drops its queue, said in one report listing what was dropped', async () => {
+  const { w: a, repo } = await setup(srv)
+  const b = await srv.api('POST', '/workspaces', { repoId: repo.id })
+  await cap(srv, 1)
+  try {
+    await srv.api('POST', `/workspaces/${a.id}/send`, { text: 'hang 1200' })
+    await waitFor(async () => (await srv.ws(a.id)).busy, { what: 'a working' })
+    for (const text of ['first\nmore lines', 'second']) await srv.api('POST', `/workspaces/${b.id}/send`, { text, queue: true })
+    await srv.api('POST', `/workspaces/${b.id}/archive`)
+    const archived = await srv.ws(b.id)
+    assert.deepEqual([!!archived.archived, archived.queued], [true, undefined])
+    const reps = (await srv.log('aiguilleur')).filter(e => e.type === 'cg_report' && e.ws === b.id && e.key === 'queue.dropped')
+    assert.equal(reps.length, 1)
+    assert.deepEqual(reps[0].vars, { count: 2, list: ['- first', '- second'] })
+    await waitFor(() => results(srv, a.id), { what: 'a ends' })
+    await sleep(300)
+    assert.ok(!(await srv.log(b.id)).some(e => e.type === 'cg_user'), 'never sent')
   } finally { await cap(srv, 5) }
 })

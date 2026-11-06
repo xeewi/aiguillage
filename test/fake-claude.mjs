@@ -24,8 +24,10 @@
 //   loop                   the same Bash call (echo same) three times, then ~500 ms of thought, then "looped"
 //   deaf <ms>              ignores an interrupt: works <ms> (default 10000) then says "deaf done" (Aiguillage's forced stop)
 //   fail <text…>           the turn ends is_error with <text> as its error (an API error), not interrupted
+//   A message from Telegram to the aiguilleur (« [Telegram] bash curl … », after the reports it reads) runs its command too.
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
-//      FAKE_CLAUDE_SESSION_PCT (the usage probe's session %, default 42), FAKE_CLAUDE_USAGE_MS (its delay before answering).
+//      FAKE_CLAUDE_SESSION_PCT (the usage probe's session %, default 42), FAKE_CLAUDE_USAGE_MS (its delay before answering),
+//      FAKE_CLAUDE_SESSION_RESETS_H (hours until the session resets, default 2; negative: a reset time already past).
 import readline from 'node:readline'
 import { execSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs'
@@ -54,7 +56,7 @@ if (argv.includes('--input-format') && !argv.includes('--permission-prompt-tool'
     const resets = h => new Date(Date.now() + h * 3600_000).toISOString()
     process.stdout.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: {
       subscription_type: 'max', rate_limits_available: true, rate_limits: { limits: [
-        { kind: 'session', percent: Number(process.env.FAKE_CLAUDE_SESSION_PCT) || 42, resets_at: resets(2), scope: null },
+        { kind: 'session', percent: Number(process.env.FAKE_CLAUDE_SESSION_PCT) || 42, resets_at: resets(Number(process.env.FAKE_CLAUDE_SESSION_RESETS_H) || 2), scope: null },
         { kind: 'weekly_all', percent: 93, resets_at: resets(60), scope: null },
         { kind: 'weekly_scoped', percent: 12, resets_at: resets(60), scope: { model: { display_name: 'Opus' } } }] } } } }) + '\n')
   }
@@ -162,8 +164,10 @@ async function turn(text) {
   let failWith = null
   out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
   messages.push({ uuid: randomUUID(), role: 'user', text })
-  const [cmd, ...rest] = text.trim().split(/\s+/)
-  const arg = text.trim().slice(cmd.length).trim()
+  // A message from Telegram (the aiguilleur's prompt: reports, then « [Telegram] <message> ») runs the command it carries.
+  const said = text.match(/(?:^|\n\n---\n\n)\[Telegram\] ([^]*)$/)?.[1] ?? text
+  const [cmd, ...rest] = said.trim().split(/\s+/)
+  const arg = said.trim().slice(cmd.length).trim()
   switch (cmd.toLowerCase()) {
     case 'write': {
       const [path, ...words] = rest

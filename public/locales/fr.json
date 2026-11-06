@@ -371,5 +371,17 @@
       "queued_one": "{{count}} en file",
       "queued_other": "{{count}} en file"
     }
+  },
+  "queue": {
+    "head_one": "{{count}} message en attente d'envoi",
+    "head_other": "{{count}} messages en attente d'envoi",
+    "why_cap": "plafond d'agents",
+    "why_quota": "session du forfait",
+    "files_one": "{{count}} fichier",
+    "files_other": "{{count}} fichiers",
+    "cancel": "Annuler",
+    "cancelTitle": "Le retirer de la file d'attente : il ne partira pas",
+    "dropped_one": "Archivé avec {{count}} message en file d'attente, abandonné sans être envoyé :\n{{list}}",
+    "dropped_other": "Archivé avec {{count}} messages en file d'attente, abandonnés sans être envoyés :\n{{list}}"
   }
 }

@@ -94,7 +94,7 @@ const send = m => sock?.readyState === 1 && sock.send(JSON.stringify(m))
 
 function onMsg(m) {
   if (m.t === 'state') {
-    S = m; renderSide(); renderHead(); renderCheck(); renderPerms(); renderTasks(); renderSettings(); renderUpdate(); renderUsage()
+    S = m; renderSide(); renderHead(); renderCheck(); renderPerms(); renderTasks(); renderQueue(); renderSettings(); renderUpdate(); renderUsage()
     if (tab === 'term' && wsById(active) && !solo(wsById(active)) && termShown !== termKey()) showTab('term') // the terminal Claude Code started or quit
   }
   else if (m.t === 'ev') {
@@ -495,7 +495,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape' && settingsOpen && !$(
 function select(id) {
   active = id; setUnread(id, false); settingsOpen = false
   history.replaceState(null, '', '#ws=' + id); localStorage.setItem('aig.ws', id)
-  renderSide(); renderHead(); renderPerms(); renderAtts(); loadThread()
+  renderSide(); renderHead(); renderPerms(); renderQueue(); renderAtts(); loadThread()
   if (solo(wsById(id))) return
   showTab(tab)
   loadScripts() // the Run check button depends on the repo's config
@@ -769,6 +769,20 @@ function renderTasks() {
     return row
   }))
   scroll() // the strip takes room from the thread: keep its end in view, like new events do
+}
+
+// Messages waiting for a free slot (server.js sendTo), over the composer: why, since when; each can be taken out unsent.
+function renderQueue() {
+  const q = wsById(active)?.queued ?? [], box = $('#queued')
+  box.hidden = !q.length
+  box.replaceChildren(...q.length ? [h('div', 'tasksHead', t('queue.head', { count: q.length })), ...q.map(x => {
+    const meta = [t('queue.why', { context: x.reason ?? 'cap' }), x.files?.length && t('queue.files', { count: x.files.length }), ago(x.at)].filter(Boolean).join(' · ')
+    const b = h('button', 'stop', t('queue.cancel')); b.title = t('queue.cancelTitle')
+    b.onclick = guard(async () => { b.disabled = true; try { await api('DELETE', `/workspaces/${active}/queued/${encodeURIComponent(x.id)}`) } finally { b.disabled = false } })
+    const row = h('div', 'task')
+    row.append(h('b', null, x.text.split('\n')[0] || x.files.map(f => f.name).join(', ')), h('span', 'mono', meta), b)
+    return row
+  })] : [])
 }
 
 const permQ = text => { const q = h('div', 'q'); q.append(h('span', 'bdg', '!'), h('span', null, text)); return q }

@@ -155,6 +155,25 @@ test('a send past the agent cap asks first: Cancel queues it, OK sends it at onc
   await expect(page.locator('#thread .msg.me', { hasText: 'send now' })).toBeVisible()
 })
 
+test('a queued message shows over the composer, why and since when; Cancel takes it out and it is never sent', async ({ srv, open, page }) => {
+  const { repo, w } = await open()
+  const other = await srv.api('POST', '/workspaces', { repoId: repo.id })
+  await srv.api('PATCH', '/defaults', { maxAgents: 1 })
+  await srv.api('POST', `/workspaces/${other.id}/send`, { text: 'hang 3000' })
+  await expect.poll(async () => (await srv.ws(other.id)).busy).toBe(true)
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'wait for me\nsecond line', queue: true })
+  const row = page.locator('#queued .task')
+  await expect(page.locator('#queued .tasksHead')).toHaveText('1 message waiting to be sent')
+  await expect(row.locator('b')).toHaveText('wait for me')
+  await expect(row.locator('.mono')).toContainText('agent cap')
+  await row.getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.locator('#queued')).toBeHidden()
+  expect((await srv.ws(w.id)).queued).toEqual([])
+  await expect.poll(async () => (await srv.ws(other.id)).busy, { timeout: 8000 }).toBe(false)
+  await page.waitForTimeout(300)
+  expect((await srv.log(w.id)).some(e => e.type === 'cg_user')).toBe(false)
+})
+
 test.describe('in French', () => {
   test.use({ locale: 'fr-FR' })
 
