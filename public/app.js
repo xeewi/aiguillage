@@ -98,7 +98,7 @@ function onMsg(m) {
     if (tab === 'term' && wsById(active) && !solo(wsById(active)) && termShown !== termKey()) showTab('term') // the terminal Claude Code started or quit
   }
   else if (m.t === 'ev') {
-    if (m.ws === active) { dropDraft(); renderEv(m.ev); scroll() }
+    if (m.ws === active) { if (arriving) arriving.push(m.ev); else { dropDraft(); renderEv(m.ev); scroll() } }
     if (m.ev.type === 'result') {
       cmds.delete(m.ws)
       if (m.ws === active && !solo(wsById(m.ws))) loadDiff()
@@ -604,12 +604,18 @@ const scroll = () => { const t = thread; if (t.scrollHeight - t.scrollTop - t.cl
 const draft = () => thread.querySelector('.draft') ?? thread.appendChild(h('div', 'msg ai draft'))
 const dropDraft = () => thread.querySelector('.draft')?.remove()
 
+// Events of the conversation that arrive while its log loads: drawn after it, those it doesn't already hold (the same
+// JSON: the log line is the event as it was sent). Drawn at once, the log would replace them.
+let arriving = null
 async function loadThread() {
-  thread.replaceChildren(); toolEls = new Map()
+  thread.replaceChildren(); toolEls = new Map(); arriving = null
   if (!active) return
-  const id = active
+  const id = active, got = arriving = []
   const evs = await api('GET', `/workspaces/${id}/log`).catch(() => [])
-  if (id !== active) return
+  if (id !== active || got !== arriving) return // another load took over
+  arriving = null
+  const known = new Set(evs.map(e => JSON.stringify(e)))
+  evs.push(...got.filter(e => !known.has(JSON.stringify(e))))
   thread.replaceChildren(); toolEls = new Map()
   if (!evs.length) { const p = h('div', 'hint'); p.innerHTML = t(wsById(id)?.aiguilleur ? 'chat.aiguilleurReady' : wsById(id)?.free ? 'chat.sessionReady' : 'chat.ready', { path: wsById(id)?.path ?? '', interpolation: { escapeValue: true } }); thread.append(p) }
   evs.forEach(renderEv)

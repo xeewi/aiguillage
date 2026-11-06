@@ -261,3 +261,18 @@ test('media: an image I sent opens full size from its chip in my message', async
   await expect(zoom.locator('img')).toHaveAttribute('src', /\/attachments\/.*mine\.png$/)
   await expect(zoom.locator('img')).toHaveJSProperty('naturalWidth', 1)
 })
+
+test('a turn happening while the conversation loads stays drawn once the log is in', async ({ open, page, srv }) => {
+  let first = true
+  await page.route('**/api/workspaces/*/log', async route => {
+    if (!first) return route.continue()
+    first = false
+    const log = await route.fetch() // read by the server now: without the turn below
+    await srv.turn(route.request().url().split('/').at(-2), 'during load') // its events reach the page meanwhile
+    await route.fulfill({ response: log })
+  })
+  await open()
+  await expect(page.locator('#thread .msg.me .body')).toHaveText('during load')
+  await expect(page.locator('#thread .msg.ai')).toHaveText(['ok: during load'])
+  await expect(results(page)).toHaveCount(1)
+})
