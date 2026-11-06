@@ -118,6 +118,20 @@ test('a permission request comes with buttons; Allow lets the tool run', async (
   await waitFor(() => calls.some(c => c.method === 'editMessageReplyMarkup' && c.message_id === ask.message_id), { what: 'buttons removed' })
 })
 
+test('a confirmation comes to Telegram with buttons; Allow there runs it', async () => {
+  const { repoPath, w } = await setup(srv)
+  writeFileSync(join(w.path, 'tg.txt'), 'tg\n')
+  await srv.api('POST', `/workspaces/${w.id}/commit`, { message: 'tg' })
+  const { pending } = await srv.asAiguilleur('POST', `/workspaces/${w.id}/merge`)
+  const ask = await message(m => m.reply_markup && m.text.includes(`Merge ${w.branch} into main`), 'the confirmation, with its buttons')
+  assert.match(ask.text, /The aiguilleur asks to:/)
+  const [allow] = ask.reply_markup.inline_keyboard[0]
+  assert.equal(allow.callback_data, `p:aiguilleur:1:${pending}`)
+  push({ callback_query: { id: 'cb-confirm', data: allow.callback_data, from: {}, message: { message_id: ask.message_id, chat: { id: ME } } } })
+  await waitFor(() => existsSync(join(repoPath, 'tg.txt')), { what: 'merged after Allow on Telegram' })
+  await message(m => m.text.startsWith('**✅ ') && m.text.includes('Merged into main'), 'the outcome, reported')
+})
+
 test('/status lists the workspaces; once linked, other chats are ignored', async () => {
   const before = sent.filter(m => m.chat_id === 7).length
   push({ message: { message_id: nextMsg++, chat: { id: 7 }, text: 'hello?' } })

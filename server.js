@@ -362,7 +362,11 @@ const routes = {
     state.repos = state.repos.filter(r => r !== repo); save(); changed(); return {}
   },
   'GET /api/repos/:id/branches': ({ repo }) => G.branches(repo.path),
-  'POST /api/workspaces': ({ body }) => createWorkspace(body),
+  'POST /api/workspaces': ctx => {
+    const repo = state.repos.find(r => r.id === ctx.body.repoId)
+    if (!repo) throw fail('errors.unknownRepo') // no click asked for what can't run
+    return guard(ctx, 'confirm.create', { repo: repo.name, name: slug(ctx.body.name) || '…' }, () => createWorkspace(ctx.body))
+  },
   'POST /api/sessions': createSession,
   'GET /api/workspaces/:id/log': ({ ws }) => readLog(ws.id),
   'GET /api/workspaces/:id/diff': async ({ ws }) => ({ diff: (await G.diff(ws.path, ws.baseRef || ws.base)).slice(0, 3_000_000), status: await G.status(ws.path) }),
@@ -387,11 +391,16 @@ const routes = {
   },
   'POST /api/workspaces/:id/interrupt': ({ ws }) => { A.interrupt(ws); return {} },
   'POST /api/workspaces/:id/stop-task': ({ ws, body }) => { A.stopTask(ws, String(body.id)); return {} },
-  'POST /api/workspaces/:id/permission': ({ ws, body }) => { A.answer(ws, body.id, !!body.allow, body.message && String(body.message)); return {} },
+  'POST /api/workspaces/:id/permission': ({ ws, body, caller }) => {
+    // Only the user's click confirms what the aiguilleur asked for, never the aiguilleur itself.
+    if (caller === 'aiguilleur' && A.runtime(ws.id).pending.some(p => p.id === body.id && p.confirm)) throw fail('errors.notFound')
+    A.answer(ws, body.id, !!body.allow, body.message && String(body.message)); return {}
+  },
   'POST /api/workspaces/:id/revert': ({ ws, body }) => A.revert(ws, body.msgId),
-  'POST /api/workspaces/:id/archive': async ({ ws }) => { await archive(ws); return {} },
+  'POST /api/workspaces/:id/archive': ctx => guard(ctx, 'confirm.archive', { name: ctx.ws.title || ctx.ws.name }, async () => { await archive(ctx.ws); return {} }),
   'POST /api/workspaces/:id/unarchive': async ({ ws }) => { await unarchive(ws); return {} },
-  'DELETE /api/workspaces/:id': async ({ ws }) => {
+  'DELETE /api/workspaces/:id': ctx => guard(ctx, 'confirm.delete', { name: ctx.ws.title || ctx.ws.name }, async () => {
+    const { ws } = ctx
     if (!ws.archived) await archive(ws)
     if (ws.free) rmSync(ws.path, { recursive: true, force: true })
     else {
@@ -401,7 +410,7 @@ const routes = {
     }
     rmSync(attachDir(ws.id), { recursive: true, force: true })
     state.workspaces = state.workspaces.filter(w => w !== ws); save(); changed(); return {}
-  },
+  }),
   'GET /api/workspaces/:id/scripts': ({ ws }) => { const c = config(ws); return { run: c.run, default: defaultRun(c) } },
   'POST /api/workspaces/:id/run': ({ ws, body }) => {
     const c = config(ws), id = body.id && Object.hasOwn(c.run, body.id) ? body.id : defaultRun(c)
@@ -414,28 +423,49 @@ const routes = {
     openTerm(ws.id + ':script', ws, c.run[id].command, id); return {}
   },
   'POST /api/workspaces/:id/run-stop': ({ ws }) => { const t = terms.get(ws.id + ':script'); if (t?.alive) t.p.kill(); return {} },
-  'POST /api/workspaces/:id/commit': async ({ ws, body }) => {
-    await G.git(ws.path, ['add', '-A'])
-    await G.git(ws.path, ['commit', '-m', String(body.message || `aiguillage: ${ws.name}`)])
-    return notice('messages.committed')
+  'POST /api/workspaces/:id/commit': ctx => {
+    const { ws } = ctx, message = String(ctx.body.message || `aiguillage: ${ws.name}`)
+    return guard(ctx, 'confirm.commit', { name: ws.title || ws.name, message }, async () => {
+      await G.git(ws.path, ['add', '-A'])
+      await G.git(ws.path, ['commit', '-m', message])
+      return notice('messages.committed')
+    })
   },
-  'POST /api/workspaces/:id/merge': async ({ ws }) => {
+  'POST /api/workspaces/:id/merge': ctx => { const { ws } = ctx; return guard(ctx, 'confirm.merge', { branch: ws.branch, base: ws.base }, async () => {
     try { const r = await merge(ws); metric('merge', { ws: ws.id, ok: true, conflict: false }); return r }
     catch (e) { metric('merge', { ws: ws.id, ok: false, conflict: e.key === 'errors.mergeConflict' }); throw e }
-  },
-  'POST /api/workspaces/:id/pr': async ({ ws }) => {
+  }) },
+  'POST /api/workspaces/:id/pr': ctx => { const { ws } = ctx; return guard(ctx, 'confirm.pr', { branch: ws.branch, base: ws.base }, async () => {
     try {
       await G.git(ws.path, ['push', '-u', 'origin', ws.branch])
       const { stdout } = await exec('gh', ['pr', 'create', '--fill', '--head', ws.branch, '--base', ws.base], { cwd: ws.path })
       metric('pr', { ws: ws.id, ok: true })
       return { message: stdout.trim() }
     } catch (e) { metric('pr', { ws: ws.id, ok: false }); throw e }
-  },
+  }) },
   'POST /api/workspaces/:id/open': ({ ws, body }) => {
     const cmd = body.app === 'code' ? ['code', [ws.path]] : [platform() === 'darwin' ? 'open' : 'xdg-open', [ws.path]]
     spawn(...cmd, { detached: true, stdio: 'ignore' }).on('error', () => {}).unref()
     return {}
   },
+}
+
+// What the aiguilleur asks that can't be undone (creating a workspace, commit, merge, PR, archive, delete) waits for the
+// user's click, in the window or on Telegram (lib/agent.js confirm); the outcome comes back as a report. The page acts at once.
+function guard(ctx, key, vars, run) {
+  if (ctx.caller !== 'aiguilleur') return run()
+  const label = notice(key, vars).message, at = ctx.ws
+  // No workspace yet (a creation refused or failed): the report is the aiguilleur's own, titled with the request.
+  const tell = (ok, text, ws = at) => R.report(ws ?? state.aiguilleur, { ok, text, title: ws ? undefined : label })
+  const id = A.confirm(state.aiguilleur, { label, key, vars, about: at?.id }, async allow => {
+    if (!allow) return tell(false, notice('confirm.denied', { action: label }).message)
+    try {
+      if (at && !state.workspaces.includes(at)) throw fail('errors.notFound') // deleted meanwhile
+      const out = await run()
+      tell(true, out?.message ?? label, at ?? out) // a creation answers the new workspace
+    } catch (e) { tell(false, (e.stderr || e.message || String(e)).trim()) }
+  })
+  return { pending: id, ...notice('confirm.waiting') }
 }
 
 // The chat's send, and Telegram's (lib/remote.js). The aiguilleur's model also reads the agents' reports it hasn't seen.

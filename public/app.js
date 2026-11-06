@@ -737,6 +737,8 @@ function renderPerms() {
     if (plan) {
       card.append(permQ(t('perm.proposesPlan')))
       const body = h('div', 'msg ai plan'); body.append(md(p.input.plan)); card.append(body)
+    } else if (p.confirm) { // what the aiguilleur asks to do (server.js guard)
+      card.append(permQ(t('perm.confirmAction')), h('pre', null, p.key ? t(p.key, p.vars) : p.input.command))
     } else {
       card.append(permQ(t('perm.wantsTool', { tool: p.tool })), h('pre', null, String(toolSummary(p.tool, p.input) || JSON.stringify(p.input, null, 2))))
     }

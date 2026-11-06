@@ -123,6 +123,7 @@
     "failed": "{{name}} a échoué"
   },
   "perm": {
+    "confirmAction": "L'aiguilleur demande à :",
     "wantsTool": "L'agent veut utiliser {{tool}}",
     "proposesPlan": "L'agent propose ce plan :",
     "deny": "Refuser",
@@ -130,6 +131,16 @@
     "allow": "Autoriser",
     "approvePlan": "Valider le plan (passe en Auto)",
     "planFeedback": "Qu'est-ce qui ne va pas dans ce plan ?"
+  },
+  "confirm": {
+    "create": "Nouveau workspace dans {{repo}} : {{name}}",
+    "commit": "Commit dans {{name}} : {{message}}",
+    "merge": "Fusionner {{branch}} dans {{base}}",
+    "pr": "Ouvrir une PR de {{branch}} vers {{base}}",
+    "archive": "Archiver {{name}}",
+    "delete": "Supprimer {{name}} (son worktree et sa branche)",
+    "denied": "Vous avez refusé : {{action}}",
+    "waiting": "En attente de la confirmation de l'utilisateur."
   },
   "panel": {
     "diff": "Diff",

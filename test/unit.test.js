@@ -164,3 +164,16 @@ test('parseUsage(): keeps the plan limits /usage shows, null when there are none
   assert.equal(A.parseUsage({ rate_limits_available: false, rate_limits: { limits: [] } }, 5), null)
   assert.equal(A.parseUsage(undefined, 5), null)
 })
+
+test('a confirmation survives stop/forget and is never approved by switching to auto', async () => {
+  let ran = null
+  const ws = { id: 'cf', path: HOME, permissionMode: 'auto' }
+  const id = A.confirm(ws, { label: 'Merge aig/x into main' }, async allow => { ran = allow })
+  A.stop(ws); A.forget(ws)
+  A.configure(ws, { permissionMode: 'default' }); A.configure(ws, { permissionMode: 'auto' })
+  assert.equal(ran, null)
+  assert.ok(A.runtime('cf').pending.some(p => p.id === id && p.confirm))
+  A.answer(ws, id, true); await new Promise(r => setImmediate(r))
+  assert.equal(ran, true)
+  assert.equal(A.runtime('cf').pending.length, 0)
+})

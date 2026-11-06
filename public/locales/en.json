@@ -123,6 +123,7 @@
     "failed": "{{name}} failed"
   },
   "perm": {
+    "confirmAction": "The aiguilleur asks to:",
     "wantsTool": "The agent wants to use {{tool}}",
     "proposesPlan": "The agent proposes this plan:",
     "deny": "Deny",
@@ -130,6 +131,16 @@
     "allow": "Allow",
     "approvePlan": "Approve the plan (switches to Auto)",
     "planFeedback": "What's wrong with this plan?"
+  },
+  "confirm": {
+    "create": "New workspace in {{repo}}: {{name}}",
+    "commit": "Commit in {{name}}: {{message}}",
+    "merge": "Merge {{branch}} into {{base}}",
+    "pr": "Open a PR from {{branch}} to {{base}}",
+    "archive": "Archive {{name}}",
+    "delete": "Delete {{name}} (its worktree and branch)",
+    "denied": "You declined: {{action}}",
+    "waiting": "Waiting for the user to confirm."
   },
   "panel": {
     "diff": "Diff",

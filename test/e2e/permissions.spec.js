@@ -96,3 +96,15 @@ test('revert ↺ cancelled in the confirm dialog changes nothing', async ({ open
   await expect(page.locator('#thread .msg.me')).toHaveCount(1)
   expect(existsSync(join(w.path, 'keep.txt'))).toBe(true)
 })
+
+test("the aiguilleur's merge request is a card in its chat; Allow merges and the outcome shows as a report", async ({ srv, open, page }) => {
+  const { w } = await open()
+  await srv.asAiguilleur('POST', `/workspaces/${w.id}/merge`)
+  await page.locator('#aiguilleur .wsItem').click()
+  const card = page.locator('#perms .perm')
+  await expect(card).toContainText('The aiguilleur asks to:')
+  await expect(card.locator('pre')).toHaveText(`Merge ${w.branch} into main`)
+  await card.getByRole('button', { name: 'Allow' }).click()
+  await expect(card).toHaveCount(0)
+  await expect(page.locator('#thread .msg.report').last()).toContainText('Merged into main')
+})
