@@ -9,6 +9,8 @@ import { startServer, setup, waitFor } from '../helpers.mjs'
 
 const ME = 42
 const updates = [], sent = [], calls = []
+let failSends = false
+const failed = []
 let nextUpdate = 1, nextMsg = 100
 const push = u => updates.push({ update_id: nextUpdate++, ...u })
 const say = (text, extra = {}) => push({ message: { message_id: nextMsg++, chat: { id: ME }, from: { language_code: 'en' }, text, ...extra } })
@@ -36,6 +38,7 @@ const tg = http.createServer(async (req, res) => {
   if (method === 'sendRichMessage' && b.rich_message.markdown.includes('UNPARSABLE')) {
     res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ ok: false, description: "Bad Request: can't parse rich message" }))
   }
+  if (failSends && (method === 'sendMessage' || method === 'sendRichMessage')) { failed.push(b); res.writeHead(500, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ ok: false, description: 'boom' })) }
   if (method === 'sendMessage' || method === 'sendRichMessage') {
     const m = { message_id: nextMsg++, chat: { id: b.chat_id } }
     sent.push({ ...b, text: b.text ?? b.rich_message.markdown, method, message_id: m.message_id }); return ok(m)
@@ -286,6 +289,21 @@ test('/digest sends the waiting reports in one message', async () => {
   await message(m => m.text === 'No report waiting.', 'nothing left')
 })
 
+test('a digest that fails to send keeps its reports', async () => {
+  await srv.api('PATCH', '/telegram', { digest: 'batched' })
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'keep me')
+  const queued = () => JSON.parse(readFileSync(join(srv.home, 'state.json'), 'utf8')).telegram.queue?.length
+  await waitFor(queued, { what: 'queued' })
+  failSends = true
+  say('/digest')
+  await waitFor(() => failed.some(b => JSON.stringify(b).includes('keep me')), { what: 'the failed send' })
+  failSends = false
+  assert.ok(queued() >= 1, 'still waiting')
+  say('/digest')
+  await message(m => m.text.includes('reports since the last digest') && m.text.includes('keep me'), 'sent on the next try')
+})
+
 test('the waiting reports survive a restart', async () => {
   const { w } = await setup(srv)
   await srv.turn(w.id, 'before the restart')
@@ -306,7 +324,7 @@ test('digest off: every report pushed as before', async () => {
 
 test('Disconnect stops the bot', async () => {
   await srv.api('POST', '/telegram', { token: '' })
-  assert.deepEqual((await srv.state()).telegram, { on: false, linked: false, remote: false, digest: 'batched' })
+  assert.deepEqual((await srv.state()).telegram, { on: false, linked: false, remote: false, digest: 'off' })
 })
 
 test("a finished turn adds what's worth keeping to the project's journal, in the aiguilleur's folder", async () => {

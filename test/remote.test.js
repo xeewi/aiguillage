@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md, split, dueSlot, urgent, digestText } = await import('../lib/remote.js')
+const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md, split, dueSlot, urgent, digestText, enqueue } = await import('../lib/remote.js')
 const { i18n } = await import('../lib/i18n.js')
 
 const ME = 42
@@ -175,4 +175,19 @@ test('digestText: one line per report, cut at 120 characters', () => {
   assert.equal(title, '**telegram.digestTitle:2**')
   assert.equal(a, '**✅ app / login** First line')
   assert.equal(b, `**✅ app / long** ${'x'.repeat(120)}`)
+})
+
+test('enqueue: the digest window starts with the first waiting report, not at the last digest', () => {
+  const at = h => new Date(2026, 10, 20, h, 5).getTime()
+  const g = { queue: [], digestAt: at(9) }
+  enqueue(g, { ws: 'a', md: 'x' }, at(14))
+  assert.equal(dueSlot(g.digestAt, at(14) + 60_000), false, 'not due at 14:06, the 13:00 slot is before the report')
+  assert.equal(dueSlot(g.digestAt, at(18)), true)
+  enqueue(g, { ws: 'b', md: 'y' }, at(15))
+  assert.equal(g.digestAt, at(14), 'a second report does not move it')
+})
+
+test('digestText: images dropped, Markdown of the text escaped', () => {
+  const [, line] = digestText([{ ws: 'a', md: '**✅ app / x**\n\n![shot](/tmp/a.png) did *it* `now`' }], () => 'T').split('\n\n')
+  assert.equal(line, '**✅ app / x** did \\*it\\* \\`now\\`')
 })
