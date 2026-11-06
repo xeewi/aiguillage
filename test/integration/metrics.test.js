@@ -46,3 +46,13 @@ test('a turn you interrupted is counted, not as a failure', async () => {
   const m = (await srv.api('GET', '/metrics?days=14')).turns
   assert.deepEqual([m.n, m.failed], [before.n + 1, before.failed])
 })
+
+test("a worker's report is counted, and whether it ended with its block", async () => {
+  const { w } = await setup(srv)
+  const reports = async () => (await srv.api('GET', '/metrics?days=14')).reports
+  const before = await reports()
+  await srv.turn(w.id, 'report done All good')
+  await srv.turn(w.id, 'no block here')
+  await waitFor(async () => (await reports()).n === before.n + 2, { what: 'two reports counted' })
+  assert.equal((await reports()).withBlock, before.withBlock + 1)
+})

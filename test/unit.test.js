@@ -95,6 +95,12 @@ test('briefing(): tells the agent its worktree, ports, run log and base', () => 
   store.state.repos.pop()
 })
 
+test('briefing(): every agent, in a project or a free session, is told to end its turn with the report block', async () => {
+  const { REPORT_RULES } = await import('../lib/report.js')
+  assert.ok(A.briefing({ id: 'w1', name: 'oslo', branch: 'aig/oslo', base: 'main', path: '/wt/oslo', port: 40010 }).includes(REPORT_RULES))
+  assert.ok(A.briefing({ id: 's1', free: true, name: 'lima', path: '/s/lima', port: 40020 }).includes(REPORT_RULES))
+})
+
 test('envFor(): AIGUILLAGE_* vars, nested-session vars removed', () => {
   store.state.repos.push({ id: 'r2', path: '/repo/x' })
   process.env.CLAUDECODE = '1'; process.env.CLAUDE_CODE_ENTRYPOINT = 'cli'
