@@ -367,6 +367,25 @@ test('remote mode off: every urgent report waits for the catch-up, with the late
   assert.deepEqual(got, ['first one', 'second one', 'hello third'])
 })
 
+test("remote mode off: a report on a workspace archived meanwhile still comes with the catch-up", async () => {
+  const { w: a, repo } = await setup(srv)
+  const b = await srv.api('POST', '/workspaces', { repoId: repo.id })
+  await srv.api('PATCH', '/telegram', { remote: false })
+  await srv.api('PATCH', '/defaults', { maxAgents: 1 })
+  try {
+    await srv.api('POST', `/workspaces/${a.id}/send`, { text: 'hang 1200' })
+    await waitFor(async () => (await srv.ws(a.id)).busy, { what: 'a working' })
+    await srv.api('POST', `/workspaces/${b.id}/send`, { text: 'never sent', queue: true })
+    await srv.api('POST', `/workspaces/${b.id}/archive`)
+    await waitFor(async () => (await srv.log('aiguilleur')).some(e => e.type === 'cg_report' && e.ws === b.id && e.key === 'queue.dropped'), { what: 'the dropped report' })
+  } finally { await srv.api('PATCH', '/defaults', { maxAgents: 5 }) }
+  // a's own report in first: it must not land in a later test's digest.
+  await waitFor(async () => (await srv.log('aiguilleur')).some(e => e.type === 'cg_report' && e.ws === a.id), { what: "a's report" })
+  const before = sent.length
+  await srv.api('PATCH', '/telegram', { remote: true })
+  assert.ok(sent.slice(before).some(m => m.text.includes('dropped without being sent') && m.text.includes('never sent')), 'the archived workspace\'s report, caught up')
+})
+
 test('batched: a done report waits, a blocked one is pushed at once', async () => {
   await srv.api('PATCH', '/telegram', { digest: 'batched' })
   assert.equal((await srv.state()).telegram.digest, 'batched')
@@ -446,6 +465,8 @@ test('remote mode off: what the aiguilleur asks to do in a turn from Telegram st
     const [allow] = ask.reply_markup.inline_keyboard[0]
     push({ callback_query: { id: 'cbm', data: allow.callback_data, from: {}, message: { message_id: ask.message_id, chat: { id: ME } } } })
     await waitFor(async () => (await srv.log('aiguilleur')).some(e => e.type === 'cg_report' && e.ws === w.id && e.key === 'messages.merged'), { what: 'merged on the click' })
+    // Its outcome too, still out of remote mode (not held for a catch-up).
+    await waitFor(() => sent.slice(before).find(m => m.text.startsWith('**✅ ') && m.text.includes(`Merged into main`)), { what: 'the outcome on Telegram, out of remote mode' })
   } finally { await srv.api('PATCH', '/telegram', { remote: true }) }
 })
 

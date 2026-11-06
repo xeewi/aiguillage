@@ -632,7 +632,8 @@ async function decide(c, allow) {
   const asked = { key: c.key, vars: c.vars }, at = c.params.id && state.workspaces.find(w => w.id === c.params.id)
   // No workspace (a creation refused or failed, one deleted meanwhile): the report is the aiguilleur's own, titled with the request.
   // said: { key, vars } (Aiguillage's words, translated when shown) or { text } (git's, gh's).
-  const tell = (ok, said, ws = at) => R.report(ws || state.aiguilleur, { ok, ...said, title: ws ? undefined : asked, action: true })
+  // Asked in a turn from Telegram: its outcome goes there too, even out of remote mode (lib/remote.js mirror).
+  const tell = (ok, said, ws = at) => R.report(ws || state.aiguilleur, { ok, ...said, title: ws ? undefined : asked, action: true, ...c.telegram && { telegram: true } })
   if (!allow) return tell(false, { key: 'confirm.denied', vars: { action: asked } })
   try {
     const ctx = { body: c.body ?? {}, caller: 'aiguilleur', confirmed: true, forced: !!c.forced, query: new URLSearchParams(), route: c.routeKey }
