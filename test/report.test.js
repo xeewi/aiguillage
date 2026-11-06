@@ -26,3 +26,8 @@ test('REPORT_RULES shows the block format', () => {
   assert.match(REPORT_RULES, /^End every turn with this block[^\n]*\n```aig-report\nstatus: done \| blocked \| decision\n/)
   assert.match(REPORT_RULES, /before you go on\.$/)
 })
+test('a block quoted inline after the real one does not win: fences count at line starts only', () => {
+  const text = 'Stuck.\n\n```aig-report\nstatus: blocked\nneeds: a key\n```\nThe format is like ```aig-report\nstatus: done\n``` there.'
+  assert.equal(parseReport(text).status, 'blocked')
+  assert.equal(parseReport('```aig-report\n```').status, null, 'an empty block still parses')
+})
