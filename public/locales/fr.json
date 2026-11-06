@@ -128,7 +128,9 @@
     "openInTerminal": "Ouvrir {{cmd}} dans le terminal",
     "sessionReady": "Une session rattachée à aucun projet, dans <code>{{path}}</code>. Donne sa tâche à l'agent.",
     "queued_cap": "En file d'attente : autant d'agents que les Réglages le permettent sont au travail. Il part dès que l'un d'eux finit.",
-    "queued_quota": "En file d'attente : 90 % de la session du forfait sont utilisés. Il part quand l'usage redescend."
+    "queued_quota": "En file d'attente : 90 % de la session du forfait sont utilisés. Il part quand l'usage redescend.",
+    "sendAnyway_cap": "Agents au travail : {{working}} (max {{max}}). Envoyer quand même (OK), ou le mettre en file d'attente (Annuler) ?",
+    "sendAnyway_quota": "La session du forfait est à {{pct}} %. Envoyer quand même (OK), ou le mettre en file d'attente (Annuler) ?"
   },
   "report": {
     "testsTouched": "⚠️ Fichiers de test modifiés pendant ce tour : {{files}}",
@@ -264,6 +266,8 @@
     "revertCleared": "Ce message est avant un /clear : la conversation a été effacée, impossible d'y revenir.",
     "gitBusy": "Une opération git est en cours.",
     "unauthorized": "Appel refusé : cette API ne répond qu'à la fenêtre d'Aiguillage et à son aiguilleur.",
+    "notForAiguilleur": "L'aiguilleur ne peut pas faire ça : demande à l'utilisateur.",
+    "wouldQueue": "Irait en file d'attente : {{working}} agents au travail (max {{max}}), session du forfait à {{pct}} %.",
     "tooLarge": "Requête trop grosse.",
     "notFound": "Introuvable.",
     "initRefused": "Choisis un dossier de projet, pas tout ton dossier personnel.",
@@ -319,7 +323,7 @@
     "plan": "Forfait {{plan}}"
   },
   "overlap": {
-    "found": "{{a}} et {{b}} ont modifié tous deux : {{files}}. Fusionner les deux créera un conflit ; décide qui passe en premier, ou fais rebaser l'un.",
+    "found": "{{a}} et {{b}} ont modifié tous deux : {{files}}. Fusionner les deux peut créer un conflit ; décide qui passe en premier, ou fais rebaser l'un.",
     "notified": "{{branch}} a été fusionnée dans {{base}}. Invités à rebaser au prochain message : {{who}}.",
     "brief": "⚠️ chevauche {{who}} : {{files}}"
   },
@@ -335,8 +339,10 @@
     "mediaMissing": "fichier introuvable.",
     "mediaTooBig": "trop gros pour un bot Telegram (50 Mo max) : à voir sur le Mac.",
     "tooBig": "{{name}} est trop gros pour un bot Telegram (20 Mo max) : rien n'a été envoyé. Partage-le depuis le Mac, ou envoie-en un plus petit.",
-    "digestTitle": "{{count}} comptes rendus depuis le dernier récapitulatif",
+    "digestTitle_one": "{{count}} compte rendu depuis le dernier récapitulatif",
+    "digestTitle_other": "{{count}} comptes rendus depuis le dernier récapitulatif",
     "digestEmpty": "Aucun compte rendu en attente.",
+    "notPending": "Plus en attente.",
     "fromMac": "🖥 Toi, sur le Mac :",
     "linked": "C'est relié ! Écris n'importe quoi pour parler à l'Aiguilleur. /remote et /local activent et coupent les comptes rendus ; /status liste les workspaces.",
     "remoteOn": "📡 Mode remote activé : la conversation avec l'Aiguilleur, les comptes rendus des agents et les demandes arrivent ici. /local pour arrêter.",

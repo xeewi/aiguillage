@@ -2,7 +2,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { startServer, setup, waitFor, git } from '../helpers.mjs'
+import { startServer, setup, waitFor, git, sleep } from '../helpers.mjs'
 
 let srv
 before(async () => { srv = await startServer() })
@@ -32,4 +32,17 @@ test('a permission answered from the page is counted with its wait', async () =>
   const m = await srv.api('GET', '/metrics?days=14')
   assert.equal(m.permissions.n, 1)
   assert.ok(m.permissions.medianWaitMs >= 0)
+})
+
+test('a turn you interrupted is counted, not as a failure', async () => {
+  const { w } = await setup(srv)
+  const before = (await srv.api('GET', '/metrics?days=14')).turns
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'slow' })
+  await waitFor(async () => (await srv.ws(w.id)).busy, { what: 'working' })
+  await sleep(300) // the fake is streaming: the interrupt lands inside the turn
+  await srv.api('POST', `/workspaces/${w.id}/interrupt`)
+  const res = await waitFor(async () => (await srv.log(w.id)).find(e => e.type === 'result'), { what: 'the interrupted result' })
+  assert.equal(res.is_error, true, 'the CLI ends an interrupted turn as an error')
+  const m = (await srv.api('GET', '/metrics?days=14')).turns
+  assert.deepEqual([m.n, m.failed], [before.n + 1, before.failed])
 })

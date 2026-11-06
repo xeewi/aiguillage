@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md, split, dueSlot, urgent, digestText, enqueue } = await import('../lib/remote.js')
+const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md, split, dueSlot, urgent, digestText, enqueue, reportMd, reportText } = await import('../lib/remote.js')
 const { i18n } = await import('../lib/i18n.js')
 
 const ME = 42
@@ -193,4 +193,31 @@ test('enqueue: the digest window starts with the first waiting report, not at th
 test('digestText: images dropped, Markdown of the text escaped', () => {
   const [, line] = digestText([{ ws: 'a', md: '**✅ app / x**\n\n![shot](/tmp/a.png) did *it* `now`' }], () => 'T').split('\n\n')
   assert.equal(line, '**✅ app / x** did \\*it\\* \\`now\\`')
+})
+
+test('digestText: the title agrees with the count', () => {
+  const en = (k, v) => i18n.t(k, { lng: 'en', ...v }), fr = (k, v) => i18n.t(k, { lng: 'fr', ...v })
+  assert.match(digestText([{ ws: 'a', md: '**✅ a**\n\nx' }], en), /^\*\*1 report since the last digest\*\*/)
+  assert.match(digestText([{ ws: 'a', md: '**✅ a**\n\nx' }], fr), /^\*\*1 compte rendu depuis le dernier récapitulatif\*\*/)
+  assert.match(digestText([{ ws: 'a', md: 'x' }, { ws: 'b', md: 'y' }], en), /^\*\*2 reports since/)
+})
+
+test('an overlap may conflict, it is not said to will', () => {
+  assert.match(i18n.t('overlap.found', { a: 'A', b: 'B', files: 'x' }), /may conflict/)
+  assert.match(i18n.t('overlap.found', { lng: 'fr', a: 'A', b: 'B', files: 'x' }), /peut créer un conflit/)
+})
+
+test("a server-written report is kept as key + vars: Telegram reads it in its language, the aiguilleur's model in English", () => {
+  const label = { key: 'confirm.create', vars: { repo: 'app', name: 'login' } }
+  const overlap = { type: 'cg_report', ws: 'w1', label: 'app / a ↔ app / b', ok: true, status: 'decision', key: 'overlap.found', vars: { a: 'app / a', b: 'app / b', files: 'x.js' }, text: '' }
+  const denied = { type: 'cg_report', ws: 'aiguilleur', label, ok: false, status: null, key: 'confirm.denied', vars: { action: label }, text: '' }
+  const queued = { type: 'cg_report', ws: 'w2', label: 'app / c', ok: true, status: null, key: 'confirm.brief', vars: { name: 'c', text: 'Task brief' }, queued: 'cap', text: '' }
+  assert.match(reportMd(overlap, 'fr'), /ont modifié tous deux : x\.js/)
+  assert.equal(reportMd(denied, 'fr'), "**❌ Nouveau workspace dans app : login**\n\nVous avez refusé : Nouveau workspace dans app : login")
+  assert.match(reportMd(queued, 'fr'), /Brief pour c :\nTask brief\n\nEn file d'attente/)
+  const p = prompt('?', {}, [overlap, denied, queued])
+  assert.match(p, /both changed: x\.js/)
+  assert.match(p, /❌ New workspace in app: login\n\nYou declined: New workspace in app: login/)
+  assert.match(p, /Brief for c:\nTask brief\n\nQueued:/)
+  assert.equal(reportText({ ...overlap, key: undefined, text: 'agent words' }), '⏸ app / a ↔ app / b\n\nagent words', 'the agent\'s own words as written')
 })

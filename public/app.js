@@ -75,6 +75,8 @@ async function api(method, path, body) {
   if (j.key) j.message = t(j.key, j.vars)
   return j
 }
+// A text the server wrote as { key, vars } (a var may be one too), in the page's language; a plain string as is.
+const tr = d => d?.key ? t(d.key, Object.fromEntries(Object.entries(d.vars ?? {}).map(([k, v]) => [k, tr(v)]))) : d
 const toast = (msg, bad) => {
   const t = $('#toast'); t.textContent = msg; t.className = bad ? 'bad' : ''; t.hidden = false
   clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, bad ? 8000 : 3500)
@@ -644,16 +646,23 @@ function renderEv(ev) {
   }
   if (ev.type === 'system') return thread.append(h('div', 'meta', `session ${ev.session_id.slice(0, 8)} · ${ev.model}`))
   if (ev.type === 'cg_error') return thread.append(h('div', 'msg err', ev.key ? t(ev.key, ev.vars) : ev.text))
-  // An agent's finished turn, in the aiguilleur's conversation (lib/remote.js): its project / workspace, then its words.
+  // An agent's finished turn, in the aiguilleur's conversation (lib/remote.js): its project / workspace, then its words;
+  // Aiguillage's own words (key + vars), the facts it checked. A red check reads as bad as a failed turn.
   if (ev.type === 'cg_report') {
-    const wait = ev.ok && (ev.status === 'blocked' || ev.status === 'decision')
-    const m = h('div', 'msg report' + (ev.ok ? '' : ' bad') + (wait ? ' wait' : '')), head = h('button', 'ghost head')
-    head.insertAdjacentHTML('afterbegin', svg(!ev.ok ? 'x' : wait ? 'pause' : 'check')); head.append(h('span', null, ev.label))
+    const wait = ev.ok && (ev.status === 'blocked' || ev.status === 'decision'), bad = !ev.ok || ev.check?.ok === false
+    const m = h('div', 'msg report' + (bad ? ' bad' : '') + (wait ? ' wait' : '')), head = h('button', 'ghost head')
+    head.insertAdjacentHTML('afterbegin', svg(bad ? 'x' : wait ? 'pause' : 'check')); head.append(h('span', null, tr(ev.label)))
     head.title = t('chat.openReport'); head.disabled = !wsById(ev.ws) || wsById(ev.ws).archived
     head.onclick = () => select(ev.ws)
     m.append(head)
+    if (ev.key) m.append(h('div', 'said', tr(ev)))
     if (ev.text) m.append(md(ev.text))
+    if (ev.queued) m.append(h('div', 'meta', t('chat.queued', { context: ev.queued })))
     if (ev.testsTouched?.length) m.append(h('div', 'meta', t('report.testsTouched', { files: ev.testsTouched.join(', ') })))
+    if (ev.check) {
+      m.append(h('div', 'meta', t(ev.check.ok ? 'report.checkPassed' : 'report.checkFailed', { s: Math.round(ev.check.ms / 1000), code: ev.check.code ?? '⏱' })))
+      if (!ev.check.ok && ev.check.out) m.append(h('pre', null, ev.check.out))
+    }
     return thread.append(m)
   }
   if (ev.type === 'task') {
@@ -799,12 +808,19 @@ $('#composer').onsubmit = guard(async e => {
   await Promise.all(list.map(f => f.ready))
   const files = list.filter(f => f.path)
   if (!text && !files.length) return
-  let r
-  try { r = await api('POST', `/workspaces/${id}/send`, { text, files: files.map(f => f.path) }) } catch (err) {
+  try { await sendTo(id, { text, files: files.map(f => f.path) }) } catch (err) {
     $('#input').value = text; atts.set(id, files); renderAtts(); throw err
   }
-  if (r?.queued) toast(t('chat.queued', { context: r.reason }))
 })
+// Past the agent cap or near the plan's limit, the server asks first (errors.wouldQueue): OK sends now, Cancel queues it.
+async function sendTo(id, body) {
+  const post = more => api('POST', `/workspaces/${id}/send`, { ...body, ...more })
+  const r = await post().catch(e => {
+    if (e.key !== 'errors.wouldQueue') throw e
+    return post(confirm(t('chat.sendAnyway', { ...e.vars, context: e.vars.reason })) ? { force: true } : { queue: true })
+  })
+  if (r?.queued) toast(t('chat.queued', { context: r.reason }))
+}
 $('#input').onkeydown = e => {
   if (!$('#slash').hidden && slashKey(e)) return e.preventDefault()
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#composer').requestSubmit() }
@@ -934,7 +950,7 @@ async function loadScripts() {
   $('#runAsk').hidden = !sel.hidden
 }
 // Unrecognized project: let the agent figure out the command and write .aiguillage/settings.toml.
-$('#runAsk').onclick = guard(() => api('POST', `/workspaces/${active}/send`, { text: t('panel.askAgentPrompt') }))
+$('#runAsk').onclick = guard(() => sendTo(active, { text: t('panel.askAgentPrompt') }))
 $('#runStop').onclick = guard(() => api('POST', `/workspaces/${active}/run-stop`))
 
 async function loadDiff() {

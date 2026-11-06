@@ -108,3 +108,42 @@ test("the aiguilleur's merge request is a card in its chat; Allow merges and the
   await expect(card).toHaveCount(0)
   await expect(page.locator('#thread .msg.report').last()).toContainText('Merged into main')
 })
+
+test("a report whose check failed looks bad in the window and shows the check's output", async ({ open, page }) => {
+  await open({ 'README.md': '# t\n', '.aiguillage/settings.toml': '[scripts]\ncheck = "echo broken-build; exit 3"\n' })
+  await say(page, 'write a.txt a')
+  await page.locator('#aiguilleur .wsItem').click()
+  const rep = page.locator('#thread .msg.report').last()
+  await expect(rep).toContainText('🧪 check failed (exit 3)')
+  await expect(rep).toHaveClass(/\bbad\b/)
+  await expect(rep.locator('pre')).toContainText('broken-build')
+})
+
+test('a send past the agent cap asks first: Cancel queues it, OK sends it at once', async ({ srv, open, page }) => {
+  const { repo, w } = await open()
+  const other = await srv.api('POST', '/workspaces', { repoId: repo.id })
+  await srv.api('PATCH', '/defaults', { maxAgents: 1 })
+  await srv.api('POST', `/workspaces/${other.id}/send`, { text: 'hang 3000' })
+  await expect.poll(async () => (await srv.ws(other.id)).busy).toBe(true)
+  let asked
+  page.once('dialog', d => { asked = d.message(); d.dismiss() })
+  await say(page, 'queue me')
+  await expect(page.locator('#toast')).toContainText('Queued')
+  expect(asked).toMatch(/Agents at work: 1 \(max 1\)/)
+  expect((await srv.ws(w.id)).queued.length).toBe(1)
+  page.once('dialog', d => d.accept())
+  await say(page, 'send now')
+  await expect(page.locator('#thread .msg.me', { hasText: 'send now' })).toBeVisible()
+})
+
+test.describe('in French', () => {
+  test.use({ locale: 'fr-FR' })
+
+  test("a report written by Aiguillage itself shows in the window's language", async ({ srv, open, page }) => {
+    const { w } = await open()
+    const { pending } = await srv.asAiguilleur('POST', `/workspaces/${w.id}/archive`)
+    await srv.api('POST', '/workspaces/aiguilleur/permission', { id: pending, allow: false })
+    await page.locator('#aiguilleur .wsItem').click()
+    await expect(page.locator('#thread .msg.report').last()).toContainText(`Vous avez refusé : Archiver ${w.name}`)
+  })
+})

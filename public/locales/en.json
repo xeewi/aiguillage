@@ -128,7 +128,9 @@
     "openInTerminal": "Open {{cmd}} in the terminal",
     "sessionReady": "A session tied to no project, in <code>{{path}}</code>. Give the agent its task.",
     "queued_cap": "Queued: as many agents as Settings allow are at work. It is sent as soon as one finishes.",
-    "queued_quota": "Queued: 90 % of the plan's session is used. It is sent once usage drops."
+    "queued_quota": "Queued: 90 % of the plan's session is used. It is sent once usage drops.",
+    "sendAnyway_cap": "Agents at work: {{working}} (max {{max}}). Send anyway (OK), or queue it (Cancel)?",
+    "sendAnyway_quota": "The plan's session is at {{pct}} %. Send anyway (OK), or queue it (Cancel)?"
   },
   "report": {
     "testsTouched": "⚠️ Test files changed this turn: {{files}}",
@@ -264,6 +266,8 @@
     "revertCleared": "This message is before a /clear: the conversation was cleared, it can't be gone back to.",
     "gitBusy": "A git operation is in progress.",
     "unauthorized": "Call refused: this API answers Aiguillage's window and its aiguilleur only.",
+    "notForAiguilleur": "The aiguilleur can't do this: ask the user.",
+    "wouldQueue": "Would be queued: {{working}} agents at work (max {{max}}), the plan's session at {{pct}} %.",
     "tooLarge": "Request too large.",
     "notFound": "Not found.",
     "initRefused": "Pick a project folder, not your whole home folder.",
@@ -319,7 +323,7 @@
     "plan": "{{plan}} plan"
   },
   "overlap": {
-    "found": "{{a}} and {{b}} both changed: {{files}}. Merging both will conflict; decide who goes first, or have one rebase.",
+    "found": "{{a}} and {{b}} both changed: {{files}}. Merging both may conflict; decide who goes first, or have one rebase.",
     "notified": "{{branch}} was merged into {{base}}. Told to rebase on their next message: {{who}}.",
     "brief": "⚠️ overlaps {{who}}: {{files}}"
   },
@@ -335,8 +339,10 @@
     "mediaMissing": "file not found.",
     "mediaTooBig": "too big for a Telegram bot (50 MB max): see it on the Mac.",
     "tooBig": "{{name}} is too big for a Telegram bot (20 MB max): nothing was sent. Share it from the Mac, or send a smaller one.",
-    "digestTitle": "{{count}} reports since the last digest",
+    "digestTitle_one": "{{count}} report since the last digest",
+    "digestTitle_other": "{{count}} reports since the last digest",
     "digestEmpty": "No report waiting.",
+    "notPending": "No longer pending.",
     "fromMac": "🖥 You, at the Mac:",
     "linked": "Linked! Write anything to talk to the Aiguilleur. /remote and /local turn the reports on and off; /status lists the workspaces.",
     "remoteOn": "📡 Remote mode on: the conversation with the Aiguilleur, the agents' reports and the requests come here. /local to stop.",

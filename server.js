@@ -268,7 +268,7 @@ async function tellOthers(ws, repo, was, now) {
   }
   if (!told.length) return
   save()
-  R.report(ws, { ok: true, text: notice('overlap.notified', { branch: ws.branch, base: ws.base, who: told.join(', ') }).message })
+  R.report(ws, { ok: true, key: 'overlap.notified', vars: { branch: ws.branch, base: ws.base, who: told.join(', ') } })
 }
 
 // state.overlaps: { '<a>|<b>': files } as of the last scan; a new or changed pair is reported once.
@@ -293,7 +293,7 @@ const scan = () => scanning = (async () => {
   for (const o of news) {
     const a = state.workspaces.find(w => w.id === o.a), b = state.workspaces.find(w => w.id === o.b)
     R.report(a, { ok: true, status: 'decision', title: `${R.label(a)} ↔ ${R.label(b)}`, overlap: o.files,
-      text: notice('overlap.found', { a: R.label(a), b: R.label(b), files: o.files.join(', ') }).message })
+      key: 'overlap.found', vars: { a: R.label(a), b: R.label(b), files: o.files.join(', ') } })
   }
 })().catch(e => console.error('[overlap]', e.message))
 setInterval(scanOverlaps, Rv.OVERLAP_EVERY).unref()
@@ -467,7 +467,9 @@ const routes = {
     A.configure(ws, body); changed(); return {}
   },
   'POST /api/workspaces/:id/upload': ({ ws, req, query }) => upload(ws, query.get('name'), req),
-  'POST /api/workspaces/:id/send': async ({ ws, body }) => (await sendTo(ws, String(body.text ?? ''), attached(ws, body.files))) ?? {},
+  // The page asks before queueing (errors.wouldQueue), then says force (send now) or queue; the aiguilleur's sends just queue.
+  'POST /api/workspaces/:id/send': async ({ ws, body, caller }) =>
+    (await sendTo(ws, String(body.text ?? ''), attached(ws, body.files), {}, caller === 'page' ? body.force ? 'force' : body.queue ? 'queue' : 'ask' : 'queue')) ?? {},
   'GET /api/workspaces/:id/commands': ({ ws }) => A.commands(ws),
   // Commands with a full-screen UI (/permissions, /resume, /memory…) don't exist in -p mode: run them in the real,
   // interactive Claude Code, on this same conversation, in the Terminal tab. The idle chat process steps aside.
@@ -482,11 +484,7 @@ const routes = {
   },
   'POST /api/workspaces/:id/interrupt': ({ ws }) => { A.interrupt(ws); return {} },
   'POST /api/workspaces/:id/stop-task': ({ ws, body }) => { A.stopTask(ws, String(body.id)); return {} },
-  'POST /api/workspaces/:id/permission': ({ ws, body, caller }) => {
-    // Only the user's click confirms what the aiguilleur asked for, never the aiguilleur itself.
-    if (caller === 'aiguilleur' && A.runtime(ws.id).pending.some(p => p.id === body.id && p.confirm)) throw fail('errors.notFound')
-    A.answer(ws, body.id, !!body.allow, body.message && String(body.message)); return {}
-  },
+  'POST /api/workspaces/:id/permission': ({ ws, body }) => { A.answer(ws, body.id, !!body.allow, body.message && String(body.message)); return {} },
   'POST /api/workspaces/:id/revert': ({ ws, body }) => A.revert(ws, body.msgId),
   'POST /api/workspaces/:id/archive': ctx => guard(ctx, 'confirm.archive', { name: ctx.ws.title || ctx.ws.name }, async () => { await archive(ctx.ws); return {} }),
   'POST /api/workspaces/:id/unarchive': async ({ ws }) => { await unarchive(ws); return {} },
@@ -557,17 +555,18 @@ const routes = {
 // user's click, in the window or on Telegram (lib/agent.js confirm); the outcome comes back as a report. The page acts at once.
 function guard(ctx, key, vars, run) {
   if (ctx.caller !== 'aiguilleur') return run()
-  const label = notice(key, vars).message, at = ctx.ws
+  const label = notice(key, vars).message, at = ctx.ws, asked = { key, vars }
   // No workspace yet (a creation refused or failed): the report is the aiguilleur's own, titled with the request.
-  const tell = (ok, text, ws = at) => R.report(ws ?? state.aiguilleur, { ok, text, title: ws ? undefined : label, action: true })
+  // said: { key, vars } (Aiguillage's words, translated when shown) or { text } (git's, gh's).
+  const tell = (ok, said, ws = at) => R.report(ws ?? state.aiguilleur, { ok, ...said, title: ws ? undefined : asked, action: true })
   const id = A.confirm(state.aiguilleur, { label, key, vars, about: at?.id }, async allow => {
-    if (!allow) return tell(false, notice('confirm.denied', { action: label }).message)
+    if (!allow) return tell(false, { key: 'confirm.denied', vars: { action: asked } })
     try {
       if (at && !state.workspaces.includes(at)) throw fail('errors.notFound') // deleted meanwhile
       const out = await run()
       // A creation answers the new workspace; a brief may have joined the queue (sendTo), which the aiguilleur is told.
-      tell(true, [out?.message ?? label, out?.queued === true && notice('chat.queued', { context: out.reason }).message].filter(Boolean).join('\n\n'), at ?? out)
-    } catch (e) { tell(false, (e.stderr || e.message || String(e)).trim()) }
+      tell(true, { ...out?.key ? { key: out.key, vars: out.vars } : out?.message ? { text: out.message } : asked, ...out?.queued === true && { queued: out.reason } }, at ?? out)
+    } catch (e) { tell(false, e.key ? { key: e.key, vars: e.vars } : { text: (e.stderr || e.message || String(e)).trim() }) }
   })
   return { pending: id, ...notice('confirm.waiting') }
 }
@@ -593,12 +592,15 @@ async function giveBrief(ws, b) {
 // The chat's send, and Telegram's (lib/remote.js). The aiguilleur's model also reads the agents' reports it hasn't seen.
 // A message that would put one more worker to work waits in ws.queued (saved) while too many work or the plan's
 // session is nearly used up; one to a worker already at work folds into its turn, as always. -> { queued, reason } | undefined
-async function sendTo(ws, text, files = [], opts = {}) {
+// hold: 'queue' (as said), 'ask' (refuse with errors.wouldQueue instead), 'force' (send now whatever the load).
+// ponytail: a forced message goes ahead of what already waited for this workspace; those follow it into its turn (drain).
+async function sendTo(ws, text, files = [], opts = {}, hold = 'queue') {
   if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
   // Two CLIs writing the same session would fork it: the chat waits for the terminal one to quit.
   if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
   // Behind what already waits for this workspace, for the same reason: messages keep their order.
-  const reason = ws !== state.aiguilleur && !A.working(A.runtime(ws.id)) && !starting.has(ws.id) && (held() || ws.queued?.at(-1)?.reason)
+  const reason = hold !== 'force' && ws !== state.aiguilleur && !A.working(A.runtime(ws.id)) && !starting.has(ws.id) && (held() || ws.queued?.at(-1)?.reason)
+  if (reason && hold === 'ask') throw fail('errors.wouldQueue', { reason, ...load() })
   if (reason) {
     (ws.queued ??= []).push({ text, files, opts, reason, at: Date.now() })
     save(); changed()
@@ -611,10 +613,11 @@ async function sendTo(ws, text, files = [], opts = {}) {
 // starting: workers between this check and A.send marking them busy (checkpoint first), so two sends at once can't both pass.
 // A session limit past its reset time is stale: it no longer holds anything.
 const starting = new Set()
+const load = () => ({ working: state.workspaces.filter(w => starting.has(w.id) || A.working(A.runtime(w.id))).length, max: state.defaults?.maxAgents ?? MAX_AGENTS_DEFAULT,
+  pct: A.usageNow()?.limits.find(l => l.kind === 'session' && !(l.resetsAt < Date.now()))?.pct ?? 0 })
 function held() {
-  if (state.workspaces.filter(w => starting.has(w.id) || A.working(A.runtime(w.id))).length >= (state.defaults?.maxAgents ?? MAX_AGENTS_DEFAULT)) return 'cap'
-  const s = A.usageNow()?.limits.find(l => l.kind === 'session' && !(l.resetsAt < Date.now()))
-  return (s?.pct ?? 0) >= QUOTA_HOLD_PCT ? 'quota' : null
+  const l = load()
+  return l.working >= l.max ? 'cap' : l.pct >= QUOTA_HOLD_PCT ? 'quota' : null
 }
 // Sends the queued messages whose turn has come, oldest first: a workspace's all at once (the first starts its turn,
 // the others fold into it). Called on every state change (changed() below: turn ends, usage refreshes, Settings) and at startup.
@@ -633,7 +636,7 @@ async function drain() {
       if (!ws) return
       while (ws.queued.length) {
         const q = ws.queued.shift(); save(); changed()
-        await deliver(ws, q.text, q.files, q.opts).catch(e => R.report(ws, { ok: false, text: e.message }))
+        await deliver(ws, q.text, q.files, q.opts).catch(e => R.report(ws, e.key ? { ok: false, key: e.key, vars: e.vars } : { ok: false, text: e.message }))
       }
     }
   } finally { draining = false }
@@ -653,6 +656,15 @@ async function sendNow(ws, text, files, opts) {
 
 const AIGUILLEUR_ROUTES = new Set(['GET /api/workspaces/:id/log', 'GET /api/workspaces/:id/commands', 'PATCH /api/workspaces/:id',
   ...['send', 'brief', 'upload', 'interrupt', 'stop-task', 'permission'].map(a => `POST /api/workspaces/:id/${a}`)])
+
+// What the aiguilleur may call; anything else answers 403 (permission answers, modes, revert, Settings, Telegram…).
+// Irreversible ones wait for the user's click (guard()). A rename only: model, effort and mode are the user's.
+const FOR_AIGUILLEUR = new Set(['GET /api/state', 'GET /api/metrics', 'POST /api/workspaces', 'DELETE /api/workspaces/:id', 'PATCH /api/workspaces/:id',
+  ...['log', 'diff', 'commands', 'scripts'].map(a => `GET /api/workspaces/:id/${a}`),
+  ...['send', 'upload', 'interrupt', 'stop-task', 'check', 'brief', 'commit', 'merge', 'pr', 'archive'].map(a => `POST /api/workspaces/:id/${a}`)])
+const forAiguilleur = (key, { ws, body }) => FOR_AIGUILLEUR.has(key)
+  && !(key === 'PATCH /api/workspaces/:id' && ['model', 'effort', 'permissionMode'].some(k => body?.[k] !== undefined))
+  && !(key === 'POST /api/workspaces/:id/brief' && ws === state.aiguilleur)
 
 // Nothing rendered (e.g. an image in agent markdown) may reach the network.
 const CSP = `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:${PORT} ws://localhost:${PORT}; base-uri 'none'; form-action 'self'`
@@ -691,6 +703,8 @@ const caller = req => {
   return req.headers['sec-fetch-site'] === 'same-origin' || req.headers.origin === `http://${req.headers.host}` ? 'page' : null
 }
 
+const refuse = (res, status, k) => { const { message: error, key } = notice(k); res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error, key })) }
+
 const server = http.createServer(async (req, res) => {
   if (!sameOrigin(req)) { res.writeHead(403); return res.end('forbidden') }
   const url = new URL(req.url, 'http://x')
@@ -698,7 +712,7 @@ const server = http.createServer(async (req, res) => {
     try { return url.pathname.startsWith('/attachments/') ? serveAttachment(url.pathname, res) : url.pathname === '/media' ? serveMedia(url.searchParams, req, res) : url.pathname.startsWith('/logo/') ? serveLogo(url.pathname, res) : serveStatic(url.pathname, res) } catch { res.writeHead(500); return res.end() }
   }
   const who = caller(req)
-  if (!who) { const { message: error, key } = notice('errors.unauthorized'); res.writeHead(401, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error, key })) }
+  if (!who) return refuse(res, 401, 'errors.unauthorized')
   const parts = url.pathname.split('/') // ['', 'api', kind, id, action]
   const key = `${req.method} ${parts.length > 3 ? ['', 'api', parts[2], ':id', ...parts.slice(4)].join('/') : url.pathname}`
   if (who === 'aiguilleur') res.on('finish', () => metric('api', { route: key, status: res.statusCode })) // every exit: 404, 413, 415…
@@ -726,6 +740,7 @@ const server = http.createServer(async (req, res) => {
       ctx.repo = state.repos.find(r => r.id === parts[3])
       if (!ctx[parts[2] === 'repos' ? 'repo' : 'ws']) throw fail('errors.notFound')
     }
+    if (who === 'aiguilleur' && !forAiguilleur(key, ctx)) return refuse(res, 403, 'errors.notForAiguilleur')
     const out = await route(ctx)
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify(out ?? {}))

@@ -96,7 +96,7 @@ test("a merge asked by the aiguilleur on a red check waits with a ❌ label; All
   const p = (await srv.state()).aiguilleur.pending.find(x => x.id === r.pending)
   assert.match(p.input.command, /check ❌$/)
   await srv.api('POST', '/workspaces/aiguilleur/permission', { id: r.pending, allow: true })
-  const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id && /Merged/.test(e.text)), { what: 'merged report' })
+  const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id && e.key === 'messages.merged'), { what: 'merged report' })
   assert.equal(rep.ok, true)
   assert.ok(git(repoPath, 'log', '-1', '--format=%s').includes('Merge'))
 })
@@ -109,4 +109,12 @@ test('the diff says whether the saved check ran on these very files', async () =
   assert.equal((await srv.api('GET', `/workspaces/${w.id}/diff`)).checkFresh, true)
   writeFileSync(join(w.path, 'later.txt'), 'l')
   assert.equal((await srv.api('GET', `/workspaces/${w.id}/diff`)).checkFresh, false)
+})
+
+test("the check is the main checkout's: an agent rewriting its worktree's settings.toml doesn't change it", async () => {
+  const { w } = await setup(srv, { '.aiguillage/settings.toml': '[scripts]\ncheck = "false"\n' })
+  writeFileSync(join(w.path, '.aiguillage/settings.toml'), '[scripts]\ncheck = "true"\n') // what the agent could write
+  await srv.turn(w.id, 'write a.txt a')
+  const rep = await reportOn(w.id)
+  assert.equal(rep.check.ok, false, 'the root\'s failing check ran')
 })

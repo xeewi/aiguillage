@@ -7,7 +7,8 @@
 // Messages are commands (first word):
 //   write <path> <text…>   Write tool          bash <cmd…>   Bash tool
 //   plan <text…>           ExitPlanMode        todo          TodoWrite (never asks)
-//   slow                   streams until interrupted        memory  lists this session's user messages
+//   slow                   streams until interrupted (the turn then ends is_error, as the CLI's)
+//   memory                 lists this session's user messages
 //   env                    prints flags + env as JSON       crash   exits with an error
 //   markdown               hostile markdown (XSS probes)    /clear  resets the conversation
 //   anything else: "ok: <text>"
@@ -280,7 +281,8 @@ async function turn(text) {
       say(`ok: ${text}`)
   }
   save()
-  out({ type: 'result', subtype: 'success', is_error: false, duration_ms: Date.now() - t0, total_cost_usd: 0.01, num_turns: turns, session_id: sid, uuid: randomUUID() })
+  // Like the real CLI, a turn you interrupted ends as an error.
+  out({ type: 'result', subtype: interrupted ? 'error_during_execution' : 'success', is_error: interrupted, duration_ms: Date.now() - t0, total_cost_usd: 0.01, num_turns: turns, session_id: sid, uuid: randomUUID() })
 }
 
 // ---- stdin: user messages queue up, controls are handled immediately ----

@@ -136,6 +136,12 @@ test('a confirmation comes to Telegram with buttons; Allow there runs it', async
   await message(m => m.text.startsWith('**✅ ') && m.text.includes('Merged into main'), 'the outcome, reported')
 })
 
+test('Allow on a request that no longer exists (dropped by a restart) says so instead of ✅', async () => {
+  push({ callback_query: { id: 'cb-gone', data: 'p:aiguilleur:1:gone', from: {}, message: { message_id: 1, chat: { id: ME } } } })
+  const a = await waitFor(() => calls.find(c => c.method === 'answerCallbackQuery' && c.callback_query_id === 'cb-gone'), { what: 'the answer' })
+  assert.equal(a.text, 'No longer pending.')
+})
+
 test('/status lists the workspaces; once linked, other chats are ignored', async () => {
   const before = sent.filter(m => m.chat_id === 7).length
   push({ message: { message_id: nextMsg++, chat: { id: 7 }, text: 'hello?' } })
@@ -265,7 +271,7 @@ test('a crash still reports ❌', async () => {
   const { w } = await setup(srv)
   await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'crash' })
   const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id), { what: 'the crash report' })
-  assert.deepEqual([rep.status, rep.ok], [null, false])
+  assert.deepEqual([rep.status, rep.ok, rep.key, rep.vars.code], [null, false, 'chat.agentExited', 3], "Aiguillage's words: translated when shown")
 })
 
 const lastReport = w => srv.log('aiguilleur').then(l => l.findLast(e => e.type === 'cg_report' && e.ws === w.id))
@@ -283,8 +289,8 @@ test('batched: a done report waits, a blocked one is pushed at once', async () =
 
 test('/digest sends the waiting reports in one message', async () => {
   say('/digest')
-  const d = await message(m => m.text.startsWith('**') && m.text.includes('reports since the last digest'), 'the digest')
-  assert.match(d.text, /^\*\*\d+ reports since the last digest\*\*\n\n\*\*✅ .+\*\* ok: quiet work/)
+  const d = await message(m => m.text.startsWith('**') && m.text.match(/reports? since the last digest/), 'the digest')
+  assert.match(d.text, /^\*\*\d+ reports? since the last digest\*\*\n\n\*\*✅ .+\*\* ok: quiet work/)
   say('/digest')
   await message(m => m.text === 'No report waiting.', 'nothing left')
 })
@@ -301,7 +307,7 @@ test('a digest that fails to send keeps its reports', async () => {
   failSends = false
   assert.ok(queued() >= 1, 'still waiting')
   say('/digest')
-  await message(m => m.text.includes('reports since the last digest') && m.text.includes('keep me'), 'sent on the next try')
+  await message(m => m.text.match(/reports? since the last digest/) && m.text.includes('keep me'), 'sent on the next try')
 })
 
 test('the waiting reports survive a restart', async () => {
@@ -312,7 +318,7 @@ test('the waiting reports survive a restart', async () => {
   await srv.stop()
   srv = await startServer({ home, env: { AIGUILLAGE_TELEGRAM_API: `http://127.0.0.1:${tg.address().port}` } })
   say('/digest')
-  await message(m => m.text.includes('reports since the last digest') && m.text.includes('before the restart'), 'the digest, after the restart')
+  await message(m => m.text.match(/reports? since the last digest/) && m.text.includes('before the restart'), 'the digest, after the restart')
 })
 
 test('digest off: every report pushed as before', async () => {
