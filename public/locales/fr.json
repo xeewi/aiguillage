@@ -217,6 +217,7 @@
     "noCheckpoint": "Pas de checkpoint pour ce message.",
     "revertCleared": "Ce message est avant un /clear : la conversation a été effacée, impossible d'y revenir.",
     "gitBusy": "Une opération git est en cours.",
+    "unauthorized": "Appel refusé : cette API ne répond qu'à la fenêtre d'Aiguillage et à son aiguilleur.",
     "tooLarge": "Requête trop grosse.",
     "notFound": "Introuvable.",
     "initRefused": "Choisis un dossier de projet, pas tout ton dossier personnel.",

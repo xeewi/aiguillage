@@ -4,16 +4,16 @@ import http from 'node:http'
 import net from 'node:net'
 import { networkInterfaces } from 'node:os'
 import WebSocket from 'ws'
-import { startServer, socket, waitFor } from '../helpers.mjs'
+import { startServer, socket, waitFor, setup } from '../helpers.mjs'
 
 let srv
 before(async () => { srv = await startServer() })
 after(() => srv.stop())
 
 // fetch() won't let us forge Host, so use raw http.
-function raw({ method = 'GET', path = '/', headers = {}, body } = {}) {
+function raw({ method = 'GET', path = '/', headers = {}, body, page = true } = {}) {
   return new Promise((res, rej) => {
-    const req = http.request({ host: '127.0.0.1', port: srv.port, method, path, headers: { host: `127.0.0.1:${srv.port}`, ...headers } }, r => {
+    const req = http.request({ host: '127.0.0.1', port: srv.port, method, path, headers: { host: `127.0.0.1:${srv.port}`, ...(page && { 'sec-fetch-site': 'same-origin' }), ...headers } }, r => {
       let data = ''; r.on('data', d => { data += d }); r.on('end', () => res({ status: r.statusCode, headers: r.headers, body: data }))
     })
     req.on('error', rej)
@@ -113,4 +113,36 @@ test('server listens on 127.0.0.1 only', async t => {
   assert.ok(await refused('::1'), 'not on IPv6 loopback')
   if (!others.length) return t.skip('no external interface')
   assert.ok(await refused(others[0]), `not reachable on ${others[0]}`)
+})
+
+test('an API call with neither the page headers nor the token is refused (401)', async () => {
+  const r = await raw({ path: '/api/state', page: false })
+  assert.equal(r.status, 401)
+  assert.equal(JSON.parse(r.body).key, 'errors.unauthorized')
+  assert.equal((await raw({ method: 'POST', path: '/api/repos', headers: json, body: '{}', page: false })).status, 401)
+  assert.equal((await raw({ path: '/', page: false })).status, 200, 'static files keep the Host/Origin check only')
+})
+
+test('the aiguilleur token is accepted, a wrong one refused', async () => {
+  const bearer = t => ({ authorization: `Bearer ${t}` })
+  assert.equal((await raw({ path: '/api/state', headers: bearer('test-token'), page: false })).status, 200)
+  for (const t of ['nope', 'test-token-and-more', '']) assert.equal((await raw({ path: '/api/state', headers: bearer(t), page: false })).status, 401, t)
+})
+
+test("the page's plain GET (sec-fetch-site same-origin, no Origin) still works", async () => {
+  assert.equal((await raw({ path: '/api/state' })).status, 200)
+})
+
+test('only the aiguilleur sees AIGUILLAGE_TOKEN: not the agents, not the terminals', async () => {
+  const { w } = await setup(srv)
+  const envOf = async (id, post) => {
+    await post('env')
+    await waitFor(async () => (await srv.log(id)).some(e => e.type === 'result'), { what: `env result for ${id}` })
+    const texts = (await srv.log(id)).flatMap(e => e.type === 'assistant' ? e.message.content : []).map(c => c.text ?? '')
+    return JSON.parse(texts.find(t => t.startsWith('env: ')).slice(5))
+  }
+  // The aiguilleur first: once an agent has reported, its next message starts with the reports and is no command.
+  const ai = await envOf('aiguilleur', text => srv.asAiguilleur('POST', '/workspaces/aiguilleur/send', { text }))
+  assert.equal((await envOf(w.id, text => srv.api('POST', `/workspaces/${w.id}/send`, { text }))).AIGUILLAGE_TOKEN, undefined)
+  assert.equal(ai.AIGUILLAGE_TOKEN, 'test-token')
 })

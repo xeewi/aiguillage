@@ -48,19 +48,21 @@ export async function startServer({ home = tmp('cghome-'), env = {} } = {}) {
   const fakeLog = join(home, 'fake-argv.jsonl')
   const proc = spawn(process.execPath, [join(ROOT, 'server.js'), '--no-open'], {
     cwd: ROOT,
-    env: { ...process.env, AIGUILLAGE_HOME: home, PORT: String(port), AIGUILLAGE_CLAUDE: FAKE, FAKE_CLAUDE_HOME: join(home, 'fake-sessions'), FAKE_CLAUDE_LOG: fakeLog, HOME: home, ...env },
+    env: { ...process.env, AIGUILLAGE_HOME: home, PORT: String(port), AIGUILLAGE_CLAUDE: FAKE, AIGUILLAGE_TOKEN: 'test-token', FAKE_CLAUDE_HOME: join(home, 'fake-sessions'), FAKE_CLAUDE_LOG: fakeLog, HOME: home, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
   proc.stdout.on('data', d => { output += d }); proc.stderr.on('data', d => { output += d })
   await waitFor(() => output.includes('Aiguillage →'), { what: 'server start', timeout: 15_000 })
   const base = `http://127.0.0.1:${port}`
-  const api = async (method, path, body) => {
-    const r = await fetch(base + '/api' + path, { method, headers: { 'content-type': 'application/json' }, body: body && JSON.stringify(body) })
+  const call = (headers = {}) => async (method, path, body) => {
+    const r = await fetch(base + '/api' + path, { method, headers: { 'content-type': 'application/json', ...headers }, body: body && JSON.stringify(body) })
     const j = await r.json().catch(() => ({}))
     if (!r.ok) { const e = new Error(j.error || r.statusText); e.status = r.status; throw e }
     return j
   }
+  const api = call({ 'sec-fetch-site': 'same-origin' }) // what the page's browser sends
+  const asAiguilleur = call({ authorization: 'Bearer test-token' })
   const state = () => api('GET', '/state')
   const ws = id => state().then(s => s.workspaces.find(w => w.id === id))
   const log = id => api('GET', `/workspaces/${id}/log`)
@@ -74,7 +76,7 @@ export async function startServer({ home = tmp('cghome-'), env = {} } = {}) {
   }
   const fakeArgv = () => { try { return execFileSync('cat', [fakeLog], { encoding: 'utf8' }).trim().split('\n').map(l => JSON.parse(l)) } catch { return [] } }
   const stop = () => new Promise(r => { if (proc.exitCode !== null) return r(); proc.once('exit', r); proc.kill('SIGTERM') })
-  return { port, base, home, proc, api, state, ws, log, idle, turn, fakeArgv, stop, output: () => output }
+  return { port, base, home, proc, api, asAiguilleur, state, ws, log, idle, turn, fakeArgv, stop, output: () => output }
 }
 
 export const lastText = evs => [...evs].reverse().find(e => e.type === 'assistant' && e.message.content.some(c => c.type === 'text'))?.message.content.find(c => c.type === 'text').text

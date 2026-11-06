@@ -217,6 +217,7 @@
     "noCheckpoint": "No checkpoint for this message.",
     "revertCleared": "This message is before a /clear: the conversation was cleared, it can't be gone back to.",
     "gitBusy": "A git operation is in progress.",
+    "unauthorized": "Call refused: this API answers Aiguillage's window and its aiguilleur only.",
     "tooLarge": "Request too large.",
     "notFound": "Not found.",
     "initRefused": "Pick a project folder, not your whole home folder.",

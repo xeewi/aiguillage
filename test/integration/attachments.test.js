@@ -9,7 +9,7 @@ before(async () => { srv = await startServer() })
 after(() => srv.stop())
 
 const upload = (id, name, body, type = 'application/octet-stream') =>
-  fetch(`${srv.base}/api/workspaces/${id}/upload?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { 'content-type': type }, body })
+  fetch(`${srv.base}/api/workspaces/${id}/upload?name=${encodeURIComponent(name)}`, { method: 'POST', headers: { 'content-type': type, 'sec-fetch-site': 'same-origin' }, body })
 
 test('attachments: upload any file, send it, the agent gets its path; nothing lands in the worktree', async () => {
   const { w } = await setup(srv)

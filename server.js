@@ -6,6 +6,7 @@ import { join, extname, basename, resolve, dirname, sep } from 'node:path'
 import { homedir, platform } from 'node:os'
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
 import pty from 'node-pty'
@@ -22,6 +23,8 @@ const exec = promisify(execFile)
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT || 4317)
 const HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`])
+// The aiguilleur's secret, in memory only: lib/agent.js hands it to its process alone (cleanEnv strips it elsewhere).
+const TOKEN = (process.env.AIGUILLAGE_TOKEN ||= randomBytes(24).toString('hex'))
 const SHELL = process.env.SHELL || '/bin/zsh'
 
 // ---------- live updates ----------
@@ -473,12 +476,23 @@ function serveStatic(url, res) {
 // A web page you visit must not be able to drive local agents: check Host (DNS rebinding) and Origin (CSRF).
 const sameOrigin = req => HOSTS.has(req.headers.host) && (!req.headers.origin || req.headers.origin === `http://${req.headers.host}`)
 
+// Who calls /api: the aiguilleur (its token), the page (same-origin headers), or nobody we know.
+// ponytail: a local program can forge sec-fetch-site: this stops an agent or an injected prompt from driving the API,
+// not a hostile program under your account (the shell is not sandboxed, docs/DNA.md).
+const caller = req => {
+  const got = Buffer.from(req.headers.authorization ?? ''), want = Buffer.from('Bearer ' + TOKEN)
+  if (got.length === want.length && timingSafeEqual(got, want)) return 'aiguilleur'
+  return req.headers['sec-fetch-site'] === 'same-origin' || req.headers.origin === `http://${req.headers.host}` ? 'page' : null
+}
+
 const server = http.createServer(async (req, res) => {
   if (!sameOrigin(req)) { res.writeHead(403); return res.end('forbidden') }
   const url = new URL(req.url, 'http://x')
   if (!url.pathname.startsWith('/api/')) {
     try { return url.pathname.startsWith('/attachments/') ? serveAttachment(url.pathname, res) : url.pathname === '/media' ? serveMedia(url.searchParams, req, res) : url.pathname.startsWith('/logo/') ? serveLogo(url.pathname, res) : serveStatic(url.pathname, res) } catch { res.writeHead(500); return res.end() }
   }
+  const who = caller(req)
+  if (!who) { const { message: error, key } = notice('errors.unauthorized'); res.writeHead(401, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error, key })) }
   const parts = url.pathname.split('/') // ['', 'api', kind, id, action]
   const key = `${req.method} ${parts.length > 3 ? ['', 'api', parts[2], ':id', ...parts.slice(4)].join('/') : url.pathname}`
   // Uploads are the one raw body: still not a type a cross-site form can send without a preflight.
@@ -495,7 +509,7 @@ const server = http.createServer(async (req, res) => {
   try {
     let json = ''
     if (!raw) for await (const c of req) { json += c; if (json.length > 1e6) return tooBig() }
-    const ctx = { body: json ? JSON.parse(json) : {}, req, query: url.searchParams }
+    const ctx = { body: json ? JSON.parse(json) : {}, req, query: url.searchParams, caller: who }
     if (parts[3] === 'aiguilleur') {
       // Not a worktree (lib/remote.js): only the chat routes apply to it.
       if (!AIGUILLEUR_ROUTES.has(key)) throw fail('errors.notFound')
@@ -506,9 +520,11 @@ const server = http.createServer(async (req, res) => {
       if (!ctx[parts[2] === 'repos' ? 'repo' : 'ws']) throw fail('errors.notFound')
     }
     const out = await route(ctx)
+    if (who === 'aiguilleur') metric('api', { route: key, status: 200 })
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify(out ?? {}))
   } catch (e) {
+    if (who === 'aiguilleur') metric('api', { route: key, status: 400 })
     res.writeHead(400, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ error: (e.stderr || e.message || String(e)).trim(), key: e.key, vars: e.vars }))
   }

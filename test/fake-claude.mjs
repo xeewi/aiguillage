@@ -198,7 +198,7 @@ async function turn(text) {
       say('env: ' + JSON.stringify({
         mode, model, effort: flag('--effort') ?? null, disallowed: flag('--disallowedTools') ?? null,
         prompt: flag('--append-system-prompt') ?? '', cwd: process.cwd(),
-        AIGUILLAGE_PORT: process.env.AIGUILLAGE_PORT,
+        AIGUILLAGE_PORT: process.env.AIGUILLAGE_PORT, AIGUILLAGE_TOKEN: process.env.AIGUILLAGE_TOKEN,
         AIGUILLAGE_WORKSPACE_NAME: process.env.AIGUILLAGE_WORKSPACE_NAME, CLAUDECODE: process.env.CLAUDECODE ?? null,
       }))
       break
