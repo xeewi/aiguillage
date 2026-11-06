@@ -249,3 +249,36 @@ test('a confirmation a day old is dropped at startup, with one report', async ()
     assert.ok(!(await s.ws(w.id)).archived)
   } finally { await s.stop() }
 })
+
+test('a confirmation in state.json runs only as the guarded route it says, and a merge only with the force the server computed', async () => {
+  let s = await startServer()
+  try {
+    const { repoPath, w } = await setup(s, { 'README.md': '# t\n', '.aiguillage/settings.toml': '[scripts]\ncheck = "false"\n' })
+    writeFileSync(join(w.path, 'x.txt'), 'x\n')
+    await s.api('POST', `/workspaces/${w.id}/check`) // red
+    commitIn(w.path, 'x')
+    await s.api('POST', `/workspaces/${w.id}/check`) // red on the committed tree
+    const head = git(repoPath, 'rev-parse', 'main')
+    await s.stop()
+    const at = Date.now(), entry = (id, routeKey, params, body, key, vars, more) => ({ id, wsId: 'aiguilleur', routeKey, params, body, key, vars, at, ...more })
+    edit(s.home, st => { st.confirms = [
+      entry('settings', 'PATCH /api/defaults', {}, { maxAgents: 20 }, 'confirm.archive', { name: 'x' }),
+      entry('merge', 'POST /api/workspaces/:id/merge', { id: w.id }, { force: true }, 'confirm.merge', { branch: w.branch, base: 'main' }, { forced: false }),
+      entry('self', 'POST /api/workspaces/:id/brief', { id: 'aiguilleur' }, { goal: 'Brief myself' }, 'confirm.brief', { name: 'x', text: 'y' }),
+    ] })
+    s = await startServer({ home: s.home })
+    const ids = (await s.state()).aiguilleur.pending.map(p => p.id)
+    assert.ok(!ids.includes('settings'), 'not a guarded route: dropped at startup')
+    assert.ok(ids.includes('merge') && ids.includes('self'))
+    assert.equal((await s.state()).defaults.maxAgents, 5)
+    const outcome = async (id, title) => {
+      await s.api('POST', '/workspaces/aiguilleur/permission', { id, allow: true })
+      return waitFor(async () => (await s.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.action && (e.ws === title || e.label?.key === title)), { what: `outcome of ${id}` })
+    }
+    const merged = await outcome('merge', w.id)
+    assert.deepEqual([merged.ok, merged.key, merged.vars?.context], [false, 'errors.checkNotGreen', 'failed'], 'the stored force:true is ignored')
+    assert.equal(git(repoPath, 'rev-parse', 'main'), head)
+    const self = await outcome('self', 'confirm.brief')
+    assert.deepEqual([self.ok, self.key], [false, 'errors.notForAiguilleur'])
+  } finally { await s.stop() }
+})

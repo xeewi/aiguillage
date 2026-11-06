@@ -2,9 +2,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { makeRepo, git, waitFor, tmp } from './helpers.mjs'
+import { makeRepo, git, waitFor, tmp, sleep } from './helpers.mjs'
 import { snapshot } from '../lib/git.js'
-import { testFiles, inspect, runCheck, killChecks, changedFiles, overlaps, inScope, DEFAULT_TEST_GLOBS } from '../lib/review.js'
+// store.js reads AIGUILLAGE_HOME at import time (runSaved saves): point it at a throwaway dir first.
+process.env.AIGUILLAGE_HOME = tmp('cgreview-')
+const { testFiles, inspect, runCheck, runSaved, checking, killChecks, changedFiles, overlaps, inScope, DEFAULT_TEST_GLOBS } = await import('../lib/review.js')
 
 const put = (repo, f, s) => { mkdirSync(join(repo, f, '..'), { recursive: true }); writeFileSync(join(repo, f), s) }
 
@@ -72,6 +74,24 @@ test('killChecks: the checks still running when Aiguillage quits are killed, the
   assert.equal(r.ok, false)
   assert.ok(Date.now() - t0 < 5000)
   await waitFor(() => gone(pid), { timeout: 2000, what: `pid ${pid} gone` })
+})
+
+test('a check killed because Aiguillage quits is not saved as a red result', async () => {
+  const ws = { id: 'quit', path: makeRepo({ 'a.txt': 'a' }) }
+  const p = runSaved(ws, 'sleep 30')
+  await p.tree; await sleep(200) // spawned
+  killChecks()
+  await p
+  assert.equal(ws.check, undefined)
+})
+
+test('inspect does not reuse a running check of another command, even on the same files', async () => {
+  const ws = { id: 'cmd', path: makeRepo({ 'a.txt': 'a' }) }
+  const old = runSaved(ws, 'sleep 1; exit 1')
+  assert.ok(checking.has(ws.id))
+  const { check } = await inspect(ws, null, { check: 'true' })
+  assert.deepEqual([check.command, check.ok], ['true', true])
+  assert.equal((await old).ok, false)
 })
 
 test('overlaps: one pair per couple with the files they share, sorted', () => {

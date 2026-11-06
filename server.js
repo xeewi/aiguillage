@@ -207,8 +207,7 @@ function dropQueue(ws) {
 }
 
 async function archive(ws) {
-  dropQueue(ws)
-  if (ws.free) { A.stop(ws); killTerms(ws.id); ws.archived = Date.now(); save(); changed(); return }
+  if (ws.free) { A.stop(ws); killTerms(ws.id); dropQueue(ws); ws.archived = Date.now(); save(); changed(); return }
   const { archive: script } = config(ws)
   if (script) await exec(SHELL, ['-lc', script], { cwd: ws.path, env: A.envFor(ws), timeout: 60_000 }).catch(() => {})
   A.stop(ws)
@@ -220,6 +219,7 @@ async function archive(ws) {
     await G.pin(ws.path, `refs/aiguillage/${ws.id}/archive`, ws.archiveCp)
   }
   await G.removeWorktree(repo.path, ws.path)
+  dropQueue(ws) // only once archived: a failed archive keeps it
   ws.archived = Date.now()
   save(); changed(); scanOverlaps() // its ⚠️ goes away
 }
@@ -557,11 +557,12 @@ const routes = {
     // The page: refused now unless it sends force. The aiguilleur never picks force: the user's click does, on a label
     // that says the check isn't green; it is forced only if it wasn't green when asked (the body kept for the click says
     // so; at the click the route runs again with it: stale meanwhile is refused).
-    const { ws } = ctx, aig = ctx.caller === 'aiguilleur' && !ctx.confirmed
+    // The aiguilleur's body is never read for it: at the click, only the verdict the server kept (ctx.forced).
+    const { ws } = ctx, aig = ctx.caller === 'aiguilleur'
     // Uncommitted changes first: no « merge anyway? » about a check for what can't merge at all.
     if (await G.status(ws.path)) throw fail('errors.uncommittedWorkspace')
-    const forced = await gate(ws, aig ? { force: true } : ctx.body)
-    return guard({ ...ctx, body: aig ? { force: !!forced } : ctx.body }, 'confirm.merge' + (forced ? '_' + forced : ''), { branch: ws.branch, base: ws.base }, async () => {
+    const forced = await gate(ws, !aig ? ctx.body : { force: ctx.confirmed ? !!ctx.forced : true })
+    return guard({ ...ctx, forced: !!forced }, 'confirm.merge' + (forced ? '_' + forced : ''), { branch: ws.branch, base: ws.base }, async () => {
       try { const r = await merge(ws); metric('merge', { ws: ws.id, ok: true, conflict: false, ...forced && { forced: true } }); return r }
       catch (e) { metric('merge', { ws: ws.id, ok: false, conflict: e.key === 'errors.mergeConflict' }); throw e }
     })
@@ -588,11 +589,15 @@ const routes = {
 
 // What the aiguilleur asks that can't be undone (creating a workspace, commit, merge, PR, archive, delete) waits for the
 // user's click, in the window or on Telegram (lib/agent.js confirm); the outcome comes back as a report. The page acts at once.
-// Kept as data in state.json (never a closure): the route, its :id and body. The click runs the route again with them
-// (decide), so it checks the workspace as it is then; a restart asks again (startup below).
+// Kept as data in state.json (never a closure): the route, its :id and body (a merge: the gate's verdict, forced). The
+// click runs the route again with them (decide), so it checks the workspace as it is then; a restart asks again (startup).
+// GUARDED: the only routes a confirmation may run; what state.json says otherwise is dropped or refused.
+const GUARDED = new Set(['POST /api/workspaces', 'DELETE /api/workspaces/:id', ...['brief', 'commit', 'merge', 'pr', 'archive'].map(a => `POST /api/workspaces/:id/${a}`)])
 function guard(ctx, key, vars, run) {
   if (ctx.caller !== 'aiguilleur' || ctx.confirmed) return run()
+  if (!GUARDED.has(ctx.route)) throw new Error(`guard: ${ctx.route} is not a guarded route`)
   const c = { id: newId(), wsId: state.aiguilleur.id, routeKey: ctx.route, params: { id: ctx.id }, body: ctx.body, key, vars, at: Date.now(),
+    ...ctx.route === 'POST /api/workspaces/:id/merge' && { forced: ctx.forced },
     telegram: R.fromTelegram() } // asked in a turn from Telegram: its buttons go there, even out of remote mode
   ;(state.confirms ??= []).push(c); save()
   register(c)
@@ -607,8 +612,9 @@ async function decide(c, allow) {
   const tell = (ok, said, ws = at) => R.report(ws || state.aiguilleur, { ok, ...said, title: ws ? undefined : asked, action: true })
   if (!allow) return tell(false, { key: 'confirm.denied', vars: { action: asked } })
   try {
-    const ctx = { body: c.body, caller: 'aiguilleur', confirmed: true, query: new URLSearchParams(), route: c.routeKey }
+    const ctx = { body: c.body, caller: 'aiguilleur', confirmed: true, forced: !!c.forced, query: new URLSearchParams(), route: c.routeKey }
     bind(ctx, c.routeKey, c.params.id) // gone meanwhile: errors.notFound
+    if (!GUARDED.has(c.routeKey) || !forAiguilleur(c.routeKey, ctx)) throw fail('errors.notForAiguilleur')
     const out = await routes[c.routeKey](ctx)
     // A creation answers the new workspace; a brief may have joined the queue (sendTo), which the aiguilleur is told.
     tell(true, { ...out?.key ? { key: out.key, vars: out.vars } : out?.message ? { text: out.message } : asked, ...out?.queued === true && { queued: out.reason } }, at || out)
@@ -689,7 +695,7 @@ async function drain() {
         && (A.working(A.runtime(w.id)) || free && (A.usageKnown() || reasonOf(w.queued[0]) !== 'quota')))
         .sort((a, b) => a.queued[0].at - b.queued[0].at)[0]
       if (!ws) return
-      while (ws.queued.length) {
+      while (ws.queued?.length) { // archived meanwhile: its queue is gone
         const q = ws.queued.shift(); save(); changed()
         await deliver(ws, q.text, q.files, q.opts).catch(e => R.report(ws, e.key ? { ok: false, key: e.key, vars: e.vars } : { ok: false, text: e.message }))
       }
@@ -865,8 +871,10 @@ R.start({ port: PORT, changed, afterTurn: scanOverlaps, send: (ws, text, paths, 
 for (const w of state.workspaces) for (const q of w.queued ?? []) q.id ??= newId() // queued before ids: the page cancels by id
 // What waited for the user's click before the restart is asked again; a day old, dropped (one report says which).
 {
-  const old = (state.confirms ?? []).filter(c => !(Date.now() - c.at < CONFIRM_TTL))
-  state.confirms = (state.confirms ?? []).filter(c => !old.includes(c))
+  const odd = (state.confirms ?? []).filter(c => !GUARDED.has(c.routeKey))
+  for (const c of odd) console.error(`[confirm] dropped ${c.id}: ${c.routeKey} is not a guarded route`)
+  const old = (state.confirms ?? []).filter(c => !odd.includes(c) && !(Date.now() - c.at < CONFIRM_TTL))
+  state.confirms = (state.confirms ?? []).filter(c => !odd.includes(c) && !old.includes(c))
   for (const c of state.confirms) register(c)
   if (old.length) R.report(state.aiguilleur, { ok: false, title: { key: 'confirm.expiredTitle' }, key: 'confirm.expired', vars: { count: old.length, list: old.map(c => ({ key: c.key, vars: c.vars })) } })
   save()
