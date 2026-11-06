@@ -16,6 +16,7 @@ import * as A from './lib/agent.js'
 import { fail, notice } from './lib/i18n.js'
 import * as U from './lib/update.js'
 import * as R from './lib/remote.js'
+import { metric, readMetrics, summarize } from './lib/metrics.js'
 
 const exec = promisify(execFile)
 const ROOT = dirname(fileURLToPath(import.meta.url))
@@ -319,6 +320,7 @@ const routes = {
   'GET /api/state': () => view(),
   'GET /api/suggest': suggestRepos,
   'GET /api/doctor': doctor,
+  'GET /api/metrics': ({ query }) => { const now = Date.now(); return summarize(readMetrics(now - (+query.get('days') || 14) * 86_400_000), now) },
   'POST /api/pick': pickFolder,
   'POST /api/setup': ({ body }) => {
     if (!Object.hasOwn(SETUP, body.step)) throw fail('errors.notFound')
@@ -412,11 +414,17 @@ const routes = {
     await G.git(ws.path, ['commit', '-m', String(body.message || `aiguillage: ${ws.name}`)])
     return notice('messages.committed')
   },
-  'POST /api/workspaces/:id/merge': async ({ ws }) => merge(ws),
+  'POST /api/workspaces/:id/merge': async ({ ws }) => {
+    try { const r = await merge(ws); metric('merge', { ws: ws.id, ok: true, conflict: false }); return r }
+    catch (e) { metric('merge', { ws: ws.id, ok: false, conflict: e.key === 'errors.mergeConflict' }); throw e }
+  },
   'POST /api/workspaces/:id/pr': async ({ ws }) => {
-    await G.git(ws.path, ['push', '-u', 'origin', ws.branch])
-    const { stdout } = await exec('gh', ['pr', 'create', '--fill', '--head', ws.branch, '--base', ws.base], { cwd: ws.path })
-    return { message: stdout.trim() }
+    try {
+      await G.git(ws.path, ['push', '-u', 'origin', ws.branch])
+      const { stdout } = await exec('gh', ['pr', 'create', '--fill', '--head', ws.branch, '--base', ws.base], { cwd: ws.path })
+      metric('pr', { ws: ws.id, ok: true })
+      return { message: stdout.trim() }
+    } catch (e) { metric('pr', { ws: ws.id, ok: false }); throw e }
   },
   'POST /api/workspaces/:id/open': ({ ws, body }) => {
     const cmd = body.app === 'code' ? ['code', [ws.path]] : [platform() === 'darwin' ? 'open' : 'xdg-open', [ws.path]]

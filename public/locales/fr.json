@@ -191,6 +191,18 @@
     "telegramManual": "Ou envoie {{command}} à @{{bot}}.",
     "telegramLinked": "Relié à {{name}}"
   },
+  "metrics": {
+    "title": "Mesures (14 derniers jours)",
+    "cost": "Coût",
+    "costAiguilleur": "dont l'Aiguilleur",
+    "turns": "Tours",
+    "failedTurns": "Tours en échec",
+    "merges": "Fusions",
+    "conflicts": "Conflits de fusion",
+    "permWait": "Attente des permissions (médiane)",
+    "pushes": "Messages Telegram par jour",
+    "empty": "Rien de mesuré pour l'instant."
+  },
   "errors": {
     "notRepo": "Ce dossier n'est pas un repo git.",
     "unknownRepo": "Repo inconnu.",

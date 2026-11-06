@@ -399,6 +399,20 @@ function showSettings(on) {
   if (!on && wsById(active)) return select(active)
   history.replaceState(null, '', on ? '#settings' : location.pathname)
   renderSide(); renderHead(); renderSettings()
+  if (on) loadMetrics()
+}
+// Measures (lib/metrics.js): fetched when Settings opens, not on each state broadcast.
+const money = n => new Intl.NumberFormat(lang(), { style: 'currency', currency: 'USD' }).format(n)
+function loadMetrics() {
+  api('GET', '/metrics?days=14').then(m => {
+    const rows = !m.turns.n && !m.merges.n && !m.permissions.n && !m.pushesPerDay ? [] : [
+      [t('metrics.cost'), money(m.cost.total)], [t('metrics.costAiguilleur'), money(m.cost.aiguilleur)],
+      [t('metrics.turns'), m.turns.n], [t('metrics.failedTurns'), m.turns.failed],
+      [t('metrics.merges'), m.merges.n], [t('metrics.conflicts'), m.merges.conflicts],
+      [t('metrics.permWait'), `${Math.round(m.permissions.medianWaitMs / 1000)} s`], [t('metrics.pushes'), m.pushesPerDay]]
+    $('#setMetrics').replaceChildren(...(rows.length ? rows.map(([k, v]) => { const r = h('div', 'setRow'); r.append(h('span', null, k), h('b', null, String(v))); return r })
+      : [h('p', 'muted', t('metrics.empty'))]))
+  }).catch(() => {})
 }
 function renderSettings() {
   if (!settingsOpen) return
