@@ -54,6 +54,7 @@ test('inScope: a file matches an entry exactly or under its folder', () => {
   assert.deepEqual(inScope(['src/a/b.js', 'lib/c.js', 'src/ab.js'], ['src/a']), ['src/a/b.js'])
   assert.deepEqual(inScope(['lib/c.js'], ['lib/c.js']), ['lib/c.js'])
   assert.deepEqual(inScope(['lib/c.js'], []), [])
+  for (const e of ['./src/a', 'src/a/', 'src/a/**', './src/a/**']) assert.deepEqual(inScope(['src/a/b.js', 'src/ab.js'], [e]), ['src/a/b.js'], e)
 })
 
 test('changedFiles: committed, edited and untracked files since the fork point', async () => {

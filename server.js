@@ -198,7 +198,7 @@ async function archive(ws) {
   }
   await G.removeWorktree(repo.path, ws.path)
   ws.archived = Date.now()
-  save(); changed()
+  save(); changed(); scanOverlaps() // its ⚠️ goes away
 }
 
 async function unarchive(ws) {
@@ -207,7 +207,7 @@ async function unarchive(ws) {
   await G.git(repo.path, ['worktree', 'add', ws.path, ws.branch])
   if (ws.archiveCp) await G.restore(ws.path, ws.archiveCp)
   delete ws.archived; delete ws.archiveCp
-  save(); changed()
+  save(); changed(); scanOverlaps()
 }
 
 // With a check script, a merge wants a green check on exactly what is merged. 'failed' | 'stale' | null; refused unless forced.
@@ -268,8 +268,10 @@ async function tellOthers(ws, repo, was, now) {
 
 // state.overlaps: { '<a>|<b>': files } as of the last scan; a new or changed pair is reported once.
 // ponytail: runs every OVERLAP_EVERY and after each turn and merge; one scan at a time.
-let scanning = Promise.resolve()
-const scanOverlaps = () => scanning = scanning.then(async () => {
+// Coalesced: one running and at most one waiting (it will see everything that changed before it starts).
+let scanning = Promise.resolve(), queued = null
+const scanOverlaps = () => queued ??= scanning.then(() => { queued = null; return scan() })
+const scan = () => scanning = (async () => {
   const now = {}, news = []
   for (const repo of state.repos) {
     const list = []
@@ -288,7 +290,7 @@ const scanOverlaps = () => scanning = scanning.then(async () => {
     R.report(a, { ok: true, status: 'decision', title: `${R.label(a)} ↔ ${R.label(b)}`, overlap: o.files,
       text: notice('overlap.found', { a: R.label(a), b: R.label(b), files: o.files.join(', ') }).message })
   }
-}).catch(e => console.error('[overlap]', e.message))
+})().catch(e => console.error('[overlap]', e.message))
 setInterval(scanOverlaps, Rv.OVERLAP_EVERY).unref()
 
 async function suggestRepos() {
@@ -582,7 +584,8 @@ async function sendTo(ws, text, files = [], opts = {}) {
   if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
   if (ws === state.aiguilleur && !A.working(A.runtime(ws.id)) && R.stale(readLog(ws.id), ws.context)) A.forget(ws)
   // A worker hears what merged meanwhile along with this message (no turn of its own); forgotten only once sent.
-  const notes = ws !== state.aiguilleur && ws.notices?.length ? [...ws.notices] : null
+  // Not on a slash command (it must still start with '/'): they wait for the next plain message.
+  const notes = ws !== state.aiguilleur && ws.notices?.length && !text.trimStart().startsWith('/') ? [...ws.notices] : null
   await A.send(ws, text, files, ws === state.aiguilleur ? { via: opts.via, prompt: t => R.prompt(t, opts) } : notes ? { prompt: t => notes.join('\n\n') + '\n\n---\n\n' + t } : {})
   if (notes) { ws.notices = ws.notices.filter(n => !notes.includes(n)); save() }
 }
