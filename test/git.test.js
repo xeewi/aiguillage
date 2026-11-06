@@ -190,3 +190,13 @@ test('snapshot of a conflicted index: index null, a tree of the working copy; re
   assert.equal(await busy(repo), null, 'the merge state is cleared, the index is HEAD again')
   rmSync(root, { recursive: true, force: true })
 })
+
+test('git() with a timeout kills a call that hangs and rejects at once', async () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cgtest-')))
+  await git(dir, ['init', '-q'])
+  const t0 = Date.now()
+  // An alias that sleeps stands for a hung git; its output goes nowhere, so no pipe outlives the kill.
+  await assert.rejects(git(dir, ['-c', 'alias.slow=!sleep 5 >/dev/null 2>&1 </dev/null', 'slow'], undefined, 200))
+  assert.ok(Date.now() - t0 < 2000, `took ${Date.now() - t0} ms`)
+  rmSync(dir, { recursive: true, force: true })
+})
