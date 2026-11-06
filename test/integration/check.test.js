@@ -2,9 +2,9 @@
 // out-of-date one stops the merge unless forced.
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync, rmSync, mkdirSync } from 'node:fs'
+import { writeFileSync, rmSync, mkdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { startServer, setup, waitFor, git, sleep } from '../helpers.mjs'
+import { startServer, setup, waitFor, git, tmp } from '../helpers.mjs'
 
 let srv
 before(async () => { srv = await startServer() })
@@ -169,12 +169,14 @@ test('a merge asked on a green check that goes stale before the click is refused
 })
 
 test('a turn ending while Run check runs on the files from before: its result, then a check on the new files for the report', async () => {
-  // Judges the files as they are when it starts, then takes a second.
-  const { w } = await setup(srv, { '.aiguillage/settings.toml': '[scripts]\ncheck = "test -f ok.txt; r=$?; sleep 1; exit $r"\n' })
+  // Judges the files as they are when it starts, says so (judged), then waits for the test's go (both outside the worktree).
+  const flags = tmp('cgflags-'), judged = join(flags, 'judged'), go = join(flags, 'go')
+  const { w } = await setup(srv, { '.aiguillage/settings.toml': `[scripts]\ncheck = "test -f ok.txt; r=$?; touch '${judged}'; while [ ! -f '${go}' ]; do sleep 0.05; done; exit $r"\n` })
   const manual = srv.api('POST', `/workspaces/${w.id}/check`)
-  await waitFor(async () => (await srv.ws(w.id)).checking, { what: 'Run check running' })
-  await sleep(400) // its snapshot taken and its test done: ok.txt isn't there yet
+  await waitFor(() => existsSync(judged), { what: 'Run check judged the files: ok.txt not there yet' })
   await srv.turn(w.id, 'write ok.txt yes')
+  await srv.quiet() // the turn's end snapshot and the report's look taken: the report is waiting on the running check
+  writeFileSync(go, '')
   assert.equal((await manual).ok, false, 'the manual one judged the files before')
   const rep = await reportOn(w.id)
   assert.equal(rep.check.ok, true, 'the report judges the files the turn left')

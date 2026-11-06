@@ -26,7 +26,8 @@
 //   fail <text…>           the turn ends is_error with <text> as its error (an API error), not interrupted
 //   A message from Telegram to the aiguilleur (« [Telegram] bash curl … », after the reports it reads) runs its command too.
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
-//      FAKE_CLAUDE_SESSION_PCT (the usage probe's session %, default 42), FAKE_CLAUDE_USAGE_MS (its delay before answering),
+//      FAKE_CLAUDE_SESSION_PCT (the usage probe's session %, default 42),
+//      FAKE_CLAUDE_USAGE_GATE=<file>: the probe answers only once that file exists (a test opens it when it is ready),
 //      FAKE_CLAUDE_SESSION_RESETS_H (hours until the session resets, default 2; negative: a reset time already past).
 //      FAKE_CLAUDE_SILENT_INIT=1: the initialize request is never answered (no slash command list).
 //      FAKE_CLAUDE_WAKES=1: a process started with --resume begins with a turn of its own, as the CLI does when a
@@ -53,9 +54,11 @@ if (argv[0] === '-p' && !argv.includes('--input-format')) {
 // Usage probe (no permission tool: not an agent): answers get_usage with fixed plan limits. Not logged.
 if (argv.includes('--input-format') && !argv.includes('--permission-prompt-tool')) {
   const rl = readline.createInterface({ input: process.stdin })
+  process.stdin.on('end', () => process.exit(0)) // Aiguillage gone: no probe left waiting on its gate
+  const gate = process.env.FAKE_CLAUDE_USAGE_GATE
   for await (const line of rl) {
     const m = JSON.parse(line)
-    await new Promise(r => setTimeout(r, Number(process.env.FAKE_CLAUDE_USAGE_MS) || 0))
+    while (gate && !existsSync(gate)) await new Promise(r => setTimeout(r, 50))
     const resets = h => new Date(Date.now() + h * 3600_000).toISOString()
     process.stdout.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: {
       subscription_type: 'max', rate_limits_available: true, rate_limits: { limits: [

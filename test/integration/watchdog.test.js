@@ -13,6 +13,9 @@ after(() => srv.stop())
 const stalls = (s, id) => s.log('aiguilleur').then(l => l.filter(e => e.type === 'cg_report' && e.ws === id && e.stall))
 const results = (s, id) => s.log(id).then(l => l.filter(e => e.type === 'result').length)
 const cap = (s, maxAgents) => s.api('PATCH', '/defaults', { maxAgents })
+// The usage probe answers once the test opens its gate (test/fake-claude.mjs): « not known yet » lasts as long as needed.
+const gate = home => join(home, 'usage-gate')
+const open = home => writeFileSync(gate(home), '')
 
 test('a silent agent gets one ⏸ report « no sign of life », and keeps running', async () => {
   const { w } = await setup(srv)
@@ -64,7 +67,7 @@ test('the queue survives a restart and is sent once a slot is free, in order, ea
     const saved = JSON.parse(readFileSync(join(s.home, 'state.json'), 'utf8')).workspaces.find(w => w.id === b.id)
     assert.equal(saved.queued[0].text, 'after restart')
     // What waited for the cap goes as soon as the cap allows, without waiting for the plan's usage (only the quota does).
-    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_USAGE_MS: '3000' } })
+    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_USAGE_GATE: gate(s.home) } })
     await waitFor(async () => (await s.log(b.id)).some(e => e.type === 'cg_user'), { what: 'sent at once after the restart' })
     assert.equal((await s.state()).usage, null, "before the plan's usage is known")
     await s.api('POST', `/workspaces/${b.id}/send`, { text: 'two', queue: true })
@@ -82,7 +85,10 @@ test('at 90 % of the plan\'s session a task waits (quota), across a restart too,
     await waitFor(async () => (await s.state()).usage, { what: 'usage known' })
     assert.deepEqual(await s.api('POST', `/workspaces/${w.id}/send`, { text: 'later', queue: true }), { queued: true, reason: 'quota' })
     await s.stop()
-    s = await startServer({ home: s.home, env: { ...high, FAKE_CLAUDE_USAGE_MS: '800' } })
+    s = await startServer({ home: s.home, env: { ...high, FAKE_CLAUDE_USAGE_GATE: gate(s.home) } })
+    await sleep(300) // a negative: nothing may go meanwhile
+    assert.equal((await s.ws(w.id)).queued.length, 1, 'held while the usage is not known')
+    open(s.home)
     await waitFor(async () => (await s.state()).usage, { what: 'usage known again' })
     await sleep(300)
     assert.equal((await s.ws(w.id)).queued.length, 1, 'still held')
@@ -184,8 +190,9 @@ test('a page send behind older queued messages, nothing else holding it: no ques
     assert.deepEqual(await s.api('POST', `/workspaces/${w.id}/send`, { text: 'older', queue: true }), { queued: true, reason: 'quota' })
     await s.stop()
     // Back below 90 %, but not known yet: the older message waits for the probe, nothing else holds the new one.
-    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_USAGE_MS: '2500' } })
+    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_USAGE_GATE: gate(s.home) } })
     assert.deepEqual(await s.api('POST', `/workspaces/${w.id}/send`, { text: 'newer' }), { queued: true, reason: 'quota' }, 'not asked: 0 agents at work')
+    open(s.home)
     await waitFor(async () => (await results(s, w.id)) === 2, { what: 'both sent once usage is known' })
     assert.deepEqual((await s.log(w.id)).filter(e => e.type === 'cg_user').map(e => e.text), ['older', 'newer'], 'in order')
   } finally { await s.stop() }
@@ -201,11 +208,12 @@ test('after a restart only the quota waits for the usage probe; an item saved wi
       st.workspaces.find(w => w.id === a.id).queued = [{ text: 'from an older version', files: [], opts: {}, at: 1 }]
       st.workspaces.find(w => w.id === b.id).queued = [{ text: 'held for the quota', files: [], opts: {}, reason: 'quota', at: 2 }]
     })
-    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_SESSION_PCT: '95', FAKE_CLAUDE_USAGE_MS: '3000' } })
+    s = await startServer({ home: s.home, env: { ...env, FAKE_CLAUDE_SESSION_PCT: '95', FAKE_CLAUDE_USAGE_GATE: gate(s.home) } })
     await waitFor(() => results(s, a.id), { what: 'the reasonless item sent at once' })
     assert.equal((await s.state()).usage, null, 'before the usage probe answered')
     const held = (await s.ws(b.id)).queued
     assert.deepEqual([held.length, typeof held[0].id], [1, 'string'], 'the quota one still waits (and got an id to cancel it by)')
+    open(s.home)
     await waitFor(async () => (await s.state()).usage, { what: 'usage known' })
     await sleep(300)
     assert.equal((await s.ws(b.id)).queued.length, 1, 'held: 95 %')
