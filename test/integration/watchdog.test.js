@@ -243,3 +243,34 @@ test('archiving a workspace drops its queue, said in one report listing what was
     assert.ok(!(await srv.log(b.id)).some(e => e.type === 'cg_user'), 'never sent')
   } finally { await cap(srv, 5) }
 })
+
+test('while an archive runs, its queued message is never sent, even when a slot frees; a failed archive puts the queue back', async () => {
+  // Slow archive script: the slot frees (a ends) while it runs.
+  const { w: a, repo } = await setup(srv, { 'README.md': '# t\n', '.aiguillage/settings.toml': '[scripts]\narchive = "sleep 1.5"\n' })
+  const b = await srv.api('POST', '/workspaces', { repoId: repo.id })
+  await cap(srv, 1)
+  try {
+    await srv.api('POST', `/workspaces/${a.id}/send`, { text: 'hang 600' })
+    await waitFor(async () => (await srv.ws(a.id)).busy, { what: 'a working' })
+    await srv.api('POST', `/workspaces/${b.id}/send`, { text: 'not now', queue: true })
+    await srv.api('POST', `/workspaces/${b.id}/archive`)
+    await waitFor(() => results(srv, a.id), { what: 'a ends' })
+    await sleep(300)
+    assert.ok(!(await srv.log(b.id)).some(e => e.type === 'cg_user'), 'never sent')
+    assert.ok((await srv.log('aiguilleur')).some(e => e.type === 'cg_report' && e.ws === b.id && e.key === 'queue.dropped'))
+  } finally { await cap(srv, 5) }
+  // An archive that fails (a locked worktree can't be removed): the queue is back, nothing said dropped, sent once free.
+  const { w: c, repo: r2 } = await setup(srv, { 'README.md': '# t\n', '.aiguillage/settings.toml': '[scripts]\narchive = "git worktree lock \\"$PWD\\""\n' })
+  const d = await srv.api('POST', '/workspaces', { repoId: r2.id })
+  await cap(srv, 1)
+  try {
+    await srv.api('POST', `/workspaces/${c.id}/send`, { text: 'hang 1000' })
+    await waitFor(async () => (await srv.ws(c.id)).busy, { what: 'c working' })
+    await srv.api('POST', `/workspaces/${d.id}/send`, { text: 'kept', queue: true })
+    await assert.rejects(srv.api('POST', `/workspaces/${d.id}/archive`))
+    const now = await srv.ws(d.id)
+    assert.deepEqual([!!now.archived, now.queued?.map(q => q.text)], [false, ['kept']])
+    assert.ok(!(await srv.log('aiguilleur')).some(e => e.type === 'cg_report' && e.ws === d.id && e.key === 'queue.dropped'))
+    await waitFor(() => results(srv, d.id), { what: 'sent once c ends' })
+  } finally { await cap(srv, 5) }
+})

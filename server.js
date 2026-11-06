@@ -198,16 +198,19 @@ async function createSession() {
   return ws
 }
 
-// Archived, its queued messages are dropped (never sent): one report lists them.
-function dropQueue(ws) {
-  const q = ws.queued
-  if (!q?.length) return
-  delete ws.queued
-  R.report(ws, { ok: true, key: 'queue.dropped', vars: { count: q.length, list: q.map(x => '- ' + (x.text.trim().split('\n')[0] || x.files.map(f => f.name).join(', ')).slice(0, 100)) } })
-}
-
+// Archived, its queued messages are dropped (never sent): taken off first, so that nothing starts an agent in a worktree
+// being archived (drain), put back if the archive fails, and once it is done, one report lists them.
 async function archive(ws) {
-  if (ws.free) { A.stop(ws); killTerms(ws.id); dropQueue(ws); ws.archived = Date.now(); save(); changed(); return }
+  const q = ws.queued ?? []
+  delete ws.queued; save()
+  try { await archiveNow(ws) } catch (e) {
+    if (q.length) { ws.queued = [...q, ...ws.queued ?? []]; save(); changed() }
+    throw e
+  }
+  if (q.length) R.report(ws, { ok: true, key: 'queue.dropped', vars: { count: q.length, list: q.map(x => '- ' + (x.text.trim().split('\n')[0] || x.files.map(f => f.name).join(', ')).slice(0, 100)) } })
+}
+async function archiveNow(ws) {
+  if (ws.free) { A.stop(ws); killTerms(ws.id); ws.archived = Date.now(); save(); changed(); return }
   const { archive: script } = config(ws)
   if (script) await exec(SHELL, ['-lc', script], { cwd: ws.path, env: A.envFor(ws), timeout: 60_000 }).catch(() => {})
   A.stop(ws)
@@ -219,7 +222,6 @@ async function archive(ws) {
     await G.pin(ws.path, `refs/aiguillage/${ws.id}/archive`, ws.archiveCp)
   }
   await G.removeWorktree(repo.path, ws.path)
-  dropQueue(ws) // only once archived: a failed archive keeps it
   ws.archived = Date.now()
   save(); changed(); scanOverlaps() // its ⚠️ goes away
 }
@@ -612,7 +614,7 @@ async function decide(c, allow) {
   const tell = (ok, said, ws = at) => R.report(ws || state.aiguilleur, { ok, ...said, title: ws ? undefined : asked, action: true })
   if (!allow) return tell(false, { key: 'confirm.denied', vars: { action: asked } })
   try {
-    const ctx = { body: c.body, caller: 'aiguilleur', confirmed: true, forced: !!c.forced, query: new URLSearchParams(), route: c.routeKey }
+    const ctx = { body: c.body ?? {}, caller: 'aiguilleur', confirmed: true, forced: !!c.forced, query: new URLSearchParams(), route: c.routeKey }
     bind(ctx, c.routeKey, c.params.id) // gone meanwhile: errors.notFound
     if (!GUARDED.has(c.routeKey) || !forAiguilleur(c.routeKey, ctx)) throw fail('errors.notForAiguilleur')
     const out = await routes[c.routeKey](ctx)
@@ -871,10 +873,15 @@ R.start({ port: PORT, changed, afterTurn: scanOverlaps, send: (ws, text, paths, 
 for (const w of state.workspaces) for (const q of w.queued ?? []) q.id ??= newId() // queued before ids: the page cancels by id
 // What waited for the user's click before the restart is asked again; a day old, dropped (one report says which).
 {
-  const odd = (state.confirms ?? []).filter(c => !GUARDED.has(c.routeKey))
-  for (const c of odd) console.error(`[confirm] dropped ${c.id}: ${c.routeKey} is not a guarded route`)
-  const old = (state.confirms ?? []).filter(c => !odd.includes(c) && !(Date.now() - c.at < CONFIRM_TTL))
-  state.confirms = (state.confirms ?? []).filter(c => !odd.includes(c) && !old.includes(c))
+  // Hand-edited or from another version: only a well-formed entry for a guarded route is asked again.
+  const shape = c => c && typeof c === 'object' && typeof c.id === 'string' && typeof c.key === 'string' && Number.isFinite(c.at)
+    && c.params && typeof c.params === 'object' && (c.params.id === undefined || typeof c.params.id === 'string')
+    && (c.vars === undefined || c.vars && typeof c.vars === 'object') && (c.body === undefined || c.body && typeof c.body === 'object')
+  const all = Array.isArray(state.confirms) ? state.confirms : []
+  const odd = all.filter(c => !shape(c) || !GUARDED.has(c.routeKey))
+  for (const c of odd) console.error(`[confirm] dropped ${JSON.stringify(c)?.slice(0, 200)}: malformed, or not a guarded route`)
+  const old = all.filter(c => !odd.includes(c) && !(Date.now() - c.at < CONFIRM_TTL))
+  state.confirms = all.filter(c => !odd.includes(c) && !old.includes(c))
   for (const c of state.confirms) register(c)
   if (old.length) R.report(state.aiguilleur, { ok: false, title: { key: 'confirm.expiredTitle' }, key: 'confirm.expired', vars: { count: old.length, list: old.map(c => ({ key: c.key, vars: c.vars })) } })
   save()

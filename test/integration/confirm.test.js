@@ -282,3 +282,17 @@ test('a confirmation in state.json runs only as the guarded route it says, and a
     assert.deepEqual([self.ok, self.key], [false, 'errors.notForAiguilleur'])
   } finally { await s.stop() }
 })
+
+test('a malformed confirmation in state.json is dropped at startup; the server still starts', async () => {
+  let s = await startServer()
+  try {
+    const { w } = await setup(s)
+    await s.stop()
+    edit(s.home, st => { st.confirms = [null, 'x', { id: 'noparams', routeKey: 'POST /api/workspaces/:id/merge', key: 'confirm.merge', vars: {}, at: Date.now() },
+      { id: 'badat', routeKey: 'POST /api/workspaces/:id/archive', params: { id: w.id }, key: 'confirm.archive', vars: { name: w.name }, at: 'soon' },
+      { id: 'good', wsId: 'aiguilleur', routeKey: 'POST /api/workspaces/:id/archive', params: { id: w.id }, body: {}, key: 'confirm.archive', vars: { name: w.name }, at: Date.now() }] })
+    s = await startServer({ home: s.home })
+    assert.deepEqual((await s.state()).aiguilleur.pending.map(p => p.id), ['good'])
+    assert.deepEqual(JSON.parse(readFileSync(join(s.home, 'state.json'), 'utf8')).confirms.map(c => c.id), ['good'])
+  } finally { await s.stop() }
+})
