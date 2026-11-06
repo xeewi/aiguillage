@@ -287,20 +287,44 @@ test('a turn the user stopped reports ⏹ Stopped, not ❌', async () => {
   await message(m => m.text.startsWith(`**⏹ ${repo.name} / `) && m.text.includes('\n\nStopped'), 'the report, marked ⏹')
 })
 
+test("a stop that had to be forced doesn't make the next turn's error a ⏹: it is ❌", async () => {
+  const { repo, w } = await setup(srv)
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'deaf 15000' })
+  await waitFor(async () => (await srv.ws(w.id)).busy, { what: 'working' })
+  await srv.api('POST', `/workspaces/${w.id}/interrupt`)
+  await srv.idle(w.id, 10_000) // the CLI ignored it: stopped after 5 s
+  await srv.turn(w.id, 'fail overloaded')
+  const rep = await waitFor(async () => { const r = await lastReport(w); return r?.text === 'overloaded' && r }, { what: "the failed turn's report" })
+  assert.deepEqual([rep.ok, rep.interrupted], [false, undefined])
+  await message(m => m.text.startsWith(`**❌ ${repo.name} / `) && m.text.endsWith('overloaded'), 'the report, ❌')
+})
+
+test("an aiguilleur's turn the user stopped reads ⏹ Stopped on Telegram, not ❌", async () => {
+  await srv.turn('aiguilleur', 'flush') // its unread reports would head the next message
+  await srv.api('POST', '/workspaces/aiguilleur/send', { text: 'slow' })
+  await waitFor(async () => (await srv.state()).aiguilleur.busy, { what: 'working' })
+  await sleep(300) // the fake is streaming: the interrupt lands inside the turn
+  await srv.api('POST', '/workspaces/aiguilleur/interrupt')
+  await message(m => m.text.startsWith('⏹ Stopped\n\ntick 0'), 'its answer, marked ⏹')
+})
+
 test('a brief to confirm reads in the chat\'s language on Telegram: its heading and overlap warning; the brief as the agent reads it', async () => {
   const { repo, w } = await setup(srv)
   const w2 = await srv.api('POST', '/workspaces', { repoId: repo.id })
   await srv.turn(w.id, 'write src/auth.js x')
   let before = sent.length
   say('/status', { from: { language_code: 'fr' } })
-  await message(m => sent.indexOf(m) >= before && m.disable_notification, 'a board, the chat now in French')
-  const { pending } = await srv.asAiguilleur('POST', `/workspaces/${w2.id}/brief`, { goal: 'Fix login', scope: ['src'] })
-  const ask = await message(m => m.reply_markup && m.text.includes('Goal: Fix login'), 'the confirmation')
-  assert.match(ask.text, /Brief pour [^\n]+ :\nCe que l'agent lira :\nTask brief\nGoal: Fix login\nScope \(the files[^\n]*\n⚠️ chevauche [^\n]+ : src\/auth\.js/)
-  await srv.api('POST', '/workspaces/aiguilleur/permission', { id: pending, allow: false })
-  before = sent.length
-  say('/status')
-  await message(m => sent.indexOf(m) >= before && m.disable_notification, 'back in English')
+  try {
+    await message(m => sent.indexOf(m) >= before && m.disable_notification, 'a board, the chat now in French')
+    const { pending } = await srv.asAiguilleur('POST', `/workspaces/${w2.id}/brief`, { goal: 'Fix login', scope: ['src'] })
+    const ask = await message(m => m.reply_markup && m.text.includes('Goal: Fix login'), 'the confirmation')
+    assert.match(ask.text, /Brief pour [^\n]+ :\nCe que l'agent lira :\nTask brief\nGoal: Fix login\nScope \(the files[^\n]*\n⚠️ chevauche [^\n]+ : src\/auth\.js/)
+    await srv.api('POST', '/workspaces/aiguilleur/permission', { id: pending, allow: false })
+  } finally { // the next tests read English
+    before = sent.length
+    say('/status')
+    await message(m => sent.indexOf(m) >= before && m.disable_notification, 'back in English')
+  }
 })
 
 test('a long brief to confirm goes to Telegram in several messages, each with its code block closed', async () => {

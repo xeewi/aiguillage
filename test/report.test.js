@@ -31,3 +31,9 @@ test('a block quoted inline after the real one does not win: fences count at lin
   assert.equal(parseReport(text).status, 'blocked')
   assert.equal(parseReport('```aig-report\n```').status, null, 'an empty block still parses')
 })
+test('a block indented (in a list) or with CRLF line endings still reads', () => {
+  const r = parseReport('Done:\n  ```aig-report\n  status: blocked\n  needs: a key\n  ```')
+  assert.deepEqual([r.status, r.needs, r.body], ['blocked', 'a key', 'Done:'])
+  const crlf = parseReport('Fixed.\r\n\r\n```aig-report\r\nstatus: done\r\nchecks: npm test\r\n```\r\n')
+  assert.deepEqual([crlf.status, crlf.checks, crlf.body], ['done', 'npm test', 'Fixed.'])
+})

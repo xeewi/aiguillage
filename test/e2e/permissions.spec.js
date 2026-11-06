@@ -119,14 +119,16 @@ test("a report whose check failed looks bad in the window and shows the check's 
   await expect(rep.locator('pre')).toContainText('broken-build')
 })
 
-test('a report waiting on the user looks so in the window; a turn the user stopped, neutral and « Stopped »', async ({ open, page }) => {
-  await open()
+test('a report waiting on the user looks so in the window; a turn the user stopped, neutral and « Stopped »', async ({ srv, open, page }) => {
+  const { w } = await open()
   await say(page, 'report decision Which DB?')
   await expect(page.locator('#thread .meta.ok')).toBeVisible()
   await say(page, 'slow')
   await expect(page.locator('#thread .draft')).toContainText('tick 2')
   await page.locator('#stop').click()
   await expect(page.locator('#busy')).toBeHidden()
+  // Both reports written before the chat opens: one landing while it loads would be wiped (loadThread).
+  await expect.poll(async () => (await srv.log('aiguilleur')).filter(e => e.type === 'cg_report' && e.ws === w.id).length).toBe(2)
   await page.locator('#aiguilleur .wsItem').click()
   const [wait, stopped] = [page.locator('#thread .msg.report').first(), page.locator('#thread .msg.report').nth(1)]
   await expect(wait).toContainText('Which DB?')

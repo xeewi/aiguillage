@@ -22,6 +22,8 @@
 //   merge                  a tool that takes ~800 ms; messages sent meanwhile join this turn (one result for all)
 //   hang <ms>              init, then not a line for <ms> (default 1000), then replies "woke" (the watchdog's silence)
 //   loop                   the same Bash call (echo same) three times, then ~500 ms of thought, then "looped"
+//   deaf <ms>              ignores an interrupt: works <ms> (default 10000) then says "deaf done" (Aiguillage's forced stop)
+//   fail <text…>           the turn ends is_error with <text> as its error (an API error), not interrupted
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
 //      FAKE_CLAUDE_SESSION_PCT (the usage probe's session %, default 42), FAKE_CLAUDE_USAGE_MS (its delay before answering).
 import readline from 'node:readline'
@@ -157,6 +159,7 @@ async function turn(text) {
     out({ type: 'result', subtype: 'success', is_error: false, duration_ms: 80, total_cost_usd: 0, num_turns: 0, session_id: sid, uuid: randomUUID() })
   }
   interrupted = false; turns = 1
+  let failWith = null
   out({ type: 'system', subtype: 'init', session_id: sid, model, cwd: process.cwd(), tools: [] })
   messages.push({ uuid: randomUUID(), role: 'user', text })
   const [cmd, ...rest] = text.trim().split(/\s+/)
@@ -274,6 +277,13 @@ async function turn(text) {
       say(`${words.join(' ')}\n\n\`\`\`aig-report\nstatus: ${status}\nchecks: fake\nunverified: none\nneeds: none\n\`\`\``)
       break
     }
+    case 'deaf':
+      await sleep(Number(rest[0]) || 10_000)
+      say('deaf done')
+      break
+    case 'fail':
+      failWith = arg || 'boom'
+      break
     case 'markdown':
       say('**bold** <img src="x" onerror="window.__xss=1"> <script>window.__xss=2</script> [click](javascript:window.__xss=3)\n\n```js\nconst a = 1\n```')
       break
@@ -282,7 +292,7 @@ async function turn(text) {
   }
   save()
   // Like the real CLI, a turn you interrupted ends as an error.
-  out({ type: 'result', subtype: interrupted ? 'error_during_execution' : 'success', is_error: interrupted, duration_ms: Date.now() - t0, total_cost_usd: 0.01, num_turns: turns, session_id: sid, uuid: randomUUID() })
+  out({ type: 'result', subtype: interrupted || failWith ? 'error_during_execution' : 'success', is_error: interrupted || !!failWith, ...failWith && { result: failWith }, duration_ms: Date.now() - t0, total_cost_usd: 0.01, num_turns: turns, session_id: sid, uuid: randomUUID() })
 }
 
 // ---- stdin: user messages queue up, controls are handled immediately ----
