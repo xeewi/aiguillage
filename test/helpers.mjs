@@ -48,7 +48,7 @@ export async function startServer({ home = tmp('cghome-'), env = {} } = {}) {
   const fakeLog = join(home, 'fake-argv.jsonl')
   const proc = spawn(process.execPath, [join(ROOT, 'server.js'), '--no-open'], {
     cwd: ROOT,
-    env: { ...process.env, AIGUILLAGE_HOME: home, PORT: String(port), AIGUILLAGE_CLAUDE: FAKE, AIGUILLAGE_TOKEN: 'test-token', FAKE_CLAUDE_HOME: join(home, 'fake-sessions'), FAKE_CLAUDE_LOG: fakeLog, HOME: home, ...env },
+    env: { ...process.env, AIGUILLAGE_HOME: home, PORT: String(port), AIGUILLAGE_CLAUDE: FAKE, AIGUILLAGE_TOKEN: 'test-token', FAKE_CLAUDE_HOME: join(home, 'fake-sessions'), FAKE_CLAUDE_LOG: fakeLog, HOME: home, AIGUILLAGE_TEST: '1', ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
@@ -74,9 +74,18 @@ export async function startServer({ home = tmp('cghome-'), env = {} } = {}) {
     await waitFor(async () => (await log(id)).filter(e => e.type === 'result').length > before, { what: `result for "${text}"`, timeout })
     return lastText(await log(id))
   }
+  // Test-only (AIGUILLAGE_TEST): snapshots taken per folder, overlap scans finished.
+  const counters = () => api('GET', '/counters')
+  // A turn, then the overlap scan it starts (what a brief's overlap warning reads).
+  const turnScanned = async (id, text) => {
+    const n = (await counters()).scans
+    const out = await turn(id, text)
+    await waitFor(async () => (await counters()).scans > n, { what: 'the overlap scan after the turn' })
+    return out
+  }
   const fakeArgv = () => { try { return execFileSync('cat', [fakeLog], { encoding: 'utf8' }).trim().split('\n').map(l => JSON.parse(l)) } catch { return [] } }
   const stop = () => new Promise(r => { if (proc.exitCode !== null) return r(); proc.once('exit', r); proc.kill('SIGTERM') })
-  return { port, base, home, proc, api, asAiguilleur, state, ws, log, idle, turn, fakeArgv, stop, output: () => output }
+  return { port, base, home, proc, api, asAiguilleur, state, ws, log, idle, turn, turnScanned, counters, fakeArgv, stop, output: () => output }
 }
 
 export const lastText = evs => [...evs].reverse().find(e => e.type === 'assistant' && e.message.content.some(c => c.type === 'text'))?.message.content.find(c => c.type === 'text').text

@@ -191,6 +191,14 @@ test("a test file the next turn writes, while this turn's report waits, isn't li
   assert.deepEqual(wrote.testsTouched, ['test/x.test.js'])
 })
 
+test('the diff takes one snapshot for the diff and the check verdict', async () => {
+  const { w } = await setup(srv, CHECK)
+  const n = async () => (await srv.counters()).snapshots[w.path] ?? 0
+  const before = await n()
+  await srv.api('GET', `/workspaces/${w.id}/diff`)
+  assert.equal(await n(), before + 1)
+})
+
 test("two reports of one workspace close together are recorded in turn order, even when the second is quicker to inspect", async () => {
   // slow.txt makes the check slow: the second turn's report would be ready first (its files are those of an earlier check).
   const { w } = await setup(srv, { '.aiguillage/settings.toml': '[scripts]\ncheck = "if test -f slow.txt; then sleep 1.5; fi"\n' })

@@ -188,7 +188,7 @@ test.describe('in French', () => {
   test('a brief to confirm reads in French around the brief as the agent will read it', async ({ srv, open, page }) => {
     const { repo, w } = await open()
     const w2 = await srv.api('POST', '/workspaces', { repoId: repo.id })
-    await srv.turn(w.id, 'write src/auth.js x')
+    await srv.turnScanned(w.id, 'write src/auth.js x') // the warning reads the scan's lists
     await srv.asAiguilleur('POST', `/workspaces/${w2.id}/brief`, { goal: 'Fix login', scope: ['src'] })
     await page.locator('#aiguilleur .wsItem').click()
     const pre = page.locator('#perms .perm pre')

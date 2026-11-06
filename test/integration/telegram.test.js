@@ -311,7 +311,7 @@ test("an aiguilleur's turn the user stopped reads â¹ Stopped on Telegram, not â
 test('a brief to confirm reads in the chat\'s language on Telegram: its heading and overlap warning; the brief as the agent reads it', async () => {
   const { repo, w } = await setup(srv)
   const w2 = await srv.api('POST', '/workspaces', { repoId: repo.id })
-  await srv.turn(w.id, 'write src/auth.js x')
+  await srv.turnScanned(w.id, 'write src/auth.js x') // the warning reads the scan's lists
   let before = sent.length
   say('/status', { from: { language_code: 'fr' } })
   try {
