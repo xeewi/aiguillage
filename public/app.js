@@ -76,7 +76,7 @@ async function api(method, path, body) {
   return j
 }
 // A text the server wrote as { key, vars } (a var may be one too), in the page's language; a plain string as is.
-const tr = d => d?.key ? t(d.key, Object.fromEntries(Object.entries(d.vars ?? {}).map(([k, v]) => [k, tr(v)]))) : d
+const tr = d => Array.isArray(d) ? d.map(tr).join('\n') : d?.key ? t(d.key, Object.fromEntries(Object.entries(d.vars ?? {}).map(([k, v]) => [k, tr(v)]))) : d
 const toast = (msg, bad) => {
   const t = $('#toast'); t.textContent = msg; t.className = bad ? 'bad' : ''; t.hidden = false
   clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, bad ? 8000 : 3500)
@@ -647,11 +647,12 @@ function renderEv(ev) {
   if (ev.type === 'system') return thread.append(h('div', 'meta', `session ${ev.session_id.slice(0, 8)} · ${ev.model}`))
   if (ev.type === 'cg_error') return thread.append(h('div', 'msg err', ev.key ? t(ev.key, ev.vars) : ev.text))
   // An agent's finished turn, in the aiguilleur's conversation (lib/remote.js): its project / workspace, then its words;
-  // Aiguillage's own words (key + vars), the facts it checked. A red check reads as bad as a failed turn.
+  // Aiguillage's own words (key + vars), the facts it checked. A red check reads as bad as a failed turn; a turn the
+  // user stopped, neutral (lib/remote.js icon(): same order).
   if (ev.type === 'cg_report') {
-    const wait = ev.ok && (ev.status === 'blocked' || ev.status === 'decision'), bad = !ev.ok || ev.check?.ok === false
-    const m = h('div', 'msg report' + (bad ? ' bad' : '') + (wait ? ' wait' : '')), head = h('button', 'ghost head')
-    head.insertAdjacentHTML('afterbegin', svg(bad ? 'x' : wait ? 'pause' : 'check')); head.append(h('span', null, tr(ev.label)))
+    const bad = !ev.ok || ev.check?.ok === false, stopped = !bad && ev.interrupted, wait = !bad && !stopped && (ev.status === 'blocked' || ev.status === 'decision')
+    const m = h('div', 'msg report' + (bad ? ' bad' : stopped ? ' stopped' : wait ? ' wait' : '')), head = h('button', 'ghost head')
+    head.insertAdjacentHTML('afterbegin', svg(bad ? 'x' : stopped ? 'stop' : wait ? 'pause' : 'check')); head.append(h('span', null, tr(ev.label)))
     head.title = t('chat.openReport'); head.disabled = !wsById(ev.ws) || wsById(ev.ws).archived
     head.onclick = () => select(ev.ws)
     m.append(head)
@@ -781,7 +782,7 @@ function renderPerms() {
       card.append(permQ(t('perm.proposesPlan')))
       const body = h('div', 'msg ai plan'); body.append(md(p.input.plan)); card.append(body)
     } else if (p.confirm) { // what the aiguilleur asks to do (server.js guard)
-      card.append(permQ(t('perm.confirmAction')), h('pre', null, p.key ? t(p.key, p.vars) : p.input.command))
+      card.append(permQ(t('perm.confirmAction')), h('pre', null, p.key ? tr(p) : p.input.command))
     } else {
       card.append(permQ(t('perm.wantsTool', { tool: p.tool })), h('pre', null, String(toolSummary(p.tool, p.input) || JSON.stringify(p.input, null, 2))))
     }

@@ -119,6 +119,23 @@ test("a report whose check failed looks bad in the window and shows the check's 
   await expect(rep.locator('pre')).toContainText('broken-build')
 })
 
+test('a report waiting on the user looks so in the window; a turn the user stopped, neutral and « Stopped »', async ({ open, page }) => {
+  await open()
+  await say(page, 'report decision Which DB?')
+  await expect(page.locator('#thread .meta.ok')).toBeVisible()
+  await say(page, 'slow')
+  await expect(page.locator('#thread .draft')).toContainText('tick 2')
+  await page.locator('#stop').click()
+  await expect(page.locator('#busy')).toBeHidden()
+  await page.locator('#aiguilleur .wsItem').click()
+  const [wait, stopped] = [page.locator('#thread .msg.report').first(), page.locator('#thread .msg.report').nth(1)]
+  await expect(wait).toContainText('Which DB?')
+  await expect(wait).toHaveClass(/\bwait\b/)
+  await expect(stopped).toContainText('Stopped')
+  await expect(stopped).toHaveClass(/\bstopped\b/)
+  await expect(stopped).not.toHaveClass(/\bbad\b/)
+})
+
 test('a send past the agent cap asks first: Cancel queues it, OK sends it at once', async ({ srv, open, page }) => {
   const { repo, w } = await open()
   const other = await srv.api('POST', '/workspaces', { repoId: repo.id })
@@ -145,5 +162,16 @@ test.describe('in French', () => {
     await srv.api('POST', '/workspaces/aiguilleur/permission', { id: pending, allow: false })
     await page.locator('#aiguilleur .wsItem').click()
     await expect(page.locator('#thread .msg.report').last()).toContainText(`Vous avez refusé : Archiver ${w.name}`)
+  })
+
+  test('a brief to confirm reads in French around the brief as the agent will read it', async ({ srv, open, page }) => {
+    const { repo, w } = await open()
+    const w2 = await srv.api('POST', '/workspaces', { repoId: repo.id })
+    await srv.turn(w.id, 'write src/auth.js x')
+    await srv.asAiguilleur('POST', `/workspaces/${w2.id}/brief`, { goal: 'Fix login', scope: ['src'] })
+    await page.locator('#aiguilleur .wsItem').click()
+    const pre = page.locator('#perms .perm pre')
+    await expect(pre).toContainText(/Ce que l'agent lira :\s+Task brief\s+Goal: Fix login/)
+    await expect(pre).toContainText(/⚠️ chevauche .+ : src\/auth\.js/)
   })
 })

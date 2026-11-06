@@ -485,7 +485,8 @@ const routes = {
   'POST /api/workspaces/:id/interrupt': ({ ws }) => { A.interrupt(ws); return {} },
   'POST /api/workspaces/:id/stop-task': ({ ws, body }) => { A.stopTask(ws, String(body.id)); return {} },
   'POST /api/workspaces/:id/permission': ({ ws, body }) => { A.answer(ws, body.id, !!body.allow, body.message && String(body.message)); return {} },
-  'POST /api/workspaces/:id/revert': ({ ws, body }) => A.revert(ws, body.msgId),
+  // The files went back: a stored check no longer says anything about them (the board's 🧪❌).
+  'POST /api/workspaces/:id/revert': async ({ ws, body }) => { const r = await A.revert(ws, body.msgId); ws.checkStale = true; save(); return r },
   'POST /api/workspaces/:id/archive': ctx => guard(ctx, 'confirm.archive', { name: ctx.ws.title || ctx.ws.name }, async () => { await archive(ctx.ws); return {} }),
   'POST /api/workspaces/:id/unarchive': async ({ ws }) => { await unarchive(ws); return {} },
   'DELETE /api/workspaces/:id': ctx => guard(ctx, 'confirm.delete', { name: ctx.ws.title || ctx.ws.name }, async () => {
@@ -555,7 +556,7 @@ const routes = {
 // user's click, in the window or on Telegram (lib/agent.js confirm); the outcome comes back as a report. The page acts at once.
 function guard(ctx, key, vars, run) {
   if (ctx.caller !== 'aiguilleur') return run()
-  const label = notice(key, vars).message, at = ctx.ws, asked = { key, vars }
+  const label = R.tr({ key, vars }, 'en'), at = ctx.ws, asked = { key, vars }
   // No workspace yet (a creation refused or failed): the report is the aiguilleur's own, titled with the request.
   // said: { key, vars } (Aiguillage's words, translated when shown) or { text } (git's, gh's).
   const tell = (ok, said, ws = at) => R.report(ws ?? state.aiguilleur, { ok, ...said, title: ws ? undefined : asked, action: true })
@@ -571,15 +572,16 @@ function guard(ctx, key, vars, run) {
   return { pending: id, ...notice('confirm.waiting') }
 }
 
-// What the user sees when the aiguilleur hands a brief over (one place: overlap warnings are appended here).
+// What the user sees when the aiguilleur hands a brief over (one place: overlap warnings are appended here), as lines
+// translated when shown (R.tr): a heading, the brief as the agent will read it (English), then the warnings.
 // The warning: another workspace of the repo already changed files in this brief's scope.
 async function briefLabel(ws, b, repoId = ws.repoId) {
   const warn = []
   for (const o of activeIn(repoId, ws)) {
     const files = Rv.inScope(await mine(o), b.scope)
-    if (files.length) warn.push(notice('overlap.brief', { who: R.label(o), files: files.join(', ') }).message)
+    if (files.length) warn.push({ key: 'overlap.brief', vars: { who: R.label(o), files: files.join(', ') } })
   }
-  return [briefText(b), ...warn].join('\n')
+  return [{ key: 'confirm.briefSent' }, briefText(b), ...warn]
 }
 // The brief stays on the workspace (shown on the page) and reaches the agent as its task.
 async function giveBrief(ws, b) {

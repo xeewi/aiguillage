@@ -146,7 +146,7 @@ test('a brief that has to wait says so: queued in the page\'s answer, and in the
     const r = await srv.asAiguilleur('POST', `/workspaces/${b.id}/brief`, { goal: 'From the aiguilleur' })
     await srv.api('POST', '/workspaces/aiguilleur/permission', { id: r.pending, allow: true })
     const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === b.id), { what: 'the brief report' })
-    assert.deepEqual([rep.key, rep.vars.text.includes('From the aiguilleur'), rep.queued], ['confirm.brief', true, 'cap'])
+    assert.deepEqual([rep.key, rep.vars.text.some(l => typeof l === 'string' && l.includes('From the aiguilleur')), rep.queued], ['confirm.brief', true, 'cap'])
     await waitFor(async () => (await results(srv, b.id)) === 2, { what: 'both briefs sent once a ends' })
   } finally { await cap(srv, 5) }
 })

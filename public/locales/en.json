@@ -135,7 +135,8 @@
   "report": {
     "testsTouched": "⚠️ Test files changed this turn: {{files}}",
     "checkPassed": "🧪 check passed ({{s}} s)",
-    "checkFailed": "🧪 check failed (exit {{code}})"
+    "checkFailed": "🧪 check failed (exit {{code}})",
+    "interrupted": "Stopped"
   },
   "notify": {
     "done": "{{name}} finished",
@@ -155,6 +156,7 @@
     "create": "New workspace in {{repo}}: {{name}}",
     "createBrief": "New workspace in {{repo}}: {{name}}, with this brief:\n{{text}}",
     "brief": "Brief for {{name}}:\n{{text}}",
+    "briefSent": "What the agent will read:",
     "commit": "Commit in {{name}}: {{message}}",
     "merge": "Merge {{branch}} into {{base}}",
     "merge_failed": "Merge {{branch}} into {{base}} — check ❌",

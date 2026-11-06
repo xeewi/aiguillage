@@ -7,8 +7,9 @@ import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md, split, dueSlot, urgent, digestText, enqueue, reportMd, reportText } = await import('../lib/remote.js')
+const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md, split, dueSlot, urgent, digestText, enqueue, reportMd, reportText, digestItem, redCheck, sendDigest } = await import('../lib/remote.js')
 const { i18n } = await import('../lib/i18n.js')
+const { state } = await import('../lib/store.js')
 
 const ME = 42
 const msg = (text, extra = {}) => ({ message: { message_id: 9, chat: { id: ME }, text, ...extra } })
@@ -220,4 +221,49 @@ test("a server-written report is kept as key + vars: Telegram reads it in its la
   assert.match(p, /❌ New workspace in app: login\n\nYou declined: New workspace in app: login/)
   assert.match(p, /Brief for c:\nTask brief\n\nQueued:/)
   assert.equal(reportText({ ...overlap, key: undefined, text: 'agent words' }), '⏸ app / a ↔ app / b\n\nagent words', 'the agent\'s own words as written')
+})
+
+test('a red check reads ❌ on Telegram and in the prompt, as on the page, whatever the turn said', () => {
+  const ev = { type: 'cg_report', ws: 'w', label: 'app / a', ok: true, status: null, text: 'Done.', check: { ok: false, code: 1, ms: 2000, out: 'boom' } }
+  assert.match(reportMd(ev, 'en'), /^\*\*❌ app \/ a\*\*/)
+  assert.match(reportText(ev), /^❌ app \/ a/)
+  assert.match(reportText({ ...ev, status: 'decision' }), /^❌ /, 'red wins over waiting')
+  assert.match(reportText({ ...ev, check: { ...ev.check, ok: true } }), /^✅ /)
+})
+
+test('a turn the user stopped reads ⏹ Stopped, neither ✅ nor ❌', () => {
+  const ev = { type: 'cg_report', ws: 'w', label: 'app / a', ok: true, status: null, interrupted: true, key: 'report.interrupted', text: 'half way' }
+  assert.equal(reportMd(ev, 'en'), '**⏹ app / a**\n\nStopped\n\nhalf way')
+  assert.equal(reportMd(ev, 'fr'), '**⏹ app / a**\n\nArrêté\n\nhalf way')
+  assert.match(reportText(ev), /^⏹ app \/ a\n\nStopped/)
+  assert.equal(urgent(ev), false, 'the user stopped it: nothing to tell them at once')
+})
+
+test("digest: each text escaped exactly once, Aiguillage's words and the agent's", () => {
+  const t = (k, v) => i18n.t(k, { lng: 'en', ...v })
+  const server = { type: 'cg_report', ws: 'a', label: 'app / x', ok: true, status: null, key: 'overlap.notified', vars: { branch: 'aig/my_feat', base: 'main', who: 'app / y' }, text: '' }
+  const agent = { type: 'cg_report', ws: 'b', label: 'app / z', ok: true, status: null, text: '![shot](</tmp/a.png>) did *it*\nmore' }
+  const [, a, b] = digestText([digestItem(server, 'en'), digestItem(agent, 'en')], t).split('\n\n')
+  assert.equal(a, '**✅ app / x** aig/my\\_feat was merged into main. Told to rebase on their next message: app / y.')
+  assert.equal(b, '**✅ app / z** did \\*it\\*')
+})
+
+test('the board: 🧪❌ only while the stored check is red, on the current files, with a check still configured', () => {
+  const red = { check: { ok: false } }
+  assert.equal(redCheck(red, () => true), true)
+  assert.equal(redCheck({ ...red, checkStale: true }, () => true), false, 'the files changed since')
+  assert.equal(redCheck(red, () => false), false, 'no check configured any more')
+  assert.equal(redCheck({ check: { ok: true } }, () => true), false)
+  assert.equal(redCheck({}, () => true), false)
+  const t = (k, v) => i18n.t(k, v)
+  assert.equal(boardText([{ repo: 'a', title: 'x', red: redCheck(red, () => true) }, { repo: 'a', title: 'y', red: redCheck({ ...red, checkStale: true }, () => true) }], { t }),
+    '💤 2 idle\n\n▸ a\n💤 x 🧪❌ · y')
+})
+
+test('a digest whose send ends after Telegram was disconnected is dropped quietly', async () => {
+  state.telegram = { token: 't', chat: 1, offset: 0, queue: [{ ws: 'a', md: '**✅ a**\n\nx', line: 'x' }], digestAt: 0 }
+  const real = globalThis.fetch
+  globalThis.fetch = async () => { state.telegram = { offset: 0 }; return { json: async () => ({ ok: true, result: { message_id: 1 } }) } }
+  try { await sendDigest() } finally { globalThis.fetch = real }
+  assert.deepEqual(state.telegram, { offset: 0 })
 })

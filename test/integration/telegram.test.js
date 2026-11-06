@@ -3,9 +3,9 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { readFileSync, existsSync, writeFileSync } from 'node:fs'
+import { readFileSync, existsSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { startServer, setup, waitFor } from '../helpers.mjs'
+import { startServer, setup, waitFor, sleep } from '../helpers.mjs'
 
 const ME = 42
 const updates = [], sent = [], calls = []
@@ -276,6 +276,73 @@ test('a crash still reports ❌', async () => {
 
 const lastReport = w => srv.log('aiguilleur').then(l => l.findLast(e => e.type === 'cg_report' && e.ws === w.id))
 
+test('a turn the user stopped reports ⏹ Stopped, not ❌', async () => {
+  const { repo, w } = await setup(srv)
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'slow' })
+  await waitFor(async () => (await srv.ws(w.id)).busy, { what: 'working' })
+  await sleep(300) // the fake is streaming: the interrupt lands inside the turn
+  await srv.api('POST', `/workspaces/${w.id}/interrupt`)
+  const rep = await waitFor(() => lastReport(w), { what: 'the report' })
+  assert.deepEqual([rep.ok, rep.interrupted, rep.key], [true, true, 'report.interrupted'])
+  await message(m => m.text.startsWith(`**⏹ ${repo.name} / `) && m.text.includes('\n\nStopped'), 'the report, marked ⏹')
+})
+
+test('a brief to confirm reads in the chat\'s language on Telegram: its heading and overlap warning; the brief as the agent reads it', async () => {
+  const { repo, w } = await setup(srv)
+  const w2 = await srv.api('POST', '/workspaces', { repoId: repo.id })
+  await srv.turn(w.id, 'write src/auth.js x')
+  let before = sent.length
+  say('/status', { from: { language_code: 'fr' } })
+  await message(m => sent.indexOf(m) >= before && m.disable_notification, 'a board, the chat now in French')
+  const { pending } = await srv.asAiguilleur('POST', `/workspaces/${w2.id}/brief`, { goal: 'Fix login', scope: ['src'] })
+  const ask = await message(m => m.reply_markup && m.text.includes('Goal: Fix login'), 'the confirmation')
+  assert.match(ask.text, /Brief pour [^\n]+ :\nCe que l'agent lira :\nTask brief\nGoal: Fix login\nScope \(the files[^\n]*\n⚠️ chevauche [^\n]+ : src\/auth\.js/)
+  await srv.api('POST', '/workspaces/aiguilleur/permission', { id: pending, allow: false })
+  before = sent.length
+  say('/status')
+  await message(m => sent.indexOf(m) >= before && m.disable_notification, 'back in English')
+})
+
+test('a long brief to confirm goes to Telegram in several messages, each with its code block closed', async () => {
+  const { w } = await setup(srv)
+  const long = (s, n = 299) => (s + 'y'.repeat(n)).slice(0, n)
+  // UNPARSABLE: Telegram refuses it rich, so it goes plain, 4096 characters a message.
+  const brief = { goal: long('UNPARSABLE goal ', 500), scope: Array.from({ length: 20 }, (_, i) => long(`src/m${i}/`)), escalate: long('new deps '),
+    done: ['```js', ...Array.from({ length: 18 }, (_, i) => long(`check ${i} `)), '```'] }
+  const before = sent.length
+  const { pending } = await srv.asAiguilleur('POST', `/workspaces/${w.id}/brief`, brief)
+  const last = await message(m => sent.indexOf(m) >= before && m.reply_markup?.inline_keyboard[0][0].callback_data.endsWith(pending), 'the confirmation, its buttons under the last part')
+  const parts = sent.slice(before, sent.indexOf(last) + 1).filter(m => m.method === 'sendMessage' && !m.disable_notification)
+  assert.ok(parts.map(m => m.text).join('').length >= 12_000)
+  assert.ok(parts.length > 1 && parts.every(m => m.text.length <= 4096), 'several plain messages')
+  assert.ok(parts.every(m => (m.text.match(/^```/gm) ?? []).length % 2 === 0), 'each one with its code block closed')
+  await srv.api('POST', '/workspaces/aiguilleur/permission', { id: pending, allow: false })
+})
+
+test('the board shows 🧪❌ while the check is red on these files, and no longer once the repo has no check', async () => {
+  const { repoPath, w } = await setup(srv, { '.aiguillage/settings.toml': '[scripts]\ncheck = "test -f ok.txt"\n' })
+  const board = () => calls.filter(c => c.method === 'editMessageText' || (c.method === 'sendMessage' && c.disable_notification)).at(-1)?.text ?? ''
+  await srv.turn(w.id, 'write other.txt x')
+  await waitFor(() => board().includes('🧪❌'), { what: 'the red check on the board' })
+  rmSync(join(repoPath, '.aiguillage/settings.toml'))
+  await srv.turn(w.id, 'write more.txt y')
+  await waitFor(async () => (await lastReport(w)).text.includes('more.txt') && !board().includes('🧪❌'), { what: 'gone with the check' })
+})
+
+test('remote mode off: every urgent report waits for the catch-up, with the latest other one, in order', async () => {
+  const { w } = await setup(srv)
+  let before = sent.length
+  await srv.api('PATCH', '/telegram', { remote: false })
+  await message(m => sent.indexOf(m) >= before && m.text.startsWith('Remote mode off'), 'off')
+  for (const text of ['report blocked first one', 'hello early', 'report decision second one', 'hello third']) await srv.turn(w.id, text)
+  await waitFor(async () => (await srv.log('aiguilleur')).filter(e => e.type === 'cg_report' && e.ws === w.id).length === 4, { what: 'four reports' })
+  before = sent.length
+  await srv.api('PATCH', '/telegram', { remote: true })
+  // The body, not the title (the workspace is named after its first message).
+  const got = sent.slice(before).map(m => m.text.split('\n\n')[1]?.match(/first one|second one|hello early|hello third/)?.[0]).filter(Boolean)
+  assert.deepEqual(got, ['first one', 'second one', 'hello third'])
+})
+
 test('batched: a done report waits, a blocked one is pushed at once', async () => {
   await srv.api('PATCH', '/telegram', { digest: 'batched' })
   assert.equal((await srv.state()).telegram.digest, 'batched')
@@ -303,7 +370,8 @@ test('a digest that fails to send keeps its reports', async () => {
   await waitFor(queued, { what: 'queued' })
   failSends = true
   say('/digest')
-  await waitFor(() => failed.some(b => JSON.stringify(b).includes('keep me')), { what: 'the failed send' })
+  // The rich attempt fails, then its plain fallback: only then may sends work again.
+  await waitFor(() => failed.some(b => b.text?.includes('keep me')), { what: 'the failed plain send' })
   failSends = false
   assert.ok(queued() >= 1, 'still waiting')
   say('/digest')
@@ -321,11 +389,33 @@ test('the waiting reports survive a restart', async () => {
   await message(m => m.text.match(/reports? since the last digest/) && m.text.includes('before the restart'), 'the digest, after the restart')
 })
 
+test('a digest whose slot passed while remote mode was off goes with the catch-up', async () => {
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'waited for its slot')
+  const file = join(srv.home, 'state.json'), saved = () => JSON.parse(readFileSync(file, 'utf8'))
+  await waitFor(() => saved().telegram.queue?.some(q => q.md.includes('waited for its slot')), { what: 'queued' })
+  await srv.api('PATCH', '/telegram', { remote: false })
+  const { home } = srv
+  await srv.stop()
+  const s = saved(); s.telegram.digestAt = Date.now() - 2 * 86400_000; writeFileSync(file, JSON.stringify(s)) // a slot went by meanwhile
+  srv = await startServer({ home, env: { AIGUILLAGE_TELEGRAM_API: `http://127.0.0.1:${tg.address().port}` } })
+  const before = sent.length
+  await srv.api('PATCH', '/telegram', { remote: true })
+  assert.ok(sent.slice(before).some(m => /reports? since the last digest/.test(m.text) && m.text.includes('waited for its slot')), 'the digest, with the catch-up')
+})
+
 test('digest off: every report pushed as before', async () => {
   await srv.api('PATCH', '/telegram', { digest: 'off' })
   const { w } = await setup(srv)
   await srv.turn(w.id, 'pushed now')
   await message(m => m.text.endsWith('ok: pushed now'), 'the report, at once')
+})
+
+test('a new token keeps the digest choice', async () => {
+  await srv.api('PATCH', '/telegram', { digest: 'off' })
+  await srv.api('POST', '/telegram', { token: '2:y' })
+  const { telegram } = await srv.state()
+  assert.deepEqual([telegram.on, telegram.linked, telegram.digest], [true, false, 'off'])
 })
 
 test('Disconnect stops the bot', async () => {

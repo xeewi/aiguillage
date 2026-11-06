@@ -135,7 +135,8 @@
   "report": {
     "testsTouched": "⚠️ Fichiers de test modifiés pendant ce tour : {{files}}",
     "checkPassed": "🧪 check réussi ({{s}} s)",
-    "checkFailed": "🧪 check en échec (code {{code}})"
+    "checkFailed": "🧪 check en échec (code {{code}})",
+    "interrupted": "Arrêté"
   },
   "notify": {
     "done": "{{name}} a terminé",
@@ -155,6 +156,7 @@
     "create": "Nouveau workspace dans {{repo}} : {{name}}",
     "createBrief": "Nouveau workspace dans {{repo}} : {{name}}, avec ce brief :\n{{text}}",
     "brief": "Brief pour {{name}} :\n{{text}}",
+    "briefSent": "Ce que l'agent lira :",
     "commit": "Commit dans {{name}} : {{message}}",
     "merge": "Fusionner {{branch}} dans {{base}}",
     "merge_failed": "Fusionner {{branch}} dans {{base}} — check ❌",
