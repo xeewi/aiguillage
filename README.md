@@ -10,7 +10,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node ≥ 22](https://img.shields.io/badge/node-%E2%89%A5%2022-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![macOS · browser](https://img.shields.io/badge/macOS%20%C2%B7%20browser-lightgrey?logo=apple)](#install)
-[![Tests](https://img.shields.io/badge/tests-127%20%2B%2050%20e2e-brightgreen)](#tests)
+[![Tests](https://img.shields.io/badge/tests-223%20%2B%2057%20e2e-brightgreen)](#tests)
 [![i18n](https://img.shields.io/badge/i18n-English%20%C2%B7%20Fran%C3%A7ais-orange)](#languages)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -121,7 +121,11 @@ The agent knows its worktree, its ports and the Run script's log file, which it 
 | **Ignored files** | Files listed in `.worktreeinclude` (else `file_include_globs`, else `.env*`) are copied into every new worktree. |
 | **Sidebar** | Each repo with its logo, its workspaces and their state; right-click a workspace to open, rename, copy its branch or path, mark it unread, stop or archive it. Your plan usage (session and week limits) at the bottom, live. Collapsible, with a resizable split. |
 | **Notifications** | System notification when an agent finishes or needs you. <kbd>⌘</kbd><kbd>1</kbd>…<kbd>9</kbd> switches workspaces, <kbd>⇧</kbd><kbd>⌘</kbd><kbd>A</kbd> archives the open one. |
-| **Settings** | Theme (System / Light / Dark), language, defaults for new workspaces, repos, updates, Telegram. |
+| **Settings** | Theme (System / Light / Dark), language, defaults for new workspaces, how many agents work at once, repos, updates, Telegram, and your measures. |
+| **Agents at work at once** | Past the number set in **Settings** (5 by default), or once your plan's session is at 90 %, a message that would start one more agent waits in a queue (🕒, kept across restarts) and goes out as soon as one finishes or usage drops. From the window, you're asked first: send anyway, or queue it. A message to an agent already working always goes through. |
+| **Watchdog** | An agent silent for 10 minutes, repeating the same tool call three times, or on a turn of over an hour is reported ⏸ to the aiguilleur. It is never stopped: you decide. |
+| **Overlaps** | Two workspaces of a repo changing the same files are reported (⚠️) as soon as it happens, not at merge time: merging both may conflict. After a merge, the workspaces that changed some of the merged files are told to rebase, with their next message. |
+| **Measures** | Kept on your Mac only: cost per workspace and for the aiguilleur, turns, merges and conflicts, checks, how long permission requests wait, Telegram messages per day. **Settings** shows the last 14 days. |
 | **Aiguilleur** | One agent above all workspaces: reports on them and relays your instructions, with a memory of each project. See [Aiguilleur](#aiguilleur). |
 | **Telegram** | Away from the Mac: the same conversation with the aiguilleur, which passes on the agents' reports and your answers. See [Remote control](#remote-control-telegram). |
 
@@ -129,7 +133,9 @@ The agent knows its worktree, its ports and the Run script's log file, which it 
 
 **Aiguilleur** (French for the switchman who sets the points), at the top of the sidebar, is a Claude Code agent of its own that sees every repo and workspace. It reports and relays, it never decides: ask it where things stand or to read a diff, and tell it what to pass on to which agent (or to start a task in a new workspace); it sends your instruction as you gave it and does nothing you didn't ask for. It acts through Aiguillage's local API and leaves the code to the workspaces' agents.
 
-It is your one interlocutor: when an agent finishes a turn, its report (✅/❌, project / workspace, its last words) lands in the aiguilleur's conversation, and a click on it opens the workspace. The aiguilleur reads the reports it hasn't seen yet at the top of your next message, so it knows where things stand without being woken for each one.
+It is your one interlocutor: when an agent finishes a turn, its report lands in the aiguilleur's conversation, and a click on it opens the workspace. Every agent ends its turn with a short report block (status, what it checked, what it didn't, what it needs from you), so a report reads ✅ done, ⏸ waiting on you (blocked, or a decision to take) or ❌ failed, with the project / workspace, its last words, and the facts Aiguillage checked itself: the [check](#per-repo-configuration)'s verdict (and its output when red), the test files the turn changed (agents are told to stop and ask rather than bend a test to pass; `test_globs` in `settings.toml` says what a test file is). The aiguilleur reads the reports it hasn't seen yet at the top of your next message, so it knows where things stand without being woken for each one.
+
+What it may do, through Aiguillage's API: read the state, a workspace's conversation and diff, relay your message to an agent (or interrupt it), rename a workspace, run a check. For a new task, it hands the agent a **brief** built from your own words (goal, scope, done criteria, what to escalate), which you approve in one click; the brief stays visible on the workspace. **What can't be undone waits for your click**, in the window or on Telegram: creating a workspace, commit, merge, PR, archive, delete; the outcome comes back as a report. Everything else is yours alone, and the API refuses it to the aiguilleur: answering a permission request, an agent's model, effort or permission mode, revert, scripts, Settings, Telegram.
 
 It runs in `~/.aiguillage/aiguilleur`, outside every repo, in Auto mode, and that folder is its memory, the only place it writes: `CLAUDE.md` (loaded at each session: your standing preferences and one line per project) and `projects/<repo>.md` (purpose, stack, how to run it, work in progress, your decisions), built the first time it needs a project and kept up to date. After each agent turn, a quick Haiku call adds what's worth keeping (done, decided, in progress, blocked) to the end of that project's file, under `## Journal`, dated, with the workspace's name; the aiguilleur folds it into the rest when it reads the notes. They're plain Markdown: read or edit them yourself. One conversation, the same in the window and on [Telegram](#remote-control-telegram).
 
@@ -145,13 +151,13 @@ Leave the Mac running at home and keep the loop going from your phone. Off until
 
 In remote mode:
 
-- **A live board is pinned at the top of the chat**: the counts first (🔐 waiting for you, ⏳ working, ❌ failed, 💤 idle), always in sight in the pinned bar, then your plan's session and week usage (with when they reset, 🔴 from 90 %), then each repo once with its workspaces by their short title: what one waits for, or what it is doing (its last tool call) and for how long; the idle ones share a line. It is edited in place, silently, as the agents work. `/status` posts it again at the bottom, in either mode; out of remote mode it stops updating.
+- **A live board is pinned at the top of the chat**: the counts first (🔐 waiting for you, ⏳ working, 🕒 queued, ❌ failed, 💤 idle), always in sight in the pinned bar, then your plan's session and week usage (with when they reset, 🔴 from 90 %), then each repo once with its workspaces by their short title: what one waits for, or what it is doing (its last tool call) and for how long; the idle ones share a line. It is edited in place, silently, as the agents work. `/status` posts it again at the bottom, in either mode; out of remote mode it stops updating.
 - **The whole conversation with the [aiguilleur](#aiguilleur)** comes to Telegram: each agent's report when its turn ends, what you type to it at the Mac (🖥), its answers. What you write on Telegram shows in the window too (📱). Telegram renders their Markdown (bold, lists, code, tables), as rich messages; one it refuses goes as plain text.
 - **Only what needs you comes at once**: a failure, a question (⏸), a red check, a change to test files, an overlap, a stuck agent, the outcome of something you confirmed. Finished work waits and comes as one digest at 9:00, 13:00 and 18:00 (local time), or when you send `/digest`. **Settings → Telegram → Reports** switches to "push every report". Waiting reports are kept across restarts.
 - **Everything you write goes to the aiguilleur**, which relays. **Reply** to a report to answer that agent: the aiguilleur knows which one and passes it on; reply `/stop` to interrupt it.
 - **Photos, albums, documents, videos, voice notes** go with it, as attachments in its conversation; it passes them on to the agent they're for, which gets its own copy. Telegram lets a bot fetch 20 MB at most: a bigger file is refused with a message. A voice note: the aiguilleur transcribes it when a tool for that is installed (`whisper-cli` and a model), otherwise it tells you it can't listen to it.
 - **And back: the screenshots, videos and sounds** an agent shows in its report (or the aiguilleur in its answer, `![caption](path)` as in the chat) come after the text as photos, videos or files, a 📎 with their caption in their place. Reply to one to answer that agent. Up to 50 MB each; a photo Telegram refuses (too big, too thin) comes as a file.
-- **Permission requests and plans** arrive with Allow / Deny buttons.
+- **Permission requests, plans and what the aiguilleur asks to do** (merge, commit…) arrive with Allow / Deny buttons.
 
 Nothing listens on the network: Aiguillage polls Telegram. In remote mode, the Mac doesn't go to sleep on its own (`caffeinate`), but closing the lid still does. Turning remote mode on from Telegram gives that chat nothing it couldn't already do: once linked, it can always talk to the aiguilleur. Anyone who controls your Telegram account can drive your agents, and the aiguilleur can run commands on the Mac: keep your account protected (two-step verification).
 
@@ -168,6 +174,8 @@ No run script anywhere? Aiguillage guesses from the project files and lists ever
 Nothing recognized? **Ask the agent** in the Run tab: it works out the command and writes `.aiguillage/settings.toml` for you.
 
 ```toml
+test_globs = ["**/*.test.*", "e2e/**"]  # optional: what counts as a test file (a turn that changes one says so)
+
 [scripts]
 setup = "pnpm install"
 check = "pnpm test"          # verification gate, see below
@@ -181,7 +189,7 @@ default = true
 command = "pnpm test --watch"
 ```
 
-**`check`**: a command that verifies the work (tests, lint, build), run in the worktree through your login shell (10 minutes at most, `AIGUILLAGE_CHECK_TIMEOUT_MS` to change). It runs by itself when an agent's turn ended and the files differ from the last check; the result (and, when red, the end of its output) comes with the agent's report, and 🧪❌ marks the workspace on the Telegram board. The Diff tab shows the verdict and a **Run check** button. Merging asks for confirmation when the check is red or out of date (when the aiguilleur asks, the confirmation says the check isn't green, and your click then merges anyway). No `check`, or a free session: nothing runs and merge is unchanged.
+**`check`**: a command that verifies the work (tests, lint, build), run in the worktree through your login shell (10 minutes at most, `AIGUILLAGE_CHECK_TIMEOUT_MS` to change). It runs the agent's changes whatever the workspace's permission mode, so it is read from the main checkout's settings (and `~/.aiguillage/settings.toml`), never from the worktree's own `settings.toml`, which the agent could edit. It runs by itself when an agent's turn ended and the files differ from the last check; the result (and, when red, the end of its output) comes with the agent's report, and 🧪❌ marks the workspace on the Telegram board. The Diff tab shows the verdict and a **Run check** button. Merging asks for confirmation when the check is red or out of date (when the aiguilleur asks, the confirmation says the check isn't green, and your click then merges anyway). No `check`, or a free session: nothing runs and merge is unchanged.
 
 <details>
 <summary>JSON format</summary>
@@ -222,7 +230,8 @@ Translations use [i18next](https://www.i18next.com). Adding a language means add
 
 ## Data and privacy
 
-- Everything lives in `~/.aiguillage/` (`state.json`, `logs/`, `worktrees/`). Set `AIGUILLAGE_HOME` to move it.
+- Everything lives in `~/.aiguillage/` (`state.json`, `logs/`, `worktrees/`, and `metrics.jsonl`, the [measures](#features), never sent anywhere). Set `AIGUILLAGE_HOME` to move it.
+- Aiguillage's API answers only its own window and the aiguilleur (a secret token only the aiguilleur's process gets): any other caller, an agent's `curl` or a script of yours, is refused (401). Drive it from the window.
 - Checkpoints are private git refs, `refs/aiguillage/*`, in your repo.
 - Only the `claude` CLI talks to the network, exactly as when you use it directly, plus the [update check](#updates), which you can turn off. Once you turn [Telegram](#remote-control-telegram) on, the reports and what you send go through Telegram too. Its bot token is kept in `state.json`. API keys are stripped from the agent's environment, so usage is billed to your Claude account.
 
@@ -232,8 +241,12 @@ Node and vanilla JavaScript, no build step. You can read the whole codebase in a
 
 ```
 server.js          HTTP + WebSocket + terminals (node-pty)
-lib/agent.js       claude process, permissions, briefing
+lib/agent.js       claude process, permissions, briefing, watchdog
 lib/remote.js      Telegram bridge and aiguilleur
+lib/report.js      the report block agents end each turn with
+lib/review.js      check, test files touched, overlaps
+lib/brief.js       the aiguilleur's task briefs
+lib/metrics.js     local measures (metrics.jsonl)
 lib/git.js         worktrees, diff, checkpoints
 lib/config.js      per-repo settings (TOML / JSON)
 lib/i18n.js        server-side messages (i18next)
@@ -249,8 +262,8 @@ More: [docs/DNA.md](docs/DNA.md) (project principles, in French) and [DESIGN.md]
 ## Tests
 
 ```bash
-npm test           # unit + integration (127 tests, ~12 s)
-npm run test:e2e   # browser flows, Playwright (50 tests, ~25 s)
+npm test           # unit + integration (223 tests, ~25 s)
+npm run test:e2e   # browser flows, Playwright (57 tests, ~30 s)
 npm run test:all   # both
 ```
 
