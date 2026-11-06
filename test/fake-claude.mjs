@@ -28,6 +28,9 @@
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
 //      FAKE_CLAUDE_SESSION_PCT (the usage probe's session %, default 42), FAKE_CLAUDE_USAGE_MS (its delay before answering),
 //      FAKE_CLAUDE_SESSION_RESETS_H (hours until the session resets, default 2; negative: a reset time already past).
+//      FAKE_CLAUDE_SILENT_INIT=1: the initialize request is never answered (no slash command list).
+//      FAKE_CLAUDE_WAKES=1: a process started with --resume begins with a turn of its own, as the CLI does when a
+//      background task left something to say.
 import readline from 'node:readline'
 import { execSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs'
@@ -109,6 +112,8 @@ async function notice(text) {
   assistant([{ type: 'text', text }])
   out({ type: 'result', subtype: 'success', is_error: false, duration_ms: NOTICE_MS, total_cost_usd: 0, num_turns: 1, session_id: sid, uuid: randomUUID() })
 }
+
+if (resumeId && process.env.FAKE_CLAUDE_WAKES) setTimeout(() => notice('woke up'), 50)
 
 // ---- one turn ----
 let turns = 0
@@ -333,6 +338,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     // Context fill: 16 000 tokens per stored message; auto-compact at 200 000 - 40 000, so 10 % of it each.
     const ctx = q.subtype === 'get_context_usage' && { totalTokens: 16_000 * messages.length, maxTokens: 200_000, percentage: 8 * messages.length,
       categories: [{ id: 'messages', tokens: 16_000 * messages.length, kind: 'used' }, { id: 'autocompact_buffer', tokens: 40_000, kind: 'buffer' }] }
+    if (q.subtype === 'initialize' && process.env.FAKE_CLAUDE_SILENT_INIT) return
     const init = q.subtype === 'initialize' && { commands: [
       { name: 'clear', description: 'Clear conversation history and free up context', argumentHint: '', builtin: true },
       { name: 'compact', description: 'Clear conversation history but keep a summary in context', argumentHint: '<optional custom summarization instructions>', builtin: true },

@@ -38,6 +38,13 @@ test('summarize: reports with a block and red checks', () => {
   assert.deepEqual(s.checks, { n: 1, red: 1 })
 })
 
+test('summarize copes with a long history: 200 000 events, no RangeError', () => {
+  const now = 1e12, evs = Array.from({ length: 200_000 }, (_, i) => ({ t: now - i, kind: 'push' }))
+  const s = summarize(evs, now)
+  assert.equal(s.days, 1)
+  assert.equal(s.pushesPerDay, 200_000)
+})
+
 test('readMetrics skips half-written lines and older events', () => {
   const t0 = Date.now()
   appendFileSync(join(HOME, 'metrics.jsonl'), JSON.stringify({ t: t0 - 1000, kind: 'old' }) + '\n{"t":\n')

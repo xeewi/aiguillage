@@ -39,6 +39,8 @@ test('subagents: one can be stopped alone; it ends « stopped » and the session
   await srv.api('POST', `/workspaces/${w.id}/stop-task`, { id: task.id })
   await waitFor(async () => !(await srv.ws(w.id)).tasks.length, { what: 'subagent stopped' })
   assert.ok((await srv.log(w.id)).some(e => e.type === 'task' && e.tool_use_id === task.id && e.status === 'stopped'))
+  // The turn the CLI starts to say so ends first: under load it could otherwise end inside the next message's wait.
+  await waitFor(async () => (await srv.log(w.id)).filter(e => e.type === 'result').length === 2, { what: 'the turn announcing it' })
   assert.equal(await srv.turn(w.id, 'still here'), 'ok: still here')
 })
 

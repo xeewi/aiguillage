@@ -180,3 +180,32 @@ test('a turn ending while Run check runs on the files from before: its result, t
   assert.equal(rep.check.ok, true, 'the report judges the files the turn left')
   assert.equal((await srv.ws(w.id)).check.ok, true)
 })
+
+test("a test file the next turn writes, while this turn's report waits, isn't listed in this turn's report", async () => {
+  const { w } = await setup(srv, { '.aiguillage/settings.toml': '[scripts]\ncheck = "sleep 1.5"\n' })
+  await srv.turn(w.id, 'write a.txt a') // its report waits for the check (1.5 s)
+  await srv.turn(w.id, 'just talk') // its report waits behind the first
+  await srv.turn(w.id, 'write test/x.test.js t') // sent at once: written before that report looks
+  const [, talk, wrote] = [await reportOn(w.id), await reportOn(w.id, 1), await reportOn(w.id, 2)]
+  assert.equal(talk.testsTouched, undefined, 'the turn that wrote nothing lists no test file')
+  assert.deepEqual(wrote.testsTouched, ['test/x.test.js'])
+})
+
+test("two reports of one workspace close together are recorded in turn order, even when the second is quicker to inspect", async () => {
+  // slow.txt makes the check slow: the second turn's report would be ready first (its files are those of an earlier check).
+  const { w } = await setup(srv, { '.aiguillage/settings.toml': '[scripts]\ncheck = "if test -f slow.txt; then sleep 1.5; fi"\n' })
+  await srv.turn(w.id, 'write a.txt a')
+  await reportOn(w.id)
+  await srv.turn(w.id, 'write slow.txt s') // its check takes 1.5 s
+  await srv.turn(w.id, 'bash rm slow.txt') // back to the files of the first check: nothing to run
+  const reps = await waitFor(async () => { const r = await reports(w.id); return r.length === 3 && r }, { what: 'three reports' })
+  assert.deepEqual(reps.map(r => r.text), ['wrote a.txt', 'wrote slow.txt', 'bash ok: (no output)'])
+})
+
+test('a report is recorded even when looking at the turn fails (the worktree lost its git)', async () => {
+  const { w } = await setup(srv, CHECK)
+  await srv.turn(w.id, 'bash rm .git')
+  const rep = await reportOn(w.id)
+  assert.equal(rep.text, 'bash ok: (no output)')
+  assert.equal('check' in rep, false)
+})
