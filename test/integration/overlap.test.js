@@ -32,7 +32,9 @@ test('after a merge, the other workspace hears about it with its next message', 
   const w2 = await second(repo)
   await srv.turn(w.id, 'write merged.txt a')
   await srv.turn(w2.id, 'write merged.txt b')
-  await sleep(800) // the scan after the turn is snapshotting: don't race it for git's index lock
+  // The scan after the turn snapshots the worktree: let it end before committing, or we race it for git's index lock.
+  await waitFor(async () => (await overlapReports()).find(e => e.overlap.includes('merged.txt')), { what: 'overlap report' })
+  await sleep(300)
   commit(w.path, 'a')
   await srv.api('POST', `/workspaces/${w.id}/merge`)
   assert.ok(git(repoPath, 'log', '-1', '--format=%s').includes('Merge'))
