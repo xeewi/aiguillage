@@ -118,6 +118,9 @@ test('the board: counts first (the pinned bar shows them), the plan usage, then 
     '', '▸ a', '❌ broke', '💤 idle · Plugin Tamagotchi façon Jota…',
   ].join('\n'))
   assert.equal(boardText([], { t: (k, v) => i18n.t(k, v), paused: true }), "No active workspace.\n\n⏸ Remote mode off: this board no longer updates. /remote to turn it back on.")
+  // A message waiting for a free slot: 🕒, after those at work.
+  assert.equal(boardText([{ repo: 'a', title: 'wait', queued: true }, { repo: 'a', title: 'busy', working: true }], { t: (k, v) => i18n.t(k, v), now }),
+    '⏳ 1 working · 🕒 1 queued\n\n▸ a\n⏳ busy\n🕒 wait')
 })
 
 test("what a tool call is doing, in a few words; our own text escaped inside Markdown", () => {

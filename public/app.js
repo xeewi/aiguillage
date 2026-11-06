@@ -279,6 +279,7 @@ function pillOf(w) {
   const agents = w.tasks?.filter(x => !x.shell).length ?? 0, shells = (w.tasks?.length ?? 0) - agents
   const pill = w.pending.length ? h('span', 'pill ask', t('status.ask'))
     : w.busy || agents ? h('span', 'pill run', agents ? t('status.agents', { count: agents }) : t('status.run'))
+    : w.queued?.length ? h('span', 'pill queued', t('side.queued', { count: w.queued.length })) // waiting for a free slot (server.js sendTo)
     : w.failed ? h('span', 'pill err', t('status.err'))
     : unread.has(w.id) ? h('span', 'pill new', t('status.new'))
     : shells ? h('span', 'pill shell', t('status.shells', { count: shells })) : null
@@ -419,6 +420,7 @@ function renderSettings() {
   if (!settingsOpen) return
   const d = S.defaults ?? {}
   $('#defModel').value = d.model || ''; $('#defEffort').value = d.effort || ''; $('#defMode').value = d.permissionMode || 'auto'
+  if (document.activeElement !== $('#defMaxAgents')) $('#defMaxAgents').value = d.maxAgents ?? 5 // a state broadcast mustn't undo what you're typing
   // Desktop app only (lib/update.js): in the browser there is nothing to update.
   const u = S.update ?? {}
   $('#setUpdates').hidden = (u.state ?? 'off') === 'off'
@@ -478,8 +480,8 @@ function renderTelegram() {
   }
   if (tg.error) box.append(h('p', 'err', tg.error))
 }
-const saveDefaults = guard(() => api('PATCH', '/defaults', { model: $('#defModel').value, effort: $('#defEffort').value, permissionMode: $('#defMode').value, autoUpdate: $('#autoUpdate').checked }))
-$('#defModel').onchange = $('#defEffort').onchange = $('#defMode').onchange = $('#autoUpdate').onchange = saveDefaults
+const saveDefaults = guard(() => api('PATCH', '/defaults', { model: $('#defModel').value, effort: $('#defEffort').value, permissionMode: $('#defMode').value, autoUpdate: $('#autoUpdate').checked, maxAgents: $('#defMaxAgents').valueAsNumber || 5 }))
+$('#defModel').onchange = $('#defEffort').onchange = $('#defMode').onchange = $('#autoUpdate').onchange = $('#defMaxAgents').onchange = saveDefaults
 let checkAsked = false
 $('#checkUpdate').onclick = guard(async () => { checkAsked = true; $('#checkUpdate').disabled = true; await api('POST', '/check-update') })
 $('#openSettings').onclick = () => showSettings(true)
@@ -797,9 +799,11 @@ $('#composer').onsubmit = guard(async e => {
   await Promise.all(list.map(f => f.ready))
   const files = list.filter(f => f.path)
   if (!text && !files.length) return
-  try { await api('POST', `/workspaces/${id}/send`, { text, files: files.map(f => f.path) }) } catch (err) {
+  let r
+  try { r = await api('POST', `/workspaces/${id}/send`, { text, files: files.map(f => f.path) }) } catch (err) {
     $('#input').value = text; atts.set(id, files); renderAtts(); throw err
   }
+  if (r?.queued) toast(t('chat.queued', { context: r.reason }))
 })
 $('#input').onkeydown = e => {
   if (!$('#slash').hidden && slashKey(e)) return e.preventDefault()

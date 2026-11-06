@@ -45,7 +45,7 @@ const view = () => ({
   aiguilleur: state.aiguilleur && { ...state.aiguilleur, ...A.runtime('aiguilleur'), aiguilleur: true, brief: undefined },
 })
 let pendingState = null
-const changed = () => { pendingState ??= setTimeout(() => { pendingState = null; broadcast({ t: 'state', ...view() }); R.sync() }, 30) }
+const changed = () => { pendingState ??= setTimeout(() => { pendingState = null; broadcast({ t: 'state', ...view() }); R.sync(); drain() }, 30) }
 A.wire(m => { broadcast(m); R.onEvent(m) }, changed)
 Rv.wire(changed)
 
@@ -400,10 +400,12 @@ const routes = {
     if (!Object.hasOwn(SETUP, body.step)) throw fail('errors.notFound')
     openTerm('setup', null, SETUP[body.step], body.step); return {}
   },
-  // Model, effort ('' = the CLI's own default) and permission mode given to new workspaces.
+  // Model, effort ('' = the CLI's own default) and permission mode given to new workspaces; how many agents work at once.
   'PATCH /api/defaults': ({ body }) => {
     const permissionMode = ['default', 'acceptEdits', 'plan'].includes(body.permissionMode) ? body.permissionMode : 'auto'
-    state.defaults = { model: String(body.model ?? ''), effort: String(body.effort ?? ''), permissionMode, autoUpdate: body.autoUpdate !== false }
+    const n = Math.round(Number(body.maxAgents ?? state.defaults?.maxAgents ?? 5))
+    state.defaults = { model: String(body.model ?? ''), effort: String(body.effort ?? ''), permissionMode, autoUpdate: body.autoUpdate !== false,
+      maxAgents: Number.isFinite(n) ? Math.min(20, Math.max(1, n)) : 5 }
     save(); changed(); return state.defaults
   },
   // Settings → Telegram: a bot token ('' disconnects); the page then gets the link that ties the user's chat to it.
@@ -459,7 +461,7 @@ const routes = {
     A.configure(ws, body); changed(); return {}
   },
   'POST /api/workspaces/:id/upload': ({ ws, req, query }) => upload(ws, query.get('name'), req),
-  'POST /api/workspaces/:id/send': async ({ ws, body }) => { await sendTo(ws, String(body.text ?? ''), attached(ws, body.files)); return {} },
+  'POST /api/workspaces/:id/send': async ({ ws, body }) => (await sendTo(ws, String(body.text ?? ''), attached(ws, body.files))) ?? {},
   'GET /api/workspaces/:id/commands': ({ ws }) => A.commands(ws),
   // Commands with a full-screen UI (/permissions, /resume, /memory…) don't exist in -p mode: run them in the real,
   // interactive Claude Code, on this same conversation, in the Terminal tab. The idle chat process steps aside.
@@ -582,10 +584,47 @@ async function giveBrief(ws, b) {
 }
 
 // The chat's send, and Telegram's (lib/remote.js). The aiguilleur's model also reads the agents' reports it hasn't seen.
+// A message that would put one more worker to work waits in ws.queued (saved) while too many work or the plan's
+// session is nearly used up; one to a worker already at work folds into its turn, as always. -> { queued, reason } | undefined
 async function sendTo(ws, text, files = [], opts = {}) {
   if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
   // Two CLIs writing the same session would fork it: the chat waits for the terminal one to quit.
   if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
+  const reason = ws !== state.aiguilleur && !A.working(A.runtime(ws.id)) && held()
+  if (reason) {
+    (ws.queued ??= []).push({ text, files, opts, at: Date.now() })
+    save(); changed()
+    metric('queue', { ws: ws.id, reason })
+    return { queued: true, reason }
+  }
+  await deliver(ws, text, files, opts)
+}
+// Why a new worker can't start now: 'cap' (maxAgents at work, Settings), 'quota' (90 % of the plan's session), or null.
+function held() {
+  if (state.workspaces.filter(w => A.working(A.runtime(w.id))).length >= (state.defaults?.maxAgents ?? 5)) return 'cap'
+  return (A.usageNow()?.limits.find(l => l.kind === 'session')?.pct ?? 0) >= 90 ? 'quota' : null
+}
+// Sends the queued messages whose turn has come, oldest first: a workspace's all at once (the first starts its turn,
+// the others fold into it). Called on every state change (changed() below: turn ends, usage refreshes, Settings) and at startup.
+// ponytail: an item leaves the queue before it is sent: a crash meanwhile loses it rather than sending it twice.
+let draining = false
+async function drain() {
+  if (draining) return
+  draining = true
+  try {
+    for (;;) {
+      const free = !held()
+      const ws = state.workspaces.filter(w => w.queued?.length && !w.archived && !terms.get(w.id + ':claude')?.alive && (free || A.working(A.runtime(w.id))))
+        .sort((a, b) => a.queued[0].at - b.queued[0].at)[0]
+      if (!ws) return
+      while (ws.queued.length) {
+        const q = ws.queued.shift(); save(); changed()
+        await deliver(ws, q.text, q.files, q.opts).catch(e => R.report(ws, { ok: false, text: e.message }))
+      }
+    }
+  } finally { draining = false }
+}
+async function deliver(ws, text, files, opts) {
   if (ws === state.aiguilleur && !A.working(A.runtime(ws.id)) && R.stale(readLog(ws.id), ws.context)) A.forget(ws)
   // A worker hears what merged meanwhile along with this message (no turn of its own); forgotten only once sent.
   // Not on a slash command (it must still start with '/'): they wait for the next plain message.
@@ -729,6 +768,7 @@ for (const r of state.repos) scanLogo(r)
 
 // The aiguilleur, and Telegram once set up in Settings (lib/remote.js).
 R.start({ port: PORT, changed, afterTurn: scanOverlaps, send: (ws, text, paths, opts) => sendTo(ws, text, attached(ws, paths), opts) })
+drain() // what was queued before a restart
 
 // Plan usage in the sidebar: now, every 3 min, and after each agent turn (lib/agent.js).
 A.refreshUsage(); setInterval(A.refreshUsage, 3 * 60_000).unref()

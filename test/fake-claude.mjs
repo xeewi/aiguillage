@@ -19,6 +19,8 @@
 //                          then this one works ~800 ms and says "raced"
 //   report <status> <text…>  replies <text> then an aig-report block (status as given; checks: fake)
 //   merge                  a tool that takes ~800 ms; messages sent meanwhile join this turn (one result for all)
+//   hang <ms>              init, then not a line for <ms> (default 1000), then replies "woke" (the watchdog's silence)
+//   loop                   the same Bash call (echo same) three times, then ~500 ms of thought, then "looped"
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
 import readline from 'node:readline'
 import { execSync } from 'node:child_process'
@@ -255,6 +257,15 @@ async function turn(text) {
       say('merged: ' + joined.join(' | '))
       break
     }
+    case 'hang':
+      await sleep(Number(rest[0]) || 1000)
+      say('woke')
+      break
+    case 'loop':
+      for (let i = 0; i < 3; i++) await tool('Bash', { command: 'echo same', description: 'fake' }, i => execSync(i.command, { encoding: 'utf8' }))
+      await sleep(500) // still in the turn when the watchdog looks
+      say('looped')
+      break
     case 'report': {
       const [status, ...words] = rest
       say(`${words.join(' ')}\n\n\`\`\`aig-report\nstatus: ${status}\nchecks: fake\nunverified: none\nneeds: none\n\`\`\``)

@@ -177,3 +177,16 @@ test('a confirmation survives stop/forget and is never approved by switching to 
   assert.equal(ran, true)
   assert.equal(A.runtime('cf').pending.length, 0)
 })
+
+test('stalled(): silent past STALL_SILENT, loop on LOOP identical calls, long past STALL_LONG, null when not working', () => {
+  const now = 10 * A.STALL_LONG, fresh = { busy: true, seen: now, turnAt: now, calls: [] }
+  assert.equal(A.stalled(fresh, now), null)
+  assert.equal(A.stalled({ ...fresh, seen: now - A.STALL_SILENT }, now), 'silent')
+  assert.equal(A.stalled({ ...fresh, seen: now - A.STALL_SILENT + 1 }, now), null)
+  const same = Array(A.LOOP).fill('Bash{"command":"echo same"}')
+  assert.equal(A.stalled({ ...fresh, calls: same }, now), 'loop')
+  assert.equal(A.stalled({ ...fresh, calls: [...same.slice(1), 'Read{}'] }, now), null, 'one different call breaks the loop')
+  assert.equal(A.stalled({ ...fresh, calls: same.slice(1) }, now), null, 'fewer than LOOP calls is no loop')
+  assert.equal(A.stalled({ ...fresh, turnAt: now - A.STALL_LONG }, now), 'long')
+  assert.equal(A.stalled({ busy: false, seen: 0, turnAt: 0, calls: same }, now), null)
+})

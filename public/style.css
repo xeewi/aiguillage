@@ -63,7 +63,7 @@ code, pre, .mono, #wsBranch, .terminus, .pill.script, .xterm-host { font-variant
 .pill.new i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
 .pill.script { border: 1px solid var(--line); color: var(--muted); font-family: var(--mono); font-weight: 500; gap: 4px; }
 .pill.script svg { width: 10px; height: 10px; }
-.pill.shell { border: 1px solid var(--line); color: var(--muted); }
+.pill:is(.shell, .queued) { border: 1px solid var(--line); color: var(--muted); }
 .pill.err { border: 1px solid var(--ask); color: var(--ask-text); gap: 4px; }
 .pill.err svg { width: 10px; height: 10px; }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none !important; } }
@@ -439,6 +439,7 @@ dialog .row { margin-top: 16px; }
 .setRow > span { flex: 1; font-weight: 700; }
 .setRow > #updateNote { font-weight: 500; font-size: 13px; }
 .setRow select { min-width: 220px; }
+.setRow input[type=number] { width: 6em; }
 #setTelegram .err { margin: 8px 0 0; font-size: 13px; color: var(--ask-text); }
 .setRepo .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setRepo select { max-width: 200px; }

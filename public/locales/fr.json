@@ -25,7 +25,9 @@
     "sessions": "Sessions",
     "newSession": "Nouvelle session",
     "newSessionTitle": "Nouvelle session, rattachée à aucun projet",
-    "confirmDeleteSession": "Supprimer {{name}} et son dossier ?"
+    "confirmDeleteSession": "Supprimer {{name}} et son dossier ?",
+    "queued_one": "{{count}} en attente",
+    "queued_other": "{{count}} en attente"
   },
   "status": {
     "ask": "Attend ta réponse",
@@ -124,7 +126,9 @@
     "tooLarge": "{{name}} dépasse 100 Mo.",
     "interactiveOnly": "{{cmd}} ouvre son propre écran, que le tchat ne peut pas afficher. Lance-le dans le vrai Claude Code, sur cette même conversation :",
     "openInTerminal": "Ouvrir {{cmd}} dans le terminal",
-    "sessionReady": "Une session rattachée à aucun projet, dans <code>{{path}}</code>. Donne sa tâche à l'agent."
+    "sessionReady": "Une session rattachée à aucun projet, dans <code>{{path}}</code>. Donne sa tâche à l'agent.",
+    "queued_cap": "En file d'attente : autant d'agents que les Réglages le permettent sont au travail. Il part dès que l'un d'eux finit.",
+    "queued_quota": "En file d'attente : 90 % de la session du forfait sont utilisés. Il part quand l'usage redescend."
   },
   "report": {
     "testsTouched": "⚠️ Fichiers de test modifiés pendant ce tour : {{files}}",
@@ -227,7 +231,8 @@
     "telegramDigest": "Comptes rendus",
     "digestOff": "Tout envoyer au fur et à mesure",
     "digestBatched": "Tout de suite seulement ce qui a besoin de toi ; le reste à 9 h, 13 h et 18 h (/digest à tout moment)",
-    "telegramLinked": "Relié à {{name}}"
+    "telegramLinked": "Relié à {{name}}",
+    "maxAgents": "Agents au travail en même temps"
   },
   "metrics": {
     "title": "Mesures (14 derniers jours)",
@@ -318,13 +323,18 @@
     "notified": "{{branch}} a été fusionnée dans {{base}}. Invités à rebaser au prochain message : {{who}}.",
     "brief": "⚠️ chevauche {{who}} : {{files}}"
   },
+  "stall": {
+    "silent": "Aucun signe de vie depuis {{min}} min",
+    "loop": "Répète la même action",
+    "long": "Tour de plus d'une heure"
+  },
   "telegram": {
     "pair": "Ce bot appartient à un Aiguillage. Pour relier ce chat, ouvre le lien affiché dans Aiguillage, dans Réglages → Telegram.",
     "none": "Aucun workspace actif.",
     "gone": "Ce workspace n'existe plus.",
     "mediaMissing": "fichier introuvable.",
     "mediaTooBig": "trop gros pour un bot Telegram (50 Mo max) : à voir sur le Mac.",
-    "tooBig":"{{name}} est trop gros pour un bot Telegram (20 Mo max) : rien n'a été envoyé. Partage-le depuis le Mac, ou envoie-en un plus petit.",
+    "tooBig": "{{name}} est trop gros pour un bot Telegram (20 Mo max) : rien n'a été envoyé. Partage-le depuis le Mac, ou envoie-en un plus petit.",
     "digestTitle": "{{count}} comptes rendus depuis le dernier récapitulatif",
     "digestEmpty": "Aucun compte rendu en attente.",
     "fromMac": "🖥 Toi, sur le Mac :",
@@ -349,7 +359,9 @@
       "idle_other": "{{count}} au repos",
       "overlap": "⚠️ Mêmes fichiers modifiés dans deux espaces",
       "asks": "demande {{tool}}",
-      "paused": "⏸ Mode remote coupé : ce tableau n'est plus mis à jour. /remote pour le relancer."
+      "paused": "⏸ Mode remote coupé : ce tableau n'est plus mis à jour. /remote pour le relancer.",
+      "queued_one": "{{count}} en file",
+      "queued_other": "{{count}} en file"
     }
   }
 }

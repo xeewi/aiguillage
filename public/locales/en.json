@@ -25,7 +25,9 @@
     "sessions": "Sessions",
     "newSession": "New session",
     "newSessionTitle": "New session, tied to no project",
-    "confirmDeleteSession": "Delete {{name}} and its folder?"
+    "confirmDeleteSession": "Delete {{name}} and its folder?",
+    "queued_one": "{{count}} queued",
+    "queued_other": "{{count}} queued"
   },
   "status": {
     "ask": "Needs you",
@@ -124,7 +126,9 @@
     "tooLarge": "{{name}} is over 100 MB.",
     "interactiveOnly": "{{cmd}} opens its own screen, which the chat can’t show. Run it in the real Claude Code, on this same conversation:",
     "openInTerminal": "Open {{cmd}} in the terminal",
-    "sessionReady": "A session tied to no project, in <code>{{path}}</code>. Give the agent its task."
+    "sessionReady": "A session tied to no project, in <code>{{path}}</code>. Give the agent its task.",
+    "queued_cap": "Queued: as many agents as Settings allow are at work. It is sent as soon as one finishes.",
+    "queued_quota": "Queued: 90 % of the plan's session is used. It is sent once usage drops."
   },
   "report": {
     "testsTouched": "⚠️ Test files changed this turn: {{files}}",
@@ -227,7 +231,8 @@
     "telegramDigest": "Reports",
     "digestOff": "Push every report",
     "digestBatched": "Right away only what needs you; the rest at 9:00, 13:00 and 18:00 (/digest any time)",
-    "telegramLinked": "Linked to {{name}}"
+    "telegramLinked": "Linked to {{name}}",
+    "maxAgents": "Agents at work at once"
   },
   "metrics": {
     "title": "Measures (last 14 days)",
@@ -318,13 +323,18 @@
     "notified": "{{branch}} was merged into {{base}}. Told to rebase on their next message: {{who}}.",
     "brief": "⚠️ overlaps {{who}}: {{files}}"
   },
+  "stall": {
+    "silent": "No sign of life for {{min}} min",
+    "loop": "Repeats the same action",
+    "long": "Turn longer than an hour"
+  },
   "telegram": {
     "pair": "This bot belongs to an Aiguillage. To link this chat, open the link shown in Aiguillage, in Settings → Telegram.",
     "none": "No active workspace.",
     "gone": "This workspace no longer exists.",
     "mediaMissing": "file not found.",
     "mediaTooBig": "too big for a Telegram bot (50 MB max): see it on the Mac.",
-    "tooBig":"{{name}} is too big for a Telegram bot (20 MB max): nothing was sent. Share it from the Mac, or send a smaller one.",
+    "tooBig": "{{name}} is too big for a Telegram bot (20 MB max): nothing was sent. Share it from the Mac, or send a smaller one.",
     "digestTitle": "{{count}} reports since the last digest",
     "digestEmpty": "No report waiting.",
     "fromMac": "🖥 You, at the Mac:",
@@ -349,7 +359,9 @@
       "idle_other": "{{count}} idle",
       "overlap": "⚠️ Two workspaces changed the same files",
       "asks": "asks to use {{tool}}",
-      "paused": "⏸ Remote mode off: this board no longer updates. /remote to turn it back on."
+      "paused": "⏸ Remote mode off: this board no longer updates. /remote to turn it back on.",
+      "queued_one": "{{count}} queued",
+      "queued_other": "{{count}} queued"
     }
   }
 }
