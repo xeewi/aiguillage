@@ -23,8 +23,10 @@ const exec = promisify(execFile)
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT || 4317)
 const HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`])
-// The aiguilleur's secret, in memory only: lib/agent.js hands it to its process alone (cleanEnv strips it elsewhere).
-const TOKEN = (process.env.AIGUILLAGE_TOKEN ||= randomBytes(24).toString('hex'))
+// The aiguilleur's secret (AIGUILLAGE_TOKEN overrides, for tests), in memory only: lib/agent.js hands it to its process alone.
+const TOKEN = process.env.AIGUILLAGE_TOKEN || randomBytes(24).toString('hex')
+delete process.env.AIGUILLAGE_TOKEN // git hooks, gh, update… inherit process.env: only the aiguilleur's spawn gets it
+A.setToken(TOKEN)
 const SHELL = process.env.SHELL || '/bin/zsh'
 
 // ---------- live updates ----------
@@ -495,6 +497,7 @@ const server = http.createServer(async (req, res) => {
   if (!who) { const { message: error, key } = notice('errors.unauthorized'); res.writeHead(401, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error, key })) }
   const parts = url.pathname.split('/') // ['', 'api', kind, id, action]
   const key = `${req.method} ${parts.length > 3 ? ['', 'api', parts[2], ':id', ...parts.slice(4)].join('/') : url.pathname}`
+  if (who === 'aiguilleur') res.on('finish', () => metric('api', { route: key, status: res.statusCode })) // every exit: 404, 413, 415…
   // Uploads are the one raw body: still not a type a cross-site form can send without a preflight.
   const raw = key === 'POST /api/workspaces/:id/upload'
   if (req.method !== 'GET' && req.headers['content-type'] !== (raw ? 'application/octet-stream' : 'application/json')) { res.writeHead(415); return res.end() }
@@ -520,11 +523,9 @@ const server = http.createServer(async (req, res) => {
       if (!ctx[parts[2] === 'repos' ? 'repo' : 'ws']) throw fail('errors.notFound')
     }
     const out = await route(ctx)
-    if (who === 'aiguilleur') metric('api', { route: key, status: 200 })
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify(out ?? {}))
   } catch (e) {
-    if (who === 'aiguilleur') metric('api', { route: key, status: 400 })
     res.writeHead(400, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ error: (e.stderr || e.message || String(e)).trim(), key: e.key, vars: e.vars }))
   }

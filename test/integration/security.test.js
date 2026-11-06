@@ -1,10 +1,12 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
+import { readFileSync, writeFileSync, chmodSync } from 'node:fs'
+import { join } from 'node:path'
 import net from 'node:net'
 import { networkInterfaces } from 'node:os'
 import WebSocket from 'ws'
-import { startServer, socket, waitFor, setup } from '../helpers.mjs'
+import { startServer, socket, waitFor, setup, tmp } from '../helpers.mjs'
 
 let srv
 before(async () => { srv = await startServer() })
@@ -133,7 +135,7 @@ test("the page's plain GET (sec-fetch-site same-origin, no Origin) still works",
   assert.equal((await raw({ path: '/api/state' })).status, 200)
 })
 
-test('only the aiguilleur sees AIGUILLAGE_TOKEN: not the agents, not the terminals', async () => {
+test('only the aiguilleur sees AIGUILLAGE_TOKEN: not the agents, not their git hooks', async () => {
   const { w } = await setup(srv)
   const envOf = async (id, post) => {
     await post('env')
@@ -145,4 +147,20 @@ test('only the aiguilleur sees AIGUILLAGE_TOKEN: not the agents, not the termina
   const ai = await envOf('aiguilleur', text => srv.asAiguilleur('POST', '/workspaces/aiguilleur/send', { text }))
   assert.equal((await envOf(w.id, text => srv.api('POST', `/workspaces/${w.id}/send`, { text }))).AIGUILLAGE_TOKEN, undefined)
   assert.equal(ai.AIGUILLAGE_TOKEN, 'test-token')
+})
+
+test('a git hook run by a page-driven commit does not see AIGUILLAGE_TOKEN', async () => {
+  const { repoPath, w } = await setup(srv)
+  const out = join(tmp(), 'token.txt')
+  const hook = join(repoPath, '.git/hooks/pre-commit')
+  writeFileSync(hook, `#!/bin/sh\nprintf '%s' "$AIGUILLAGE_TOKEN" > '${out}'\n`); chmodSync(hook, 0o755)
+  writeFileSync(join(w.path, 'f.txt'), 'x')
+  await srv.api('POST', `/workspaces/${w.id}/commit`, { message: 'm' })
+  assert.equal(readFileSync(out, 'utf8'), '')
+})
+
+test('every API exit of an aiguilleur call is measured, 404 included', async () => {
+  await assert.rejects(srv.asAiguilleur('GET', '/nope'), { status: 404 })
+  const m = readFileSync(join(srv.home, 'metrics.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l))
+  assert.ok(m.some(e => e.kind === 'api' && e.route === 'GET /api/nope' && e.status === 404), JSON.stringify(m.slice(-3)))
 })
