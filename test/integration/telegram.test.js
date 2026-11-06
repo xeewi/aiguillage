@@ -70,6 +70,7 @@ test('Settings: a bad token is refused; a good one gives a one-time link, and on
   const after = (await srv.state()).telegram
   assert.deepEqual([after.linked, after.chatName, after.link, after.remote], [true, 'Ada', undefined, true], 'linking from the phone turns remote mode on')
   await waitFor(() => calls.some(c => c.method === 'setMyCommands' && c.commands.some(x => x.command === 'remote')), { what: 'command menu' })
+  await srv.api('PATCH', '/telegram', { digest: 'off' }) // the tests below expect every report at once; the digest ones switch it on
   const board = await message(m => m.text.startsWith('No active workspace.') && m.disable_notification, 'the board')
   await waitFor(() => calls.some(c => c.method === 'pinChatMessage' && c.message_id === board.message_id), { what: 'board pinned' })
 })
@@ -264,9 +265,48 @@ test('a crash still reports ❌', async () => {
   assert.deepEqual([rep.status, rep.ok], [null, false])
 })
 
+const lastReport = w => srv.log('aiguilleur').then(l => l.findLast(e => e.type === 'cg_report' && e.ws === w.id))
+
+test('batched: a done report waits, a blocked one is pushed at once', async () => {
+  await srv.api('PATCH', '/telegram', { digest: 'batched' })
+  assert.equal((await srv.state()).telegram.digest, 'batched')
+  const a = await setup(srv), b = await setup(srv)
+  await srv.turn(a.w.id, 'quiet work')
+  await waitFor(() => lastReport(a.w), { what: 'the done report' })
+  await srv.turn(b.w.id, 'report blocked Need the API key')
+  await message(m => m.text.includes('Need the API key'), 'the blocked report, at once')
+  assert.ok(!sent.some(m => m.text.includes('quiet work')), 'the done one waits')
+})
+
+test('/digest sends the waiting reports in one message', async () => {
+  say('/digest')
+  const d = await message(m => m.text.startsWith('**') && m.text.includes('reports since the last digest'), 'the digest')
+  assert.match(d.text, /^\*\*\d+ reports since the last digest\*\*\n\n\*\*✅ .+\*\* ok: quiet work/)
+  say('/digest')
+  await message(m => m.text === 'No report waiting.', 'nothing left')
+})
+
+test('the waiting reports survive a restart', async () => {
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'before the restart')
+  await waitFor(async () => (await lastReport(w)) && JSON.parse(readFileSync(join(srv.home, 'state.json'), 'utf8')).telegram.queue?.length, { what: 'queued and saved' })
+  const { home } = srv
+  await srv.stop()
+  srv = await startServer({ home, env: { AIGUILLAGE_TELEGRAM_API: `http://127.0.0.1:${tg.address().port}` } })
+  say('/digest')
+  await message(m => m.text.includes('reports since the last digest') && m.text.includes('before the restart'), 'the digest, after the restart')
+})
+
+test('digest off: every report pushed as before', async () => {
+  await srv.api('PATCH', '/telegram', { digest: 'off' })
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'pushed now')
+  await message(m => m.text.endsWith('ok: pushed now'), 'the report, at once')
+})
+
 test('Disconnect stops the bot', async () => {
   await srv.api('POST', '/telegram', { token: '' })
-  assert.deepEqual((await srv.state()).telegram, { on: false, linked: false, remote: false })
+  assert.deepEqual((await srv.state()).telegram, { on: false, linked: false, remote: false, digest: 'batched' })
 })
 
 test("a finished turn adds what's worth keeping to the project's journal, in the aiguilleur's folder", async () => {

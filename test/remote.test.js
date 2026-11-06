@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 
 const HOME = realpathSync(mkdtempSync(join(tmpdir(), 'cgremote-')))
 process.env.AIGUILLAGE_HOME = HOME
-const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md, split } = await import('../lib/remote.js')
+const { route, media, absolute, forTelegram, journalLines, notesFile, prompt, stale, IDLE, FULL, boardText, activity, md, split, dueSlot, urgent, digestText } = await import('../lib/remote.js')
 const { i18n } = await import('../lib/i18n.js')
 
 const ME = 42
@@ -149,4 +149,30 @@ test('prompt(): a long report is cut in its body, never in its block', () => {
   const p = prompt('?', {}, [{ type: 'cg_report', ws: 'w', label: 'A / b', ok: true, status: 'blocked', text: 'x'.repeat(5000) + '\n\n' + block }])
   assert.ok(p.includes(block + '\n(workspace id w)') && p.startsWith('[Reports') && p.includes('⏸ A / b'))
   assert.ok(p.length < 2500)
+})
+
+test('dueSlot: a slot passed since the last digest', () => {
+  const at = h => new Date(2026, 10, 20, h, 5).getTime()
+  assert.equal(dueSlot(at(8), at(9)), true)
+  assert.equal(dueSlot(at(9), at(12)), false)
+  assert.equal(dueSlot(at(9), at(13)), true)
+  assert.equal(dueSlot(at(18), new Date(2026, 10, 21, 8).getTime()), false)
+  assert.equal(dueSlot(at(18), new Date(2026, 10, 21, 9, 1).getTime()), true, 'the next morning')
+})
+
+test('urgent: failed, waiting, red check, touched tests, overlap, stall, a confirmed action; a plain done is not', () => {
+  const ok = { ok: true, status: null }
+  assert.equal(urgent(ok), false)
+  assert.equal(urgent({ ...ok, check: { ok: true } }), false)
+  for (const x of [{ ok: false }, { status: 'blocked' }, { status: 'decision' }, { check: { ok: false } }, { testsTouched: ['a.test.js'] }, { overlap: ['a.js'] }, { stall: 'no output for 20 min' }, { action: true }])
+    assert.equal(urgent({ ...ok, ...x }), true, JSON.stringify(x))
+})
+
+test('digestText: one line per report, cut at 120 characters', () => {
+  const t = (k, v) => `${k}:${v.count}`
+  const text = digestText([{ ws: 'a', md: `**✅ app / login**\n\nFirst line\nsecond line` }, { ws: 'b', md: `**✅ app / long**\n\n${'x'.repeat(300)}` }], t)
+  const [title, a, b] = text.split('\n\n')
+  assert.equal(title, '**telegram.digestTitle:2**')
+  assert.equal(a, '**✅ app / login** First line')
+  assert.equal(b, `**✅ app / long** ${'x'.repeat(120)}`)
 })

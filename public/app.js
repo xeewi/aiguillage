@@ -464,6 +464,12 @@ function renderTelegram() {
   who.append(h('b', null, '@' + tg.bot), tg.linked ? h('span', 'muted', ' · ' + t('settings.telegramLinked', { name: tg.chatName || '?' })) : '')
   off.onclick = guard(async () => { if (confirm(t('settings.telegramConfirmDisconnect'))) await api('POST', '/telegram', { token: '' }) })
   row.append(who, off); box.append(row)
+  if (tg.linked) {
+    const d = h('label', 'setRow'), sel = h('select'), name = h('span', null, t('settings.telegramDigest'))
+    for (const k of ['batched', 'off']) { const o = h('option', null, t(k === 'off' ? 'settings.digestOff' : 'settings.digestBatched')); o.value = k; sel.append(o) }
+    sel.value = tg.digest; sel.onchange = guard(() => api('PATCH', '/telegram', { digest: sel.value }))
+    d.append(name, sel); box.append(d)
+  }
   if (!tg.linked) {
     const step = h('div', 'setRow'), text = h('div', 'grow'), go = h('button', null, t('settings.telegramOpen'))
     text.append(h('div', null, t('settings.telegramWaiting')), h('div', 'muted', t('settings.telegramManual', { command: `/start ${tg.code}`, bot: tg.bot })))

@@ -409,7 +409,11 @@ const routes = {
   // Settings → Telegram: a bot token ('' disconnects); the page then gets the link that ties the user's chat to it.
   'POST /api/telegram': async ({ body }) => { await R.connect(body.token); return {} },
   // Remote mode (sidebar button): Telegram gets the reports and requests, after a catch-up.
-  'PATCH /api/telegram': async ({ body }) => { await R.setRemote(!!body.remote); return {} },
+  'PATCH /api/telegram': async ({ body }) => {
+    if (body.digest !== undefined) R.setDigest(body.digest)
+    if (body.remote !== undefined) await R.setRemote(!!body.remote)
+    return {}
+  },
   // Desktop app: restart into the downloaded update (lib/update.js).
   'POST /api/update': () => { U.install(); return {} },
   // Same as the app menu's « Check for updates… »; progress comes back through the state broadcasts.
@@ -547,7 +551,7 @@ function guard(ctx, key, vars, run) {
   if (ctx.caller !== 'aiguilleur') return run()
   const label = notice(key, vars).message, at = ctx.ws
   // No workspace yet (a creation refused or failed): the report is the aiguilleur's own, titled with the request.
-  const tell = (ok, text, ws = at) => R.report(ws ?? state.aiguilleur, { ok, text, title: ws ? undefined : label })
+  const tell = (ok, text, ws = at) => R.report(ws ?? state.aiguilleur, { ok, text, title: ws ? undefined : label, action: true })
   const id = A.confirm(state.aiguilleur, { label, key, vars, about: at?.id }, async allow => {
     if (!allow) return tell(false, notice('confirm.denied', { action: label }).message)
     try {

@@ -224,6 +224,9 @@
     "telegramWaiting": "Dernière étape : ouvre Telegram avec ce bouton et appuie sur Démarrer.",
     "telegramOpen": "Ouvrir dans Telegram",
     "telegramManual": "Ou envoie {{command}} à @{{bot}}.",
+    "telegramDigest": "Comptes rendus",
+    "digestOff": "Tout envoyer au fur et à mesure",
+    "digestBatched": "Tout de suite seulement ce qui a besoin de toi ; le reste à 9 h, 13 h et 18 h (/digest à tout moment)",
     "telegramLinked": "Relié à {{name}}"
   },
   "metrics": {
@@ -322,6 +325,8 @@
     "mediaMissing": "fichier introuvable.",
     "mediaTooBig": "trop gros pour un bot Telegram (50 Mo max) : à voir sur le Mac.",
     "tooBig":"{{name}} est trop gros pour un bot Telegram (20 Mo max) : rien n'a été envoyé. Partage-le depuis le Mac, ou envoie-en un plus petit.",
+    "digestTitle": "{{count}} comptes rendus depuis le dernier récapitulatif",
+    "digestEmpty": "Aucun compte rendu en attente.",
     "fromMac": "🖥 Toi, sur le Mac :",
     "linked": "C'est relié ! Écris n'importe quoi pour parler à l'Aiguilleur. /remote et /local activent et coupent les comptes rendus ; /status liste les workspaces.",
     "remoteOn": "📡 Mode remote activé : la conversation avec l'Aiguilleur, les comptes rendus des agents et les demandes arrivent ici. /local pour arrêter.",
@@ -329,6 +334,7 @@
     "cmd": {
       "remote": "Mode remote : tout rattraper, puis recevoir comptes rendus et demandes",
       "local": "De retour devant le Mac : plus de comptes rendus",
+      "digest": "Envoyer les comptes rendus en attente",
       "status": "Où en est chaque workspace",
       "stop": "Arrêter l'Aiguilleur, ou l'agent du compte rendu auquel tu réponds"
     },

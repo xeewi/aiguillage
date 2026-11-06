@@ -224,6 +224,9 @@
     "telegramWaiting": "Last step: open Telegram with this button and tap Start.",
     "telegramOpen": "Open in Telegram",
     "telegramManual": "Or send {{command}} to @{{bot}}.",
+    "telegramDigest": "Reports",
+    "digestOff": "Push every report",
+    "digestBatched": "Right away only what needs you; the rest at 9:00, 13:00 and 18:00 (/digest any time)",
     "telegramLinked": "Linked to {{name}}"
   },
   "metrics": {
@@ -322,6 +325,8 @@
     "mediaMissing": "file not found.",
     "mediaTooBig": "too big for a Telegram bot (50 MB max): see it on the Mac.",
     "tooBig":"{{name}} is too big for a Telegram bot (20 MB max): nothing was sent. Share it from the Mac, or send a smaller one.",
+    "digestTitle": "{{count}} reports since the last digest",
+    "digestEmpty": "No report waiting.",
     "fromMac": "🖥 You, at the Mac:",
     "linked": "Linked! Write anything to talk to the Aiguilleur. /remote and /local turn the reports on and off; /status lists the workspaces.",
     "remoteOn": "📡 Remote mode on: the conversation with the Aiguilleur, the agents' reports and the requests come here. /local to stop.",
@@ -329,6 +334,7 @@
     "cmd": {
       "remote": "Remote mode: catch up, then get the reports and requests",
       "local": "Back at the Mac: no more reports",
+      "digest": "Send the waiting reports now",
       "status": "Where every workspace stands",
       "stop": "Stop the Aiguilleur, or the agent of the report you reply to"
     },
