@@ -620,6 +620,7 @@ function renderEv(ev) {
     head.onclick = () => select(ev.ws)
     m.append(head)
     if (ev.text) m.append(md(ev.text))
+    if (ev.testsTouched?.length) m.append(h('div', 'meta', t('report.testsTouched', { files: ev.testsTouched.join(', ') })))
     return thread.append(m)
   }
   if (ev.type === 'task') {

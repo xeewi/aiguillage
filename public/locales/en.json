@@ -118,6 +118,9 @@
     "openInTerminal": "Open {{cmd}} in the terminal",
     "sessionReady": "A session tied to no project, in <code>{{path}}</code>. Give the agent its task."
   },
+  "report": {
+    "testsTouched": "⚠️ Test files changed this turn: {{files}}"
+  },
   "notify": {
     "done": "{{name}} finished",
     "failed": "{{name}} failed"

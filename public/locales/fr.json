@@ -118,6 +118,9 @@
     "openInTerminal": "Ouvrir {{cmd}} dans le terminal",
     "sessionReady": "Une session rattachée à aucun projet, dans <code>{{path}}</code>. Donne sa tâche à l'agent."
   },
+  "report": {
+    "testsTouched": "⚠️ Fichiers de test modifiés pendant ce tour : {{files}}"
+  },
   "notify": {
     "done": "{{name}} a terminé",
     "failed": "{{name}} a échoué"

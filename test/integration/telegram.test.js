@@ -245,7 +245,7 @@ test('a long text goes whole, in several messages: rich ones, or plain ones of 4
 test('a turn ending with a report block: its status is kept, ⏸ when it waits on the user', async () => {
   const { repo, w } = await setup(srv)
   await srv.turn(w.id, 'report decision Which DB?')
-  const rep = (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id)
+  const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id), { what: 'the report' })
   assert.deepEqual([rep.status, rep.ok], ['decision', true])
   await message(m => m.text.startsWith(`**⏸ ${repo.name} / `) && m.text.includes('Which DB?'), 'the report, marked ⏸')
 })
@@ -253,7 +253,7 @@ test('a turn ending with a report block: its status is kept, ⏸ when it waits o
 test('a turn without a block still reports, ✅ as before', async () => {
   const { w } = await setup(srv)
   await srv.turn(w.id, 'hello')
-  const rep = (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id)
+  const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id), { what: 'the report' })
   assert.deepEqual([rep.status, rep.ok, rep.text], [null, true, 'ok: hello'])
 })
 
@@ -276,4 +276,15 @@ test("a finished turn adds what's worth keeping to the project's journal, in the
   const { name } = await srv.ws(w.id)
   await waitFor(() => existsSync(file) && readFileSync(file, 'utf8').includes(`(${name}): `), { what: 'journal line' })
   assert.match(readFileSync(file, 'utf8'), /^# repo\n\nPath: .*\n\n## Journal\n- \d{4}-\d\d-\d\d \(/)
+})
+
+test('a turn that changes test files says so in its report; one that does not, nothing', async () => {
+  const { w } = await setup(srv, { 'src/a.js': 'a', 'test/a.test.js': 'a' })
+  const lastReport = () => srv.log('aiguilleur').then(l => l.findLast(e => e.type === 'cg_report' && e.ws === w.id))
+  await srv.turn(w.id, 'write test/x.test.js broken')
+  const rep = await waitFor(lastReport, { what: 'the report' })
+  assert.deepEqual(rep.testsTouched, ['test/x.test.js'])
+  await srv.turn(w.id, 'write src/y.js ok')
+  await waitFor(async () => (await lastReport()).text.includes('y.js') && (await lastReport()), { what: 'the second report' })
+  assert.equal('testsTouched' in await lastReport(), false)
 })
