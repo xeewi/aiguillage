@@ -1,7 +1,7 @@
 // The watchdog (lib/agent.js stalled) and the agent cap's queue (server.js sendTo / drain).
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { startServer, setup, waitFor, sleep } from '../helpers.mjs'
 
@@ -151,6 +151,25 @@ test('a brief that has to wait says so: queued in the page\'s answer, and in the
     const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === b.id), { what: 'the brief report' })
     assert.deepEqual([rep.key, rep.vars.text.some(l => typeof l === 'string' && l.includes('From the aiguilleur')), rep.queued], ['confirm.brief', true, 'cap'])
     await waitFor(async () => (await results(srv, b.id)) === 2, { what: 'both briefs sent once a ends' })
+  } finally { await cap(srv, 5) }
+})
+
+test("a queued brief that is cancelled, or fails to go out, doesn't stay the workspace's task", async () => {
+  const { w: a, repo } = await setup(srv)
+  const [b, c] = [await srv.api('POST', '/workspaces', { repoId: repo.id }), await srv.api('POST', '/workspaces', { repoId: repo.id })]
+  await cap(srv, 1)
+  try {
+    await srv.api('POST', `/workspaces/${a.id}/send`, { text: 'hang 1200' })
+    await waitFor(async () => (await srv.ws(a.id)).busy, { what: 'a working' })
+    await srv.api('POST', `/workspaces/${b.id}/brief`, { goal: 'Cancel me' })
+    const [q] = (await srv.ws(b.id)).queued
+    await srv.api('DELETE', `/workspaces/${b.id}/queued/${q.id}`)
+    assert.equal((await srv.ws(b.id)).task, undefined, 'cancelled: no task')
+    // Its worktree gone by the time the slot frees: the delivery fails.
+    await srv.api('POST', `/workspaces/${c.id}/brief`, { goal: 'Lost' })
+    rmSync(c.path, { recursive: true, force: true })
+    await waitFor(async () => (await srv.log('aiguilleur')).some(e => e.type === 'cg_report' && e.ws === c.id && e.key === 'errors.worktreeMissing'), { what: 'the failed delivery' })
+    assert.equal((await srv.ws(c.id)).task, undefined, 'never delivered: no task')
   } finally { await cap(srv, 5) }
 })
 

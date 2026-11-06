@@ -520,7 +520,9 @@ const routes = {
   'DELETE /api/workspaces/:id/queued/:item': ({ ws, item }) => {
     const i = ws.queued?.findIndex(q => q.id === item) ?? -1
     if (i < 0) throw fail('errors.notFound') // sent meanwhile
-    ws.queued.splice(i, 1); save(); changed(); return {}
+    const [q] = ws.queued.splice(i, 1)
+    if (q.opts?.brief) delete ws.task // never given
+    save(); changed(); return {}
   },
   'GET /api/workspaces/:id/commands': ({ ws }) => A.commands(ws),
   // Commands with a full-screen UI (/permissions, /resume, /memory…) don't exist in -p mode: run them in the real,
@@ -659,9 +661,10 @@ function briefLabel(ws, b, repoId = ws.repoId) {
   return [{ key: 'confirm.briefSent' }, briefText(b), ...warn]
 }
 // The brief reaches the agent as its task and stays on the workspace (shown on the page): kept only once sent or
-// queued, never one the agent didn't get.
+// queued, never one the agent didn't get (queued, opts.brief marks it: cancelled or failing to go out, the task goes).
+// ponytail: the task goes even if a later brief also waits; one task per workspace, the last one given.
 async function giveBrief(ws, b) {
-  const q = await sendTo(ws, briefText(b)) // { queued, reason } when it waits
+  const q = await sendTo(ws, briefText(b), [], { brief: true }) // { queued, reason } when it waits
   ws.task = { ...b, at: Date.now() }
   save(); changed()
   metric('brief', { ws: ws.id, criteria: b.done.length })
@@ -721,7 +724,10 @@ async function drain() {
       if (!ws) return
       while (ws.queued?.length) { // archived meanwhile: its queue is gone
         const q = ws.queued.shift(); save(); changed()
-        await deliver(ws, q.text, q.files, q.opts).catch(e => R.report(ws, e.key ? { ok: false, key: e.key, vars: e.vars } : { ok: false, text: e.message }))
+        await deliver(ws, q.text, q.files, q.opts).catch(e => {
+          if (q.opts?.brief) { delete ws.task; save(); changed() } // never given
+          R.report(ws, e.key ? { ok: false, key: e.key, vars: e.vars } : { ok: false, text: e.message })
+        })
       }
     }
   } finally { draining = false }
