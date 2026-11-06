@@ -420,7 +420,7 @@ function renderSettings() {
   if (!settingsOpen) return
   const d = S.defaults ?? {}
   $('#defModel').value = d.model || ''; $('#defEffort').value = d.effort || ''; $('#defMode').value = d.permissionMode || 'auto'
-  if (document.activeElement !== $('#defMaxAgents')) $('#defMaxAgents').value = d.maxAgents ?? 5 // a state broadcast mustn't undo what you're typing
+  if (document.activeElement !== $('#defMaxAgents')) $('#defMaxAgents').value = d.maxAgents // a state broadcast mustn't undo what you're typing
   // Desktop app only (lib/update.js): in the browser there is nothing to update.
   const u = S.update ?? {}
   $('#setUpdates').hidden = (u.state ?? 'off') === 'off'
@@ -480,7 +480,7 @@ function renderTelegram() {
   }
   if (tg.error) box.append(h('p', 'err', tg.error))
 }
-const saveDefaults = guard(() => api('PATCH', '/defaults', { model: $('#defModel').value, effort: $('#defEffort').value, permissionMode: $('#defMode').value, autoUpdate: $('#autoUpdate').checked, maxAgents: $('#defMaxAgents').valueAsNumber || 5 }))
+const saveDefaults = guard(() => api('PATCH', '/defaults', { model: $('#defModel').value, effort: $('#defEffort').value, permissionMode: $('#defMode').value, autoUpdate: $('#autoUpdate').checked, maxAgents: $('#defMaxAgents').valueAsNumber }))
 $('#defModel').onchange = $('#defEffort').onchange = $('#defMode').onchange = $('#autoUpdate').onchange = $('#defMaxAgents').onchange = saveDefaults
 let checkAsked = false
 $('#checkUpdate').onclick = guard(async () => { checkAsked = true; $('#checkUpdate').disabled = true; await api('POST', '/check-update') })

@@ -210,11 +210,11 @@ test('defaults: model and effort apply to new workspaces only', async () => {
   const d = await srv.api('PATCH', '/defaults', { model: 'opus', effort: 'high', permissionMode: 'plan' })
   assert.deepEqual(d, { model: 'opus', effort: 'high', permissionMode: 'plan', autoUpdate: true, maxAgents: 5 })
   assert.equal((await srv.api('PATCH', '/defaults', { ...d, autoUpdate: false })).autoUpdate, false)
-  // maxAgents: an integer from 1 to 20, kept when the body leaves it out.
+  // maxAgents: an integer from 1 to 20, unchanged when the body leaves it out or sends no number.
   assert.equal((await srv.api('PATCH', '/defaults', { ...d, maxAgents: 50 })).maxAgents, 20)
   assert.equal((await srv.api('PATCH', '/defaults', { ...d, maxAgents: 0 })).maxAgents, 1)
-  assert.equal((await srv.api('PATCH', '/defaults', { ...d, maxAgents: 'x' })).maxAgents, 5)
   assert.equal((await srv.api('PATCH', '/defaults', { ...d, maxAgents: 7 })).maxAgents, 7)
+  for (const maxAgents of ['x', '', null]) assert.equal((await srv.api('PATCH', '/defaults', { ...d, maxAgents })).maxAgents, 7, JSON.stringify(maxAgents))
   assert.equal((await srv.api('PATCH', '/defaults', { model: 'opus', effort: 'high', permissionMode: 'plan' })).maxAgents, 7)
   await srv.api('PATCH', '/defaults', d)
   assert.deepEqual((await srv.state()).defaults, d)

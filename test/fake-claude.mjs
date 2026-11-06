@@ -22,6 +22,7 @@
 //   hang <ms>              init, then not a line for <ms> (default 1000), then replies "woke" (the watchdog's silence)
 //   loop                   the same Bash call (echo same) three times, then ~500 ms of thought, then "looped"
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
+//      FAKE_CLAUDE_SESSION_PCT (the usage probe's session %, default 42), FAKE_CLAUDE_USAGE_MS (its delay before answering).
 import readline from 'node:readline'
 import { execSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs'
@@ -46,10 +47,11 @@ if (argv.includes('--input-format') && !argv.includes('--permission-prompt-tool'
   const rl = readline.createInterface({ input: process.stdin })
   for await (const line of rl) {
     const m = JSON.parse(line)
+    await new Promise(r => setTimeout(r, Number(process.env.FAKE_CLAUDE_USAGE_MS) || 0))
     const resets = h => new Date(Date.now() + h * 3600_000).toISOString()
     process.stdout.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: m.request_id, response: {
       subscription_type: 'max', rate_limits_available: true, rate_limits: { limits: [
-        { kind: 'session', percent: 42, resets_at: resets(2), scope: null },
+        { kind: 'session', percent: Number(process.env.FAKE_CLAUDE_SESSION_PCT) || 42, resets_at: resets(2), scope: null },
         { kind: 'weekly_all', percent: 93, resets_at: resets(60), scope: null },
         { kind: 'weekly_scoped', percent: 12, resets_at: resets(60), scope: { model: { display_name: 'Opus' } } }] } } } }) + '\n')
   }

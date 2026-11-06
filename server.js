@@ -30,13 +30,18 @@ const TOKEN = process.env.AIGUILLAGE_TOKEN || randomBytes(24).toString('hex')
 delete process.env.AIGUILLAGE_TOKEN // git hooks, gh, update… inherit process.env: only the aiguilleur's spawn gets it
 A.setToken(TOKEN)
 const SHELL = process.env.SHELL || '/bin/zsh'
+// The queue (sendTo): a new worker waits while MAX_AGENTS_DEFAULT (Settings: MAX_AGENTS_MIN to MAX_AGENTS_MAX) work, or
+// while the plan's session is at QUOTA_HOLD_PCT % or more.
+// ponytail: one cap for every repo and one session threshold; per repo or per model if anyone needs it.
+const MAX_AGENTS_DEFAULT = 5, MAX_AGENTS_MIN = 1, MAX_AGENTS_MAX = 20
+const QUOTA_HOLD_PCT = 90
 
 // ---------- live updates ----------
 const clients = new Set()
 const broadcast = msg => { const s = JSON.stringify(msg); for (const c of clients) c.send(s) }
 const view = () => ({
   repos: state.repos.map(r => ({ ...r, logo: logos.has(r.id) ? `/logo/${r.id}` : null })),
-  defaults: state.defaults ?? {},
+  defaults: { maxAgents: MAX_AGENTS_DEFAULT, ...state.defaults },
   update: U.info(),
   usage: A.usageNow(),
   workspaces: state.workspaces.map(w => ({ ...w, ...A.runtime(w.id), scriptRunning: terms.get(w.id + ':script')?.alive ? terms.get(w.id + ':script').label : null,
@@ -403,9 +408,10 @@ const routes = {
   // Model, effort ('' = the CLI's own default) and permission mode given to new workspaces; how many agents work at once.
   'PATCH /api/defaults': ({ body }) => {
     const permissionMode = ['default', 'acceptEdits', 'plan'].includes(body.permissionMode) ? body.permissionMode : 'auto'
-    const n = Math.round(Number(body.maxAgents ?? state.defaults?.maxAgents ?? 5))
+    // Missing, empty or not a number: unchanged.
+    const n = Math.round(parseFloat(body.maxAgents))
     state.defaults = { model: String(body.model ?? ''), effort: String(body.effort ?? ''), permissionMode, autoUpdate: body.autoUpdate !== false,
-      maxAgents: Number.isFinite(n) ? Math.min(20, Math.max(1, n)) : 5 }
+      maxAgents: Number.isFinite(n) ? Math.min(MAX_AGENTS_MAX, Math.max(MAX_AGENTS_MIN, n)) : state.defaults?.maxAgents ?? MAX_AGENTS_DEFAULT }
     save(); changed(); return state.defaults
   },
   // Settings → Telegram: a bot token ('' disconnects); the page then gets the link that ties the user's chat to it.
@@ -444,11 +450,11 @@ const routes = {
     if (ctx.body.brief == null) return guard(ctx, 'confirm.create', vars, () => createWorkspace(ctx.body))
     const b = validBrief(ctx.body.brief) // refused at once, before any click
     // One confirmation for the creation and its brief.
-    return guard(ctx, 'confirm.createBrief', { ...vars, text: await briefLabel(null, b, repo.id) }, async () => { const ws = await createWorkspace(ctx.body); await giveBrief(ws, b); return ws })
+    return guard(ctx, 'confirm.createBrief', { ...vars, text: await briefLabel(null, b, repo.id) }, async () => { const ws = await createWorkspace(ctx.body), q = await giveBrief(ws, b); return q ? { ...ws, ...q } : ws })
   },
   'POST /api/workspaces/:id/brief': async ctx => {
     const b = validBrief(ctx.body)
-    return guard(ctx, 'confirm.brief', { name: ctx.ws.title || ctx.ws.name, text: await briefLabel(ctx.ws, b) }, async () => { await giveBrief(ctx.ws, b); return {} })
+    return guard(ctx, 'confirm.brief', { name: ctx.ws.title || ctx.ws.name, text: await briefLabel(ctx.ws, b) }, async () => (await giveBrief(ctx.ws, b)) ?? {})
   },
   'POST /api/sessions': createSession,
   'GET /api/workspaces/:id/log': ({ ws }) => readLog(ws.id),
@@ -559,7 +565,8 @@ function guard(ctx, key, vars, run) {
     try {
       if (at && !state.workspaces.includes(at)) throw fail('errors.notFound') // deleted meanwhile
       const out = await run()
-      tell(true, out?.message ?? label, at ?? out) // a creation answers the new workspace
+      // A creation answers the new workspace; a brief may have joined the queue (sendTo), which the aiguilleur is told.
+      tell(true, [out?.message ?? label, out?.queued === true && notice('chat.queued', { context: out.reason }).message].filter(Boolean).join('\n\n'), at ?? out)
     } catch (e) { tell(false, (e.stderr || e.message || String(e)).trim()) }
   })
   return { pending: id, ...notice('confirm.waiting') }
@@ -580,7 +587,7 @@ async function giveBrief(ws, b) {
   ws.task = { ...b, at: Date.now() }
   save(); changed()
   metric('brief', { ws: ws.id, criteria: b.done.length })
-  await sendTo(ws, briefText(b))
+  return sendTo(ws, briefText(b)) // { queued, reason } when it waits
 }
 
 // The chat's send, and Telegram's (lib/remote.js). The aiguilleur's model also reads the agents' reports it hasn't seen.
@@ -590,26 +597,33 @@ async function sendTo(ws, text, files = [], opts = {}) {
   if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
   // Two CLIs writing the same session would fork it: the chat waits for the terminal one to quit.
   if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
-  const reason = ws !== state.aiguilleur && !A.working(A.runtime(ws.id)) && held()
+  // Behind what already waits for this workspace, for the same reason: messages keep their order.
+  const reason = ws !== state.aiguilleur && !A.working(A.runtime(ws.id)) && !starting.has(ws.id) && (held() || ws.queued?.at(-1)?.reason)
   if (reason) {
-    (ws.queued ??= []).push({ text, files, opts, at: Date.now() })
+    (ws.queued ??= []).push({ text, files, opts, reason, at: Date.now() })
     save(); changed()
     metric('queue', { ws: ws.id, reason })
     return { queued: true, reason }
   }
   await deliver(ws, text, files, opts)
 }
-// Why a new worker can't start now: 'cap' (maxAgents at work, Settings), 'quota' (90 % of the plan's session), or null.
+// Why a new worker can't start now: 'cap' (maxAgents at work, Settings), 'quota' (the plan's session), or null.
+// starting: workers between this check and A.send marking them busy (checkpoint first), so two sends at once can't both pass.
+// A session limit past its reset time is stale: it no longer holds anything.
+const starting = new Set()
 function held() {
-  if (state.workspaces.filter(w => A.working(A.runtime(w.id))).length >= (state.defaults?.maxAgents ?? 5)) return 'cap'
-  return (A.usageNow()?.limits.find(l => l.kind === 'session')?.pct ?? 0) >= 90 ? 'quota' : null
+  if (state.workspaces.filter(w => starting.has(w.id) || A.working(A.runtime(w.id))).length >= (state.defaults?.maxAgents ?? MAX_AGENTS_DEFAULT)) return 'cap'
+  const s = A.usageNow()?.limits.find(l => l.kind === 'session' && !(l.resetsAt < Date.now()))
+  return (s?.pct ?? 0) >= QUOTA_HOLD_PCT ? 'quota' : null
 }
 // Sends the queued messages whose turn has come, oldest first: a workspace's all at once (the first starts its turn,
 // the others fold into it). Called on every state change (changed() below: turn ends, usage refreshes, Settings) and at startup.
 // ponytail: an item leaves the queue before it is sent: a crash meanwhile loses it rather than sending it twice.
+// Until the first usage probe ends (lib/agent.js usageKnown, 30 s at most), nothing is sent: after a restart, what waited
+// for the quota would otherwise go out before the quota is known.
 let draining = false
 async function drain() {
-  if (draining) return
+  if (draining || !A.usageKnown()) return
   draining = true
   try {
     for (;;) {
@@ -625,6 +639,10 @@ async function drain() {
   } finally { draining = false }
 }
 async function deliver(ws, text, files, opts) {
+  if (ws !== state.aiguilleur) starting.add(ws.id) // synchronously, before the first await
+  try { await sendNow(ws, text, files, opts) } finally { starting.delete(ws.id) }
+}
+async function sendNow(ws, text, files, opts) {
   if (ws === state.aiguilleur && !A.working(A.runtime(ws.id)) && R.stale(readLog(ws.id), ws.context)) A.forget(ws)
   // A worker hears what merged meanwhile along with this message (no turn of its own); forgotten only once sent.
   // Not on a slash command (it must still start with '/'): they wait for the next plain message.
