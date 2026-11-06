@@ -35,6 +35,9 @@ const SHELL = process.env.SHELL || '/bin/zsh'
 // ponytail: one cap for every repo and one session threshold; per repo or per model if anyone needs it.
 const MAX_AGENTS_DEFAULT = 5, MAX_AGENTS_MIN = 1, MAX_AGENTS_MAX = 20
 const QUOTA_HOLD_PCT = 90
+// What the aiguilleur asks to do waits for the user's click (guard), across restarts too, at most this long.
+// ponytail: checked at startup only; one older than a day is dropped then, not while the app runs.
+const CONFIRM_TTL = 24 * 3600_000
 
 // ---------- live updates ----------
 const clients = new Set()
@@ -130,15 +133,21 @@ const config = ws => readConfig(ws.path, rootOf(ws))
 const NAMES = 'tokyo lima oslo dakar quito hanoi kyoto lagos lisbon nairobi osaka porto riga sofia tunis vienna zagreb accra bern cairo delhi dublin havana kabul lhasa malmo nice perth rabat seoul tallinn tbilisi turin warsaw yerevan bogota cusco fes gdansk ghent'.split(' ')
 const slug = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
 
+// The name a new workspace gets: the one asked (as a slug) or a free city, made unique (-v2…) in the repo.
+async function freeName(repo, name) {
+  const taken = new Set([...state.workspaces.filter(w => w.repoId === repo.id).map(w => w.name), ...(await G.branches(repo.path)).map(b => b.replace(/^aig\//, ''))])
+  let n = slug(name) || NAMES.find(x => !taken.has(x)) || 'ws'
+  for (let i = 2, b = n; taken.has(n); i++) n = `${b}-v${i}`
+  return n
+}
+
 async function createWorkspace({ repoId, name, base }) {
   const repo = state.repos.find(r => r.id === repoId)
   if (!repo) throw fail('errors.unknownRepo')
   base ||= repo.base
   if (!(await G.git(repo.path, ['rev-parse', '-q', '--verify', 'HEAD']).then(() => true, () => false)))
     throw fail('errors.noCommit')
-  const taken = new Set([...state.workspaces.filter(w => w.repoId === repoId).map(w => w.name), ...(await G.branches(repo.path)).map(b => b.replace(/^aig\//, ''))])
-  let n = slug(name) || NAMES.find(x => !taken.has(x)) || 'ws'
-  for (let i = 2, b = n; taken.has(n); i++) n = `${b}-v${i}`
+  const n = await freeName(repo, name)
   const path = join(WORKTREES, `${basename(repo.path)}-${repo.id}`, n)
   mkdirSync(dirname(path), { recursive: true })
   // Start from the latest remote commit when there is an origin (best effort: offline is fine).
@@ -456,11 +465,18 @@ const routes = {
   'POST /api/workspaces': async ctx => {
     const repo = state.repos.find(r => r.id === ctx.body.repoId)
     if (!repo) throw fail('errors.unknownRepo') // no click asked for what can't run
-    const vars = { repo: repo.name, name: slug(ctx.body.name) || '…' }
-    if (ctx.body.brief == null) return guard(ctx, 'confirm.create', vars, () => createWorkspace(ctx.body))
+    // The label says what will be made: the name createWorkspace picks, and the base when it isn't the repo's.
+    // ponytail: a name taken between the question and the click still gets its -v2 then.
+    const base = ctx.body.base && ctx.body.base !== repo.base ? String(ctx.body.base) : null
+    const vars = { repo: repo.name, name: await freeName(repo, ctx.body.name), ...base && { base } }, on = base ? '_base' : ''
+    if (ctx.body.brief == null) return guard(ctx, 'confirm.create' + on, vars, () => createWorkspace(ctx.body))
     const b = validBrief(ctx.body.brief) // refused at once, before any click
-    // One confirmation for the creation and its brief.
-    return guard(ctx, 'confirm.createBrief', { ...vars, text: await briefLabel(null, b, repo.id) }, async () => { const ws = await createWorkspace(ctx.body), q = await giveBrief(ws, b); return q ? { ...ws, ...q } : ws })
+    // One confirmation for the creation and its brief. A brief that can't be given leaves the workspace, said so.
+    return guard(ctx, 'confirm.createBrief' + on, { ...vars, text: await briefLabel(null, b, repo.id) }, async () => {
+      const ws = await createWorkspace(ctx.body)
+      const q = await giveBrief(ws, b).catch(e => { throw failNested('confirm.createdNoBrief', { name: ws.name, reason: e.key ? { key: e.key, vars: e.vars } : e.message }, { ws }) })
+      return q ? { ...ws, ...q } : ws
+    })
   },
   'POST /api/workspaces/:id/brief': async ctx => {
     const b = validBrief(ctx.body)
@@ -572,23 +588,34 @@ const routes = {
 
 // What the aiguilleur asks that can't be undone (creating a workspace, commit, merge, PR, archive, delete) waits for the
 // user's click, in the window or on Telegram (lib/agent.js confirm); the outcome comes back as a report. The page acts at once.
+// Kept as data in state.json (never a closure): the route, its :id and body. The click runs the route again with them
+// (decide), so it checks the workspace as it is then; a restart asks again (startup below).
 function guard(ctx, key, vars, run) {
-  if (ctx.caller !== 'aiguilleur') return run()
-  const label = R.tr({ key, vars }, 'en'), at = ctx.ws, asked = { key, vars }
-  // No workspace yet (a creation refused or failed): the report is the aiguilleur's own, titled with the request.
-  // said: { key, vars } (Aiguillage's words, translated when shown) or { text } (git's, gh's).
-  const tell = (ok, said, ws = at) => R.report(ws ?? state.aiguilleur, { ok, ...said, title: ws ? undefined : asked, action: true })
-  const id = A.confirm(state.aiguilleur, { label, key, vars, about: at?.id }, async allow => {
-    if (!allow) return tell(false, { key: 'confirm.denied', vars: { action: asked } })
-    try {
-      if (at && !state.workspaces.includes(at)) throw fail('errors.notFound') // deleted meanwhile
-      const out = await run()
-      // A creation answers the new workspace; a brief may have joined the queue (sendTo), which the aiguilleur is told.
-      tell(true, { ...out?.key ? { key: out.key, vars: out.vars } : out?.message ? { text: out.message } : asked, ...out?.queued === true && { queued: out.reason } }, at ?? out)
-    } catch (e) { tell(false, e.key ? { key: e.key, vars: e.vars } : { text: (e.stderr || e.message || String(e)).trim() }) }
-  })
-  return { pending: id, ...notice('confirm.waiting') }
+  if (ctx.caller !== 'aiguilleur' || ctx.confirmed) return run()
+  const c = { id: newId(), wsId: state.aiguilleur.id, routeKey: ctx.route, params: { id: ctx.id }, body: ctx.body, key, vars, at: Date.now(),
+    telegram: R.fromTelegram() } // asked in a turn from Telegram: its buttons go there, even out of remote mode
+  ;(state.confirms ??= []).push(c); save()
+  register(c)
+  return { pending: c.id, ...notice('confirm.waiting') }
 }
+const register = c => A.confirm(state.aiguilleur, { id: c.id, label: R.tr(c, 'en'), key: c.key, vars: c.vars, about: c.params.id, telegram: c.telegram }, allow => decide(c, allow))
+async function decide(c, allow) {
+  state.confirms = state.confirms.filter(x => x !== c); save()
+  const asked = { key: c.key, vars: c.vars }, at = c.params.id && state.workspaces.find(w => w.id === c.params.id)
+  // No workspace (a creation refused or failed, one deleted meanwhile): the report is the aiguilleur's own, titled with the request.
+  // said: { key, vars } (Aiguillage's words, translated when shown) or { text } (git's, gh's).
+  const tell = (ok, said, ws = at) => R.report(ws || state.aiguilleur, { ok, ...said, title: ws ? undefined : asked, action: true })
+  if (!allow) return tell(false, { key: 'confirm.denied', vars: { action: asked } })
+  try {
+    const ctx = { body: c.body, caller: 'aiguilleur', confirmed: true, query: new URLSearchParams(), route: c.routeKey }
+    bind(ctx, c.routeKey, c.params.id) // gone meanwhile: errors.notFound
+    const out = await routes[c.routeKey](ctx)
+    // A creation answers the new workspace; a brief may have joined the queue (sendTo), which the aiguilleur is told.
+    tell(true, { ...out?.key ? { key: out.key, vars: out.vars } : out?.message ? { text: out.message } : asked, ...out?.queued === true && { queued: out.reason } }, at || out)
+  } catch (e) { tell(false, e.key ? { key: e.key, vars: e.vars } : { text: (e.stderr || e.message || String(e)).trim() }, e.ws ?? at) }
+}
+// An error whose vars hold texts of their own ({ key, vars }), translated when shown; the English for logs and API callers.
+const failNested = (key, vars, extra) => Object.assign(new Error(R.tr({ key, vars }, 'en')), { key, vars, ...extra })
 
 // What the user sees when the aiguilleur hands a brief over (one place: overlap warnings are appended here), as lines
 // translated when shown (R.tr): a heading, the brief as the agent will read it (English), then the warnings.
@@ -601,12 +628,14 @@ async function briefLabel(ws, b, repoId = ws.repoId) {
   }
   return [{ key: 'confirm.briefSent' }, briefText(b), ...warn]
 }
-// The brief stays on the workspace (shown on the page) and reaches the agent as its task.
+// The brief reaches the agent as its task and stays on the workspace (shown on the page): kept only once sent or
+// queued, never one the agent didn't get.
 async function giveBrief(ws, b) {
+  const q = await sendTo(ws, briefText(b)) // { queued, reason } when it waits
   ws.task = { ...b, at: Date.now() }
   save(); changed()
   metric('brief', { ws: ws.id, criteria: b.done.length })
-  return sendTo(ws, briefText(b)) // { queued, reason } when it waits
+  return q
 }
 
 // The chat's send, and Telegram's (lib/remote.js). The aiguilleur's model also reads the agents' reports it hasn't seen.
@@ -833,6 +862,15 @@ for (const r of state.repos) scanLogo(r)
 
 // The aiguilleur, and Telegram once set up in Settings (lib/remote.js).
 R.start({ port: PORT, changed, afterTurn: scanOverlaps, send: (ws, text, paths, opts) => sendTo(ws, text, attached(ws, paths), opts) })
+for (const w of state.workspaces) for (const q of w.queued ?? []) q.id ??= newId() // queued before ids: the page cancels by id
+// What waited for the user's click before the restart is asked again; a day old, dropped (one report says which).
+{
+  const old = (state.confirms ?? []).filter(c => !(Date.now() - c.at < CONFIRM_TTL))
+  state.confirms = (state.confirms ?? []).filter(c => !old.includes(c))
+  for (const c of state.confirms) register(c)
+  if (old.length) R.report(state.aiguilleur, { ok: false, title: { key: 'confirm.expiredTitle' }, key: 'confirm.expired', vars: { count: old.length, list: old.map(c => ({ key: c.key, vars: c.vars })) } })
+  save()
+}
 drain() // what was queued before a restart
 
 // Plan usage in the sidebar: now, every 3 min, and after each agent turn (lib/agent.js).

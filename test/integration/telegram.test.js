@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import http from 'node:http'
 import { readFileSync, existsSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { startServer, setup, waitFor, sleep } from '../helpers.mjs'
+import { startServer, setup, waitFor, sleep, git } from '../helpers.mjs'
 
 const ME = 42
 const updates = [], sent = [], calls = []
@@ -433,6 +433,20 @@ test('digest off: every report pushed as before', async () => {
   const { w } = await setup(srv)
   await srv.turn(w.id, 'pushed now')
   await message(m => m.text.endsWith('ok: pushed now'), 'the report, at once')
+})
+
+test('remote mode off: what the aiguilleur asks to do in a turn from Telegram still gets its buttons there', async () => {
+  const { w } = await setup(srv)
+  writeFileSync(join(w.path, 'tg.txt'), 'x\n'); git(w.path, 'add', '-A'); git(w.path, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'tg')
+  await srv.api('PATCH', '/telegram', { remote: false })
+  try {
+    const before = sent.length // names repeat across repos: only what this test makes
+    say(`bash curl -s -X POST -H "authorization: Bearer $AIGUILLAGE_TOKEN" -H 'content-type: application/json' http://127.0.0.1:${srv.port}/api/workspaces/${w.id}/merge`)
+    const ask = await waitFor(() => sent.slice(before).find(m => m.reply_markup && m.text.includes(`Merge aig/${w.name} into main`)), { what: 'the buttons, out of remote mode' })
+    const [allow] = ask.reply_markup.inline_keyboard[0]
+    push({ callback_query: { id: 'cbm', data: allow.callback_data, from: {}, message: { message_id: ask.message_id, chat: { id: ME } } } })
+    await waitFor(async () => (await srv.log('aiguilleur')).some(e => e.type === 'cg_report' && e.ws === w.id && e.key === 'messages.merged'), { what: 'merged on the click' })
+  } finally { await srv.api('PATCH', '/telegram', { remote: true }) }
 })
 
 test('a new token keeps the digest choice', async () => {

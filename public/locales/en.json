@@ -165,7 +165,13 @@
     "archive": "Archive {{name}}",
     "delete": "Delete {{name}} (its worktree and branch)",
     "denied": "You declined: {{action}}",
-    "waiting": "Waiting for the user to confirm."
+    "waiting": "Waiting for the user to confirm.",
+    "create_base": "New workspace in {{repo}}: {{name}}, from {{base}}",
+    "createBrief_base": "New workspace in {{repo}}: {{name}}, from {{base}}, with this brief:\n{{text}}",
+    "createdNoBrief": "Workspace {{name}} created, brief not sent: {{reason}}",
+    "expiredTitle": "Requests to confirm",
+    "expired_one": "{{count}} request waited over 24 hours for your click and was dropped (the aiguilleur can ask again):\n{{list}}",
+    "expired_other": "{{count}} requests waited over 24 hours for your click and were dropped (the aiguilleur can ask again):\n{{list}}"
   },
   "check": {
     "run": "Run check",

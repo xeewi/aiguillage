@@ -15,3 +15,8 @@ test('validBrief refuses an empty goal, too many or empty criteria', () => {
   for (const body of [{ goal: '' }, {}, { goal: 'g', done: Array(21).fill('x') }, { goal: 'g', scope: [' '] }, { goal: 'g', done: 'x' }, { goal: 'x'.repeat(501) }])
     assert.throws(() => validBrief(body), e => e.key === 'errors.badBrief')
 })
+test('validBrief refuses non-string entries, a non-string escalate, an escalate over 300 characters', () => {
+  for (const body of [{ goal: 'g', scope: [1] }, { goal: 'g', done: [{ x: 1 }] }, { goal: 'g', scope: ['a', null] }, { goal: 'g', escalate: 3 }, { goal: 'g', escalate: ['x'] }, { goal: 'g', escalate: 'x'.repeat(301) }])
+    assert.throws(() => validBrief(body), e => e.key === 'errors.badBrief', JSON.stringify(body))
+  assert.equal(validBrief({ goal: 'g', escalate: 'x'.repeat(300) }).escalate.length, 300)
+})

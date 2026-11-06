@@ -165,7 +165,13 @@
     "archive": "Archiver {{name}}",
     "delete": "Supprimer {{name}} (son worktree et sa branche)",
     "denied": "Vous avez refusé : {{action}}",
-    "waiting": "En attente de la confirmation de l'utilisateur."
+    "waiting": "En attente de la confirmation de l'utilisateur.",
+    "create_base": "Nouveau workspace dans {{repo}} : {{name}}, depuis {{base}}",
+    "createBrief_base": "Nouveau workspace dans {{repo}} : {{name}}, depuis {{base}}, avec ce brief :\n{{text}}",
+    "createdNoBrief": "Workspace {{name}} créé, brief non envoyé : {{reason}}",
+    "expiredTitle": "Demandes à confirmer",
+    "expired_one": "{{count}} demande a attendu votre clic plus de 24 heures et a été abandonnée (l'aiguilleur peut la refaire) :\n{{list}}",
+    "expired_other": "{{count}} demandes ont attendu votre clic plus de 24 heures et ont été abandonnées (l'aiguilleur peut les refaire) :\n{{list}}"
   },
   "check": {
     "run": "Lancer le check",
