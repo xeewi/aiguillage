@@ -17,6 +17,7 @@
 //                          Both report back in a turn the CLI starts on its own, which takes NOTICE_MS.
 //   race                   lands right behind a background task's notification: that empty turn ends first (num_turns 0),
 //                          then this one works ~800 ms and says "raced"
+//   report <status> <text…>  replies <text> then an aig-report block (status as given; checks: fake)
 //   merge                  a tool that takes ~800 ms; messages sent meanwhile join this turn (one result for all)
 // Env: FAKE_CLAUDE_HOME (session store dir), FAKE_CLAUDE_LOG (one JSON line of argv per launch).
 import readline from 'node:readline'
@@ -252,6 +253,11 @@ async function turn(text) {
       const joined = queue.splice(0)
       for (const t of joined) messages.push({ uuid: randomUUID(), role: 'user', text: t })
       say('merged: ' + joined.join(' | '))
+      break
+    }
+    case 'report': {
+      const [status, ...words] = rest
+      say(`${words.join(' ')}\n\n\`\`\`aig-report\nstatus: ${status}\nchecks: fake\nunverified: none\nneeds: none\n\`\`\``)
       break
     }
     case 'markdown':

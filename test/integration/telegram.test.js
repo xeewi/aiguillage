@@ -228,6 +228,28 @@ test('a long text goes whole, in several messages: rich ones, or plain ones of 4
   }
 })
 
+test('a turn ending with a report block: its status is kept, ⏸ when it waits on the user', async () => {
+  const { repo, w } = await setup(srv)
+  await srv.turn(w.id, 'report decision Which DB?')
+  const rep = (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id)
+  assert.deepEqual([rep.status, rep.ok], ['decision', true])
+  await message(m => m.text.startsWith(`**⏸ ${repo.name} / `) && m.text.includes('Which DB?'), 'the report, marked ⏸')
+})
+
+test('a turn without a block still reports, ✅ as before', async () => {
+  const { w } = await setup(srv)
+  await srv.turn(w.id, 'hello')
+  const rep = (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id)
+  assert.deepEqual([rep.status, rep.ok, rep.text], [null, true, 'ok: hello'])
+})
+
+test('a crash still reports ❌', async () => {
+  const { w } = await setup(srv)
+  await srv.api('POST', `/workspaces/${w.id}/send`, { text: 'crash' })
+  const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id), { what: 'the crash report' })
+  assert.deepEqual([rep.status, rep.ok], [null, false])
+})
+
 test('Disconnect stops the bot', async () => {
   await srv.api('POST', '/telegram', { token: '' })
   assert.deepEqual((await srv.state()).telegram, { on: false, linked: false, remote: false })

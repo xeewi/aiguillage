@@ -143,3 +143,10 @@ test('a long text: parts under the limit, cut between lines, nothing lost; a cod
   assert.ok(cut.slice(1, -1).every(p => p.startsWith('```js\n')), 'reopened with its language')
   assert.equal(cut.join('\n').replace(/\n```\n```js/g, ''), code, 'nothing else added')
 })
+
+test('prompt(): a long report is cut in its body, never in its block', () => {
+  const block = '```aig-report\nstatus: blocked\nchecks: none\nunverified: all\nneeds: the API key\n```'
+  const p = prompt('?', {}, [{ type: 'cg_report', ws: 'w', label: 'A / b', ok: true, status: 'blocked', text: 'x'.repeat(5000) + '\n\n' + block }])
+  assert.ok(p.includes(block + '\n(workspace id w)') && p.startsWith('[Reports') && p.includes('⏸ A / b'))
+  assert.ok(p.length < 2500)
+})

@@ -36,6 +36,7 @@ const ICONS = {
   x: '<path d="m4 4 8 8M12 4l-8 8"/>',
   play: '<path d="M5 3.5v9l7-4.5z"/>',
   check: '<path d="m3 8.5 3 3 7-7"/>',
+  pause: '<path d="M6 3.5v9M10 3.5v9"/>',
   stop: '<rect x="4" y="4" width="8" height="8" rx="1"/>',
   down: '<path d="m4.5 6.5 3.5 3.5 3.5-3.5"/>',
   side: '<rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M6 2.5v11"/>',
@@ -612,8 +613,9 @@ function renderEv(ev) {
   if (ev.type === 'cg_error') return thread.append(h('div', 'msg err', ev.key ? t(ev.key, ev.vars) : ev.text))
   // An agent's finished turn, in the aiguilleur's conversation (lib/remote.js): its project / workspace, then its words.
   if (ev.type === 'cg_report') {
-    const m = h('div', 'msg report' + (ev.ok ? '' : ' bad')), head = h('button', 'ghost head')
-    head.insertAdjacentHTML('afterbegin', svg(ev.ok ? 'check' : 'x')); head.append(h('span', null, ev.label))
+    const wait = ev.ok && (ev.status === 'blocked' || ev.status === 'decision')
+    const m = h('div', 'msg report' + (ev.ok ? '' : ' bad') + (wait ? ' wait' : '')), head = h('button', 'ghost head')
+    head.insertAdjacentHTML('afterbegin', svg(!ev.ok ? 'x' : wait ? 'pause' : 'check')); head.append(h('span', null, ev.label))
     head.title = t('chat.openReport'); head.disabled = !wsById(ev.ws) || wsById(ev.ws).archived
     head.onclick = () => select(ev.ws)
     m.append(head)

@@ -1,0 +1,28 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { parseReport, excerpt, REPORT_RULES } from '../lib/report.js'
+
+test('parseReport reads the last aig-report block', () => {
+  const r = parseReport('Fixed it.\n\n```aig-report\nstatus: done\nchecks: npm test → 127 pass\nunverified: e2e\nneeds: none\n```')
+  assert.deepEqual(r, { status: 'done', checks: 'npm test → 127 pass', unverified: 'e2e', needs: 'none', body: 'Fixed it.' })
+})
+test('no block, or an unknown status: status null, text kept whole', () => {
+  assert.deepEqual(parseReport('just words'), { status: null, checks: '', unverified: '', needs: '', body: 'just words' })
+  assert.equal(parseReport('```aig-report\nstatus: maybe\n```').status, null)
+})
+test('the last block wins; a missing field is an empty string', () => {
+  const r = parseReport('```aig-report\nstatus: done\n```\nmore\n```aig-report\nstatus: blocked\nneeds: a key\n```')
+  assert.deepEqual([r.status, r.needs, r.checks, r.body], ['blocked', 'a key', '', '```aig-report\nstatus: done\n```\nmore'])
+})
+test('excerpt keeps the block whole when the body is cut', () => {
+  const block = '```aig-report\nstatus: blocked\nchecks: none\nunverified: all\nneeds: the API key\n```'
+  const out = excerpt('x'.repeat(5000) + '\n\n' + block, 2000)
+  assert.ok(out.length <= 2000 + 1)
+  assert.ok(out.endsWith(block))
+  assert.equal(excerpt('short', 2000), 'short')
+  assert.equal(excerpt('y'.repeat(30), 10), 'y'.repeat(10) + '…', 'no block: plain cut')
+})
+test('REPORT_RULES shows the block format', () => {
+  assert.match(REPORT_RULES, /^End every turn with this block[^\n]*\n```aig-report\nstatus: done \| blocked \| decision\n/)
+  assert.match(REPORT_RULES, /before you go on\.$/)
+})
