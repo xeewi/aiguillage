@@ -35,3 +35,11 @@ test('runCheck: exit 0 passes, exit 1 fails with the tail of the output, a timeo
   assert.deepEqual([t.ok, t.code], [false, null])
   assert.equal((await runCheck(ws, `printf '\\033[31mred\\033[0m'`, process.env)).out, 'red')
 })
+
+test('runCheck: a check that exits 0 but leaves a background child passes at once and the child is killed', async () => {
+  const ws = { path: makeRepo({ 'a.txt': 'a' }) }
+  const t0 = Date.now()
+  const r = await runCheck(ws, 'sleep 3 & echo hi; exit 0', process.env, { timeout: 1500 })
+  assert.deepEqual([r.ok, r.code], [true, 0])
+  assert.ok(Date.now() - t0 < 1400, `took ${Date.now() - t0} ms`)
+})

@@ -116,3 +116,21 @@ test('right-click → Mark as unread survives a reload, opening the session clea
   await expect(page.locator('#repos .wsItem')).toHaveCount(1)
   await expect(page.locator('#empty')).toBeVisible()
 })
+
+test('check: Run check shows the verdict, « out of date » once files move, and archiving the workspace breaks nothing', async ({ open, page }) => {
+  const errors = []
+  page.on('pageerror', e => errors.push(e.message))
+  await open({ '.aiguillage/settings.toml': '[scripts]\ncheck = "test -f ok.txt"\n' })
+  const badge = page.locator('#checkBadge')
+  await act(page, 'Run check').click()
+  await expect(badge).toHaveText('🧪 check failed')
+  await say(page, 'write ok.txt yes') // the turn's own check runs and passes
+  await expect(badge).toHaveText('🧪 check passed')
+  await say(page, 'write later.txt l')
+  await expect(badge).toHaveText(/passed|running|out of date/) // settles on the new check
+  page.once('dialog', d => d.accept())
+  await archive(page)
+  await expect(page.locator('#ws')).toBeHidden()
+  await page.waitForTimeout(300)
+  expect(errors).toEqual([])
+})

@@ -381,7 +381,9 @@ const routes = {
   },
   'POST /api/sessions': createSession,
   'GET /api/workspaces/:id/log': ({ ws }) => readLog(ws.id),
-  'GET /api/workspaces/:id/diff': async ({ ws }) => ({ diff: (await G.diff(ws.path, ws.baseRef || ws.base)).slice(0, 3_000_000), status: await G.status(ws.path) }),
+  // checkFresh: the saved check ran on exactly these files (the page shows « out of date » otherwise).
+  'GET /api/workspaces/:id/diff': async ({ ws }) => ({ diff: (await G.diff(ws.path, ws.baseRef || ws.base)).slice(0, 3_000_000), status: await G.status(ws.path),
+    checkFresh: !!ws.check && ws.check.tree === (await G.snapshot(ws.path)).tree }),
   'PATCH /api/workspaces/:id': ({ ws, body }) => {
     // Rename. Empty: back to the city name, and the next message names it again.
     if (typeof body.title === 'string') ws.title = body.title.replace(/\s+/g, ' ').trim().slice(0, 80)
@@ -444,7 +446,11 @@ const routes = {
     })
   },
   'POST /api/workspaces/:id/merge': async ctx => {
-    const { ws, body } = ctx, forced = await gate(ws, body) // refused now rather than after the user's click
+    // The page: refused now unless it sends force. The aiguilleur never picks force: the user's click does, on a label
+    // that says the check isn't green; it is forced only if it wasn't green when asked.
+    const { ws } = ctx, aig = ctx.caller === 'aiguilleur', body = aig ? { force: false } : ctx.body
+    const forced = await gate(ws, aig ? { force: true } : body)
+    if (aig) body.force = !!forced
     return guard(ctx, 'confirm.merge' + (forced ? '_' + forced : ''), { branch: ws.branch, base: ws.base }, async () => {
       try { const r = await merge(ws, body); metric('merge', { ws: ws.id, ok: true, conflict: false, ...forced && { forced: true } }); return r }
       catch (e) { metric('merge', { ws: ws.id, ok: false, conflict: e.key === 'errors.mergeConflict' }); throw e }

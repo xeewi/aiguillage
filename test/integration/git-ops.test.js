@@ -13,7 +13,7 @@ const commitIn = (cwd, msg) => { git(cwd, 'add', '-A'); git(cwd, '-c', 'user.ema
 
 test('diff: commits + uncommitted + untracked + unicode names, ignored excluded, status flag', async () => {
   const { w } = await setup(srv, { 'README.md': '# t\n', 'a.txt': 'one\n', '.gitignore': 'build/\n' })
-  assert.deepEqual(await diff(w.id), { diff: '', status: '' })
+  assert.deepEqual(await diff(w.id), { diff: '', status: '', checkFresh: false })
 
   writeFileSync(join(w.path, 'committed.txt'), 'in a commit\n'); commitIn(w.path, 'c1')
   let d = await diff(w.id)

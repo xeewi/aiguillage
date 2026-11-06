@@ -2,7 +2,7 @@
 // out-of-date one stops the merge unless forced.
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, rmSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { startServer, setup, waitFor, git } from '../helpers.mjs'
 
@@ -32,8 +32,6 @@ test('a red check blocks the merge until force: true; Run check re-runs it', asy
   assert.equal(rep.check.ok, false)
   commit(w.path, 'work')
   await assert.rejects(srv.api('POST', `/workspaces/${w.id}/merge`), e => e.key === 'errors.checkNotGreen' && e.vars.context === 'failed')
-  const asked = await srv.asAiguilleur('POST', `/workspaces/${w.id}/merge`).catch(e => e)
-  assert.equal(asked.key, 'errors.checkNotGreen', 'refused before asking the user')
   const r = await srv.api('POST', `/workspaces/${w.id}/merge`, { force: true })
   assert.match(r.message, /Merged/)
   assert.ok(git(repoPath, 'log', '-1', '--format=%s').includes('Merge'))
@@ -69,7 +67,46 @@ test('without a check script, or in a free session, reports and merge are unchan
   commit(w.path, 'a')
   assert.match((await srv.api('POST', `/workspaces/${w.id}/merge`)).message, /Merged/)
   await assert.rejects(srv.api('POST', `/workspaces/${w.id}/check`), e => e.key === 'errors.noCheck')
+  // A check in the user-level settings would apply to a free session if the guard were gone.
+  mkdirSync(join(srv.home, '.aiguillage'), { recursive: true })
+  writeFileSync(join(srv.home, '.aiguillage/settings.toml'), '[scripts]\ncheck = "true"\n')
+  const n = (await srv.api('GET', '/metrics?days=1')).checks.n
   const s = await srv.api('POST', '/sessions')
   await srv.turn(s.id, 'write ok.txt yes')
   assert.equal('check' in await reportOn(s.id), false)
+  assert.equal((await srv.api('GET', '/metrics?days=1')).checks.n, n)
+  await assert.rejects(srv.api('POST', `/workspaces/${s.id}/check`), e => e.key === 'errors.noCheck')
+  rmSync(join(srv.home, '.aiguillage/settings.toml'))
+})
+
+test('two checks asked at once run once; both get the same result', async () => {
+  const n = (await srv.api('GET', '/metrics?days=1')).checks.n
+  const { w } = await setup(srv, { '.aiguillage/settings.toml': '[scripts]\ncheck = "sleep 1; test -f ok.txt"\n' })
+  const [a, b] = await Promise.all([1, 2].map(() => srv.api('POST', `/workspaces/${w.id}/check`)))
+  assert.deepEqual(a, b)
+  assert.equal((await srv.api('GET', '/metrics?days=1')).checks.n, n + 1)
+})
+
+test("a merge asked by the aiguilleur on a red check waits with a ❌ label; Allow merges it, the aiguilleur never forces", async () => {
+  const { repoPath, w } = await setup(srv, CHECK)
+  await srv.turn(w.id, 'write other.txt x')
+  await reportOn(w.id)
+  commit(w.path, 'work')
+  const r = await srv.asAiguilleur('POST', `/workspaces/${w.id}/merge`, { force: false })
+  const p = (await srv.state()).aiguilleur.pending.find(x => x.id === r.pending)
+  assert.match(p.input.command, /check ❌$/)
+  await srv.api('POST', '/workspaces/aiguilleur/permission', { id: r.pending, allow: true })
+  const rep = await waitFor(async () => (await srv.log('aiguilleur')).findLast(e => e.type === 'cg_report' && e.ws === w.id && /Merged/.test(e.text)), { what: 'merged report' })
+  assert.equal(rep.ok, true)
+  assert.ok(git(repoPath, 'log', '-1', '--format=%s').includes('Merge'))
+})
+
+test('the diff says whether the saved check ran on these very files', async () => {
+  const { w } = await setup(srv, CHECK)
+  assert.equal((await srv.api('GET', `/workspaces/${w.id}/diff`)).checkFresh, false, 'never run')
+  await srv.turn(w.id, 'write ok.txt yes')
+  await reportOn(w.id)
+  assert.equal((await srv.api('GET', `/workspaces/${w.id}/diff`)).checkFresh, true)
+  writeFileSync(join(w.path, 'later.txt'), 'l')
+  assert.equal((await srv.api('GET', `/workspaces/${w.id}/diff`)).checkFresh, false)
 })

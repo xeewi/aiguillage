@@ -557,13 +557,15 @@ async function wsAct(w, act, app) {
   if (act === 'archive') { if (w.id === active) active = null; renderSide(); renderHead() } else if (w.id === active) loadDiff()
 }
 // The check's verdict next to the Diff bar's buttons; « out of date » once the files moved on (the server compares trees on merge).
-let hasCheck = false
+let hasCheck = false, checkFresh = true, checkSeen // checkFresh: from the last diff load; a new result reloads it
 function renderCheck() {
-  const w = wsById(active), has = hasCheck && !w?.free
-  $('#gitBar [data-act="check"]').hidden = !has; $('#gitBar [data-act="check"]').disabled = !!w?.checking
+  const w = wsById(active); if (!w) return
+  if (w.check?.at !== checkSeen) { checkSeen = w.check?.at; if (!solo(w)) loadDiff() }
+  const has = hasCheck && !w.free
+  $('#gitBar [data-act="check"]').hidden = !has; $('#gitBar [data-act="check"]').disabled = !!w.checking
   const b = $('#checkBadge'), c = w?.check
   b.hidden = !has || !(c || w.checking)
-  if (!b.hidden) { b.textContent = t(w.checking ? 'check.running' : c.ok ? 'check.passed' : 'check.failed'); b.title = c?.out ?? ''; b.className = w.checking ? '' : c.ok ? 'ok' : 'bad' }
+  if (!b.hidden) { const stale = !w.checking && !checkFresh; b.textContent = t(w.checking ? 'check.running' : stale ? 'check.stale' : c.ok ? 'check.passed' : 'check.failed'); b.title = c?.out ?? ''; b.className = w.checking || stale ? '' : c.ok ? 'ok' : 'bad' }
 }
 const onAct = guard(async e => {
   const b = e.target.closest('button[data-act]'); if (!b) return
@@ -918,8 +920,9 @@ $('#runStop').onclick = guard(() => api('POST', `/workspaces/${active}/run-stop`
 
 async function loadDiff() {
   const id = active
-  const { diff, status } = await api('GET', `/workspaces/${id}/diff`).catch(e => ({ diff: '', status: e.message }))
+  const { diff, status, checkFresh: fresh } = await api('GET', `/workspaces/${id}/diff`).catch(e => ({ diff: '', status: e.message }))
   if (id !== active) return
+  checkFresh = fresh !== false; renderCheck()
   const box = $('#diffView'); box.replaceChildren()
   const files = diff.split(/^(?=diff --git )/m).filter(Boolean)
   let adds = 0, dels = 0
