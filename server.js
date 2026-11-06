@@ -18,6 +18,7 @@ import * as A from './lib/agent.js'
 import { fail, notice } from './lib/i18n.js'
 import * as U from './lib/update.js'
 import * as R from './lib/remote.js'
+import { validBrief, briefText } from './lib/brief.js'
 import { metric, readMetrics, summarize } from './lib/metrics.js'
 
 const exec = promisify(execFile)
@@ -377,7 +378,15 @@ const routes = {
   'POST /api/workspaces': ctx => {
     const repo = state.repos.find(r => r.id === ctx.body.repoId)
     if (!repo) throw fail('errors.unknownRepo') // no click asked for what can't run
-    return guard(ctx, 'confirm.create', { repo: repo.name, name: slug(ctx.body.name) || '…' }, () => createWorkspace(ctx.body))
+    const vars = { repo: repo.name, name: slug(ctx.body.name) || '…' }
+    if (ctx.body.brief == null) return guard(ctx, 'confirm.create', vars, () => createWorkspace(ctx.body))
+    const b = validBrief(ctx.body.brief) // refused at once, before any click
+    // One confirmation for the creation and its brief.
+    return guard(ctx, 'confirm.createBrief', { ...vars, text: briefLabel(null, b) }, async () => { const ws = await createWorkspace(ctx.body); await giveBrief(ws, b); return ws })
+  },
+  'POST /api/workspaces/:id/brief': ctx => {
+    const b = validBrief(ctx.body)
+    return guard(ctx, 'confirm.brief', { name: ctx.ws.title || ctx.ws.name, text: briefLabel(ctx.ws, b) }, async () => { await giveBrief(ctx.ws, b); return {} })
   },
   'POST /api/sessions': createSession,
   'GET /api/workspaces/:id/log': ({ ws }) => readLog(ws.id),
@@ -494,6 +503,16 @@ function guard(ctx, key, vars, run) {
   return { pending: id, ...notice('confirm.waiting') }
 }
 
+// What the user sees when the aiguilleur hands a brief over (one place: overlap warnings are appended here).
+const briefLabel = (ws, b) => briefText(b)
+// The brief stays on the workspace (shown on the page) and reaches the agent as its task.
+async function giveBrief(ws, b) {
+  ws.task = { ...b, at: Date.now() }
+  save(); changed()
+  metric('brief', { ws: ws.id, criteria: b.done.length })
+  await sendTo(ws, briefText(b))
+}
+
 // The chat's send, and Telegram's (lib/remote.js). The aiguilleur's model also reads the agents' reports it hasn't seen.
 async function sendTo(ws, text, files = [], opts = {}) {
   if (!text.trim() && !files.length) throw fail('errors.emptyMessage')
@@ -504,7 +523,7 @@ async function sendTo(ws, text, files = [], opts = {}) {
 }
 
 const AIGUILLEUR_ROUTES = new Set(['GET /api/workspaces/:id/log', 'GET /api/workspaces/:id/commands', 'PATCH /api/workspaces/:id',
-  ...['send', 'upload', 'interrupt', 'stop-task', 'permission'].map(a => `POST /api/workspaces/:id/${a}`)])
+  ...['send', 'brief', 'upload', 'interrupt', 'stop-task', 'permission'].map(a => `POST /api/workspaces/:id/${a}`)])
 
 // Nothing rendered (e.g. an image in agent markdown) may reach the network.
 const CSP = `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:${PORT} ws://localhost:${PORT}; base-uri 'none'; form-action 'self'`

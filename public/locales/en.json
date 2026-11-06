@@ -52,6 +52,13 @@
     "loginDo": "Sign in",
     "recheck": "Check again"
   },
+  "task": {
+    "title": "Task brief",
+    "goal": "Goal",
+    "scope": "Scope",
+    "done": "Done when",
+    "escalate": "Escalate before"
+  },
   "head": {
     "model": "Model",
     "modelDefault": "Default model",
@@ -140,6 +147,8 @@
   },
   "confirm": {
     "create": "New workspace in {{repo}}: {{name}}",
+    "createBrief": "New workspace in {{repo}}: {{name}}, with this brief:\n{{text}}",
+    "brief": "Brief for {{name}}:\n{{text}}",
     "commit": "Commit in {{name}}: {{message}}",
     "merge": "Merge {{branch}} into {{base}}",
     "merge_failed": "Merge {{branch}} into {{base}} — check ❌",
@@ -254,6 +263,7 @@
     "emptyMessage": "Write a message or attach a file.",
     "claudeInTerminal": "Claude Code is open in the Terminal tab on this conversation: quit it (/exit) to chat here again.",
     "badCommand": "Not a command.",
+    "badBrief": "A brief needs a goal (500 characters at most); scope and done are lists of up to 20 short lines.",
     "agentBusy": "The agent is working: wait for it or stop it first.",
     "telegramToken": "Telegram refused this token. Copy it again from @BotFather.",
     "telegramNotLinked": "Link Telegram first, in Settings."

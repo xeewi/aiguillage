@@ -443,3 +443,7 @@ dialog .row { margin-top: 16px; }
 .setRepo .mono { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setRepo select { max-width: 200px; }
 #openBtn svg { width: 12px; height: 12px; }
+#wsTask { padding: 8px 20px; border-bottom: 1px solid var(--line); font-size: 13px; }
+#wsTask summary { cursor: pointer; color: var(--muted); }
+#wsTask dt { color: var(--muted); margin-top: 6px; }
+#wsTask dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }

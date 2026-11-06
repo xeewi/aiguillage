@@ -52,6 +52,13 @@
     "loginDo": "Se connecter",
     "recheck": "Vérifier à nouveau"
   },
+  "task": {
+    "title": "Brief de la tâche",
+    "goal": "Objectif",
+    "scope": "Périmètre",
+    "done": "Terminé quand",
+    "escalate": "Prévenir avant"
+  },
   "head": {
     "model": "Modèle",
     "modelDefault": "Modèle par défaut",
@@ -140,6 +147,8 @@
   },
   "confirm": {
     "create": "Nouveau workspace dans {{repo}} : {{name}}",
+    "createBrief": "Nouveau workspace dans {{repo}} : {{name}}, avec ce brief :\n{{text}}",
+    "brief": "Brief pour {{name}} :\n{{text}}",
     "commit": "Commit dans {{name}} : {{message}}",
     "merge": "Fusionner {{branch}} dans {{base}}",
     "merge_failed": "Fusionner {{branch}} dans {{base}} — check ❌",
@@ -254,6 +263,7 @@
     "emptyMessage": "Écris un message ou joins un fichier.",
     "claudeInTerminal": "Claude Code est ouvert dans l’onglet Terminal sur cette conversation : quitte-le (/exit) pour reprendre le tchat ici.",
     "badCommand": "Ce n’est pas une commande.",
+    "badBrief": "Un brief demande un objectif (500 caractères au plus) ; périmètre et critères sont des listes de 20 courtes lignes au plus.",
     "agentBusy": "L’agent travaille : attends qu’il ait fini ou arrête-le.",
     "telegramToken": "Telegram refuse ce token. Recopie-le depuis @BotFather.",
     "telegramNotLinked": "Relie d'abord Telegram, dans les Réglages."

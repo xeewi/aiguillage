@@ -87,3 +87,36 @@ test('commit, PR, archive and delete wait too; the aiguilleur cannot confirm its
   const left = await waiting()
   assert.ok(!asked.some(id => left.some(x => x.id === id)))
 })
+
+test('a brief from the aiguilleur waits for a click, then reaches the agent and is kept on the workspace', async () => {
+  const { w } = await setup(srv)
+  const r = await srv.asAiguilleur('POST', `/workspaces/${w.id}/brief`, { goal: 'Fix login', scope: ['src/auth.js'], done: ['tests pass'] })
+  assert.equal(typeof r.pending, 'string')
+  assert.match((await waiting()).find(x => x.id === r.pending).input.command, /Task brief\nGoal: Fix login/)
+  assert.equal((await srv.ws(w.id)).task, undefined, 'nothing kept yet')
+  await answer(r.pending, true)
+  const task = await waitFor(async () => (await srv.ws(w.id)).task, { what: 'the kept brief' })
+  assert.deepEqual([task.goal, task.scope, task.done], ['Fix login', ['src/auth.js'], ['tests pass']])
+  const sent = await waitFor(async () => (await srv.log(w.id)).findLast(e => e.type === 'cg_user'), { what: 'the brief reaching the agent' })
+  assert.match(sent.text, /^Task brief\nGoal: Fix login/)
+  await assert.rejects(srv.asAiguilleur('POST', `/workspaces/${w.id}/brief`, { goal: '' }), /brief/i, 'a bad brief is refused at once')
+})
+
+test('a brief from the page is sent at once', async () => {
+  const { w } = await setup(srv)
+  const r = await srv.api('POST', `/workspaces/${w.id}/brief`, { goal: 'Add a button', escalate: 'a new dependency' })
+  assert.equal(r.pending, undefined)
+  assert.equal((await srv.ws(w.id)).task.escalate, 'a new dependency')
+  const sent = await waitFor(async () => (await srv.log(w.id)).findLast(e => e.type === 'cg_user'), { what: 'the brief' })
+  assert.match(sent.text, /^Task brief\nGoal: Add a button\nEscalate to the user before: a new dependency$/)
+})
+
+test('a workspace created with a brief: one confirmation for both', async () => {
+  const { repo } = await setup(srv)
+  const { pending } = await srv.asAiguilleur('POST', '/workspaces', { repoId: repo.id, name: 'briefed', brief: { goal: 'Do it' } })
+  const cmd = (await waiting()).find(x => x.id === pending).input.command
+  assert.match(cmd, /briefed/); assert.match(cmd, /Goal: Do it/)
+  await answer(pending, true)
+  const w = await waitFor(async () => (await srv.state()).workspaces.find(x => x.repoId === repo.id && x.name === 'briefed' && x.task), { what: 'the briefed workspace' })
+  assert.equal(w.task.goal, 'Do it')
+})

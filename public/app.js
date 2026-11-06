@@ -501,6 +501,7 @@ function renderHead() {
   $('#wsName').textContent = label(w)
   $('#wsBranch').textContent = `${w.branch} ← ${w.base}`; $('#wsBranch').hidden = c || w.free
   $('#wsBranch').title = w.path
+  renderTask(w.task)
   $('#wsHead .actions').hidden = c; $('#split').classList.toggle('solo', solo(w))
   const n = lineOf(w); $('#wsBranch').dataset.n = $('#tabs').dataset.n = n; $('#ws').className = c ? 'cond' : lineCls(n)
   // /model or /effort typed in the chat may pick a value the menu doesn't list (fable, a full model id…): add it.
@@ -514,6 +515,14 @@ function renderHead() {
   $('#busy').hidden = $('#stop').hidden = !w.busy; $('#composer').classList.toggle('busy', !!w.busy)
   $("#runPort").textContent = `http://localhost:${w.port}`; $("#runPort").href = `http://localhost:${w.port}`; $('#runPort').title = t('head.portTitle')
   document.title = (w.busy ? '● ' : '') + label(w) + ' · Aiguillage'
+}
+
+// The brief the agent was given (collapsed): goal, scope, done criteria, what to escalate.
+function renderTask(b) {
+  const el = $('#wsTask'); el.hidden = !b
+  if (!b) return
+  const rows = [['goal', b.goal], ['scope', b.scope?.join(', ')], ['done', b.done?.join('\n')], ['escalate', b.escalate]].filter(r => r[1])
+  el.querySelector('dl').replaceChildren(...rows.flatMap(([k, v]) => [h('dt', null, t('task.' + k)), h('dd', null, v)]))
 }
 
 // Narrow composer: the three settings fold into one chip, « Plan · Opus · high »: permissions first (they matter
