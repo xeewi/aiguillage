@@ -604,9 +604,16 @@ const scroll = () => { const t = thread; if (t.scrollHeight - t.scrollTop - t.cl
 const draft = () => thread.querySelector('.draft') ?? thread.appendChild(h('div', 'msg ai draft'))
 const dropDraft = () => thread.querySelector('.draft')?.remove()
 
-// Events of the conversation that arrive while its log loads: drawn after it, those it doesn't already hold (the same
-// JSON: the log line is the event as it was sent). Drawn at once, the log would replace them.
+// Events of the conversation that arrive while its log loads: drawn after it, those it doesn't already hold. Drawn at once,
+// the log would replace them. The server logs then sends each event, in order: the ones the log already has are the
+// buffer's start, equal to the log's end (the longest such overlap). Not any equal event: some repeat (a local command's
+// result line carries no id).
 let arriving = null
+const overlap = (log, got) => {
+  const j = e => JSON.stringify(e)
+  for (let k = Math.min(log.length, got.length); k > 0; k--) if (got.slice(0, k).every((e, i) => j(e) === j(log[log.length - k + i]))) return k
+  return 0
+}
 async function loadThread() {
   thread.replaceChildren(); toolEls = new Map(); arriving = null
   if (!active) return
@@ -614,8 +621,7 @@ async function loadThread() {
   const evs = await api('GET', `/workspaces/${id}/log`).catch(() => [])
   if (id !== active || got !== arriving) return // another load took over
   arriving = null
-  const known = new Set(evs.map(e => JSON.stringify(e)))
-  evs.push(...got.filter(e => !known.has(JSON.stringify(e))))
+  evs.push(...got.slice(overlap(evs, got)))
   thread.replaceChildren(); toolEls = new Map()
   if (!evs.length) { const p = h('div', 'hint'); p.innerHTML = t(wsById(id)?.aiguilleur ? 'chat.aiguilleurReady' : wsById(id)?.free ? 'chat.sessionReady' : 'chat.ready', { path: wsById(id)?.path ?? '', interpolation: { escapeValue: true } }); thread.append(p) }
   evs.forEach(renderEv)

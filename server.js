@@ -222,7 +222,7 @@ async function archiveNow(ws) {
     await G.pin(ws.path, `refs/aiguillage/${ws.id}/archive`, ws.archiveCp)
   }
   await G.removeWorktree(repo.path, ws.path)
-  ws.archived = Date.now()
+  ws.archived = Date.now(); seen.delete(ws.id)
   save(); changed(); scanOverlaps(ws.repoId) // its ⚠️ goes away
 }
 
@@ -273,17 +273,11 @@ async function merge(ws) {
 // ---------- overlaps: two workspaces of a repo changing the same files ----------
 const activeIn = (repoId, except) => state.workspaces.filter(w => w.repoId === repoId && !w.archived && !w.free && w !== except && existsSync(w.path))
 const baseOf = w => w.baseRef || w.base
-// What each workspace changed, as last looked at (the scan, a merge's notices): { tree, files }. The brief's warning
-// reads it instead of looking at every worktree again.
+// What each workspace changed, as last looked at (the scan, a merge's notices): ws id -> files. The brief's warning
+// reads it instead of looking at every worktree again. Dropped on archive and delete.
 // ponytail: as of the last scan (a turn's end, a merge, every OVERLAP_EVERY); a file changed since is missed until then.
 const seen = new Map()
-const mine = async w => {
-  try {
-    const { tree } = await G.snapshot(w.path), files = await Rv.changedFiles(w.path, baseOf(w), tree)
-    seen.set(w.id, { tree, files })
-    return files
-  } catch { return [] }
-}
+const mine = w => Rv.changedFiles(w.path, baseOf(w)).then(files => { seen.set(w.id, files); return files }, () => [])
 
 // The merge changed these files on the base: the other workspaces that changed some too hear it with their next message.
 async function tellOthers(ws, repo, was, now) {
@@ -328,7 +322,8 @@ const scan = repos => scanning = (async () => {
       if (state.overlaps?.[key] !== now[key]) news.push(o)
     }
   }
-  const gone = JSON.stringify(Object.keys(state.overlaps ?? {})) !== JSON.stringify(Object.keys(now))
+  const keys = o => JSON.stringify(Object.keys(o ?? {}).sort()) // a partial scan puts the kept pairs first
+  const gone = keys(state.overlaps) !== keys(now)
   state.overlaps = now
   if (news.length || gone) { save(); changed() }
   for (const o of news) {
@@ -556,6 +551,7 @@ const routes = {
       await G.dropRefs(repo.path, `refs/aiguillage/${ws.id}/`).catch(() => {})
     }
     rmSync(attachDir(ws.id), { recursive: true, force: true })
+    seen.delete(ws.id)
     state.workspaces = state.workspaces.filter(w => w !== ws); save(); changed(); return {}
   }),
   'GET /api/workspaces/:id/scripts': ({ ws }) => { const c = config(ws); return { run: c.run, default: defaultRun(c), check: !!c.check } },
@@ -656,7 +652,7 @@ const failNested = (key, vars, extra) => Object.assign(new Error(R.tr({ key, var
 function briefLabel(ws, b, repoId = ws.repoId) {
   const warn = []
   for (const o of activeIn(repoId, ws)) {
-    const files = Rv.inScope(seen.get(o.id)?.files ?? [], b.scope)
+    const files = Rv.inScope(seen.get(o.id) ?? [], b.scope)
     if (files.length) warn.push({ key: 'overlap.brief', vars: { who: R.label(o), files: files.join(', ') } })
   }
   return [{ key: 'confirm.briefSent' }, briefText(b), ...warn]

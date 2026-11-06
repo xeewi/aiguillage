@@ -76,16 +76,19 @@ export async function startServer({ home = tmp('cghome-'), env = {} } = {}) {
   }
   // Test-only (AIGUILLAGE_TEST): snapshots taken per folder, overlap scans finished.
   const counters = () => api('GET', '/counters')
-  // A turn, then the overlap scan it starts (what a brief's overlap warning reads).
+  // The counters once no git work runs any more (two equal reads 300 ms apart).
+  const quiet = () => waitFor(async () => { const a = JSON.stringify(await counters()); await sleep(300); return a === JSON.stringify(await counters()) && JSON.parse(a) }, { what: 'no git work running' })
+  // A turn, then the overlap scan it starts (what a brief's overlap warning reads); counted from a quiet start, so an
+  // earlier scan ending meanwhile isn't taken for it.
   const turnScanned = async (id, text) => {
-    const n = (await counters()).scans
+    const n = (await quiet()).scans
     const out = await turn(id, text)
     await waitFor(async () => (await counters()).scans > n, { what: 'the overlap scan after the turn' })
     return out
   }
   const fakeArgv = () => { try { return execFileSync('cat', [fakeLog], { encoding: 'utf8' }).trim().split('\n').map(l => JSON.parse(l)) } catch { return [] } }
   const stop = () => new Promise(r => { if (proc.exitCode !== null) return r(); proc.once('exit', r); proc.kill('SIGTERM') })
-  return { port, base, home, proc, api, asAiguilleur, state, ws, log, idle, turn, turnScanned, counters, fakeArgv, stop, output: () => output }
+  return { port, base, home, proc, api, asAiguilleur, state, ws, log, idle, turn, turnScanned, counters, quiet, fakeArgv, stop, output: () => output }
 }
 
 export const lastText = evs => [...evs].reverse().find(e => e.type === 'assistant' && e.message.content.some(c => c.type === 'text'))?.message.content.find(c => c.type === 'text').text

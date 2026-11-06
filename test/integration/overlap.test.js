@@ -70,8 +70,7 @@ test('a brief whose scope another workspace already touches carries the warning 
   assert.match(ask.input.command, /overlaps .*src\/auth\.js/)
 })
 
-// Snapshots taken so far, per folder; waits until no git work is still running (two equal reads).
-const quiet = () => waitFor(async () => { const a = JSON.stringify(await srv.counters()); await sleep(300); return a === JSON.stringify(await srv.counters()) && JSON.parse(a) }, { what: 'no git work running' })
+const quiet = () => srv.quiet()
 
 test("a turn's end scans its own repo only", async () => {
   const a = await setup(srv), b = await setup(srv)

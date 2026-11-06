@@ -262,12 +262,16 @@ test('media: an image I sent opens full size from its chip in my message', async
   await expect(zoom.locator('img')).toHaveJSProperty('naturalWidth', 1)
 })
 
+// route.fetch() replays the request without the browser's sec-fetch-site: the server would answer 401.
+const asPage = route => ({ headers: { ...route.request().headers(), 'sec-fetch-site': 'same-origin' } })
+
 test('a turn happening while the conversation loads stays drawn once the log is in', async ({ open, page, srv }) => {
   let first = true
   await page.route('**/api/workspaces/*/log', async route => {
     if (!first) return route.continue()
     first = false
-    const log = await route.fetch() // read by the server now: without the turn below
+    const log = await route.fetch(asPage(route)) // read by the server now: without the turn below
+    expect(log.status()).toBe(200)
     await srv.turn(route.request().url().split('/').at(-2), 'during load') // its events reach the page meanwhile
     await route.fulfill({ response: log })
   })
@@ -275,4 +279,41 @@ test('a turn happening while the conversation loads stays drawn once the log is 
   await expect(page.locator('#thread .msg.me .body')).toHaveText('during load')
   await expect(page.locator('#thread .msg.ai')).toHaveText(['ok: during load'])
   await expect(results(page)).toHaveCount(1)
+})
+
+test('on a conversation with history, a turn during the load keeps the lines identical to earlier ones', async ({ open, page, srv }) => {
+  // A local command's result line carries no id: the same one twice is the same JSON, yet a new line.
+  const { w } = await open()
+  await say(page, '/effort high')
+  await expect(results(page)).toHaveCount(1)
+  let first = true
+  await page.route('**/api/workspaces/*/log', async route => {
+    if (!first) return route.continue()
+    first = false
+    const log = await route.fetch(asPage(route))
+    expect(log.status()).toBe(200)
+    await srv.turn(w.id, '/effort high')
+    await route.fulfill({ response: log })
+  })
+  await page.reload()
+  await expect(page.locator('#thread .msg.me .body')).toHaveText(['/effort high', '/effort high'])
+  await expect(results(page)).toHaveCount(2)
+})
+
+test('a turn during the load that the log already holds is drawn once', async ({ open, page, srv }) => {
+  const { w } = await open()
+  await say(page, '/effort high')
+  await expect(results(page)).toHaveCount(1)
+  let first = true
+  await page.route('**/api/workspaces/*/log', async route => {
+    if (!first) return route.continue()
+    first = false
+    await srv.turn(w.id, '/effort high') // reaches the page while it waits, and is in the log read after it
+    const log = await route.fetch(asPage(route))
+    expect(log.status()).toBe(200)
+    await route.fulfill({ response: log })
+  })
+  await page.reload()
+  await expect(page.locator('#thread .msg.me .body')).toHaveText(['/effort high', '/effort high'])
+  await expect(results(page)).toHaveCount(2)
 })
