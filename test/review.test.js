@@ -2,9 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { makeRepo } from './helpers.mjs'
+import { makeRepo, git } from './helpers.mjs'
 import { snapshot } from '../lib/git.js'
-import { testFiles, inspect, runCheck, DEFAULT_TEST_GLOBS } from '../lib/review.js'
+import { testFiles, inspect, runCheck, changedFiles, overlaps, inScope, DEFAULT_TEST_GLOBS } from '../lib/review.js'
 
 const put = (repo, f, s) => { mkdirSync(join(repo, f, '..'), { recursive: true }); writeFileSync(join(repo, f), s) }
 
@@ -42,4 +42,26 @@ test('runCheck: a check that exits 0 but leaves a background child passes at onc
   const r = await runCheck(ws, 'sleep 3 & echo hi; exit 0', process.env, { timeout: 1500 })
   assert.deepEqual([r.ok, r.code], [true, 0])
   assert.ok(Date.now() - t0 < 1400, `took ${Date.now() - t0} ms`)
+})
+
+test('overlaps: one pair per couple with the files they share, sorted', () => {
+  assert.deepEqual(overlaps([{ id: 'a', files: ['x', 'y'] }, { id: 'b', files: ['y', 'z'] }, { id: 'c', files: ['q'] }]), [{ a: 'a', b: 'b', files: ['y'] }])
+  assert.deepEqual(overlaps([{ id: 'a', files: ['z', 'b'] }, { id: 'b', files: ['b', 'z'] }]), [{ a: 'a', b: 'b', files: ['b', 'z'] }])
+  assert.deepEqual(overlaps([]), [])
+})
+
+test('inScope: a file matches an entry exactly or under its folder', () => {
+  assert.deepEqual(inScope(['src/a/b.js', 'lib/c.js', 'src/ab.js'], ['src/a']), ['src/a/b.js'])
+  assert.deepEqual(inScope(['lib/c.js'], ['lib/c.js']), ['lib/c.js'])
+  assert.deepEqual(inScope(['lib/c.js'], []), [])
+})
+
+test('changedFiles: committed, edited and untracked files since the fork point', async () => {
+  const repo = makeRepo({ 'a.txt': 'a', 'b.txt': 'b' })
+  const base = git(repo, 'rev-parse', '--abbrev-ref', 'HEAD')
+  git(repo, 'checkout', '-qb', 'work')
+  put(repo, 'c.txt', 'c'); git(repo, 'add', '-A'); git(repo, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'c')
+  put(repo, 'a.txt', 'a2'); put(repo, 'sub/new.txt', 'n')
+  assert.deepEqual(await changedFiles(repo, base), ['a.txt', 'c.txt', 'sub/new.txt'])
+  assert.deepEqual(await changedFiles(makeRepo({ 'a.txt': 'a' }), 'HEAD'), [])
 })

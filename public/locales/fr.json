@@ -310,6 +310,11 @@
     "updated": "à jour {{ago}}",
     "plan": "Forfait {{plan}}"
   },
+  "overlap": {
+    "found": "{{a}} et {{b}} ont modifié tous deux : {{files}}. Fusionner les deux créera un conflit ; décide qui passe en premier, ou fais rebaser l'un.",
+    "notified": "{{branch}} a été fusionnée dans {{base}}. Invités à rebaser au prochain message : {{who}}.",
+    "brief": "⚠️ chevauche {{who}} : {{files}}"
+  },
   "telegram": {
     "pair": "Ce bot appartient à un Aiguillage. Pour relier ce chat, ouvre le lien affiché dans Aiguillage, dans Réglages → Telegram.",
     "none": "Aucun workspace actif.",
@@ -336,6 +341,7 @@
       "failed_other": "{{count}} en erreur",
       "idle_one": "{{count}} au repos",
       "idle_other": "{{count}} au repos",
+      "overlap": "⚠️ Mêmes fichiers modifiés dans deux espaces",
       "asks": "demande {{tool}}",
       "paused": "⏸ Mode remote coupé : ce tableau n'est plus mis à jour. /remote pour le relancer."
     }

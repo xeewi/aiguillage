@@ -310,6 +310,11 @@
     "updated": "updated {{ago}}",
     "plan": "{{plan}} plan"
   },
+  "overlap": {
+    "found": "{{a}} and {{b}} both changed: {{files}}. Merging both will conflict; decide who goes first, or have one rebase.",
+    "notified": "{{branch}} was merged into {{base}}. Told to rebase on their next message: {{who}}.",
+    "brief": "⚠️ overlaps {{who}}: {{files}}"
+  },
   "telegram": {
     "pair": "This bot belongs to an Aiguillage. To link this chat, open the link shown in Aiguillage, in Settings → Telegram.",
     "none": "No active workspace.",
@@ -336,6 +341,7 @@
       "failed_other": "{{count}} failed",
       "idle_one": "{{count}} idle",
       "idle_other": "{{count}} idle",
+      "overlap": "⚠️ Two workspaces changed the same files",
       "asks": "asks to use {{tool}}",
       "paused": "⏸ Remote mode off: this board no longer updates. /remote to turn it back on."
     }

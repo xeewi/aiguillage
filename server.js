@@ -224,18 +224,72 @@ async function merge(ws, body) {
   await gate(ws, body)
   const repo = state.repos.find(r => r.id === ws.repoId)
   const cur = (await G.git(repo.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
+  const tip = () => G.git(repo.path, ['rev-parse', ws.base]).then(s => s.trim(), () => null)
+  const was = await tip()
+  let out
   if (cur === ws.base) {
     if (await G.status(repo.path)) throw fail('errors.uncommittedMain', { base: ws.base })
     await G.git(repo.path, ['merge', '--no-ff', '--no-edit', ws.branch]).catch(async e => {
       await G.git(repo.path, ['merge', '--abort']).catch(() => {})
       throw fail('errors.mergeConflict', { base: ws.base, detail: e.stdout || e.message })
     })
-    return notice('messages.merged', { base: ws.base })
+    out = notice('messages.merged', { base: ws.base })
+  } else {
+    // Base not checked out in the main repo: fast-forward its ref only (git refuses anything unsafe).
+    await G.git(repo.path, ['fetch', '.', `${ws.branch}:${ws.base}`])
+    out = notice('messages.fastForward', { base: ws.base, branch: ws.branch })
   }
-  // Base not checked out in the main repo: fast-forward its ref only (git refuses anything unsafe).
-  await G.git(repo.path, ['fetch', '.', `${ws.branch}:${ws.base}`])
-  return notice('messages.fastForward', { base: ws.base, branch: ws.branch })
+  await tellOthers(ws, repo, was, await tip()).catch(e => console.error('[overlap]', e.message))
+  scanOverlaps()
+  return out
 }
+
+// ---------- overlaps: two workspaces of a repo changing the same files ----------
+const activeIn = (repoId, except) => state.workspaces.filter(w => w.repoId === repoId && !w.archived && !w.free && w !== except && existsSync(w.path))
+const baseOf = w => w.baseRef || w.base
+const mine = w => Rv.changedFiles(w.path, baseOf(w)).catch(() => [])
+
+// The merge changed these files on the base: the other workspaces that changed some too hear it with their next message.
+async function tellOthers(ws, repo, was, now) {
+  if (!was || was === now) return
+  const landed = (await G.git(repo.path, ['-c', 'core.quotePath=false', 'diff', '--name-only', was, now])).split('\n').filter(Boolean)
+  const told = []
+  for (const o of activeIn(repo.id, ws)) {
+    const files = (await mine(o)).filter(f => landed.includes(f))
+    if (!files.length) continue
+    // English: the agent reads it, not the user.
+    (o.notices ??= []).push(`Note from Aiguillage: ${ws.branch} was just merged into ${ws.base}. It changed files you changed too: ${files.join(', ')}. Rebase on ${ws.base} before going further.`)
+    told.push(R.label(o))
+  }
+  if (!told.length) return
+  save()
+  R.report(ws, { ok: true, text: notice('overlap.notified', { branch: ws.branch, base: ws.base, who: told.join(', ') }).message })
+}
+
+// state.overlaps: { '<a>|<b>': files } as of the last scan; a new or changed pair is reported once.
+// ponytail: runs every OVERLAP_EVERY and after each turn and merge; one scan at a time.
+let scanning = Promise.resolve()
+const scanOverlaps = () => scanning = scanning.then(async () => {
+  const now = {}, news = []
+  for (const repo of state.repos) {
+    const list = []
+    for (const w of activeIn(repo.id)) list.push({ id: w.id, files: await mine(w) })
+    for (const o of Rv.overlaps(list.filter(x => x.files.length))) {
+      const key = `${o.a}|${o.b}`
+      now[key] = o.files.join('\n')
+      if (state.overlaps?.[key] !== now[key]) news.push(o)
+    }
+  }
+  const gone = JSON.stringify(Object.keys(state.overlaps ?? {})) !== JSON.stringify(Object.keys(now))
+  state.overlaps = now
+  if (news.length || gone) { save(); changed() }
+  for (const o of news) {
+    const a = state.workspaces.find(w => w.id === o.a), b = state.workspaces.find(w => w.id === o.b)
+    R.report(a, { ok: true, status: 'decision', title: `${R.label(a)} ↔ ${R.label(b)}`, overlap: o.files,
+      text: notice('overlap.found', { a: R.label(a), b: R.label(b), files: o.files.join(', ') }).message })
+  }
+}).catch(e => console.error('[overlap]', e.message))
+setInterval(scanOverlaps, Rv.OVERLAP_EVERY).unref()
 
 async function suggestRepos() {
   const known = new Set(state.repos.map(r => r.path))
@@ -375,18 +429,18 @@ const routes = {
     state.repos = state.repos.filter(r => r !== repo); save(); changed(); return {}
   },
   'GET /api/repos/:id/branches': ({ repo }) => G.branches(repo.path),
-  'POST /api/workspaces': ctx => {
+  'POST /api/workspaces': async ctx => {
     const repo = state.repos.find(r => r.id === ctx.body.repoId)
     if (!repo) throw fail('errors.unknownRepo') // no click asked for what can't run
     const vars = { repo: repo.name, name: slug(ctx.body.name) || '…' }
     if (ctx.body.brief == null) return guard(ctx, 'confirm.create', vars, () => createWorkspace(ctx.body))
     const b = validBrief(ctx.body.brief) // refused at once, before any click
     // One confirmation for the creation and its brief.
-    return guard(ctx, 'confirm.createBrief', { ...vars, text: briefLabel(null, b) }, async () => { const ws = await createWorkspace(ctx.body); await giveBrief(ws, b); return ws })
+    return guard(ctx, 'confirm.createBrief', { ...vars, text: await briefLabel(null, b, repo.id) }, async () => { const ws = await createWorkspace(ctx.body); await giveBrief(ws, b); return ws })
   },
-  'POST /api/workspaces/:id/brief': ctx => {
+  'POST /api/workspaces/:id/brief': async ctx => {
     const b = validBrief(ctx.body)
-    return guard(ctx, 'confirm.brief', { name: ctx.ws.title || ctx.ws.name, text: briefLabel(ctx.ws, b) }, async () => { await giveBrief(ctx.ws, b); return {} })
+    return guard(ctx, 'confirm.brief', { name: ctx.ws.title || ctx.ws.name, text: await briefLabel(ctx.ws, b) }, async () => { await giveBrief(ctx.ws, b); return {} })
   },
   'POST /api/sessions': createSession,
   'GET /api/workspaces/:id/log': ({ ws }) => readLog(ws.id),
@@ -504,7 +558,15 @@ function guard(ctx, key, vars, run) {
 }
 
 // What the user sees when the aiguilleur hands a brief over (one place: overlap warnings are appended here).
-const briefLabel = (ws, b) => briefText(b)
+// The warning: another workspace of the repo already changed files in this brief's scope.
+async function briefLabel(ws, b, repoId = ws.repoId) {
+  const warn = []
+  for (const o of activeIn(repoId, ws)) {
+    const files = Rv.inScope(await mine(o), b.scope)
+    if (files.length) warn.push(notice('overlap.brief', { who: R.label(o), files: files.join(', ') }).message)
+  }
+  return [briefText(b), ...warn].join('\n')
+}
 // The brief stays on the workspace (shown on the page) and reaches the agent as its task.
 async function giveBrief(ws, b) {
   ws.task = { ...b, at: Date.now() }
@@ -519,7 +581,10 @@ async function sendTo(ws, text, files = [], opts = {}) {
   // Two CLIs writing the same session would fork it: the chat waits for the terminal one to quit.
   if (terms.get(ws.id + ':claude')?.alive) throw fail('errors.claudeInTerminal')
   if (ws === state.aiguilleur && !A.working(A.runtime(ws.id)) && R.stale(readLog(ws.id), ws.context)) A.forget(ws)
-  await A.send(ws, text, files, ws === state.aiguilleur ? { via: opts.via, prompt: t => R.prompt(t, opts) } : {})
+  // A worker hears what merged meanwhile along with this message (no turn of its own); forgotten only once sent.
+  const notes = ws !== state.aiguilleur && ws.notices?.length ? [...ws.notices] : null
+  await A.send(ws, text, files, ws === state.aiguilleur ? { via: opts.via, prompt: t => R.prompt(t, opts) } : notes ? { prompt: t => notes.join('\n\n') + '\n\n---\n\n' + t } : {})
+  if (notes) { ws.notices = ws.notices.filter(n => !notes.includes(n)); save() }
 }
 
 const AIGUILLEUR_ROUTES = new Set(['GET /api/workspaces/:id/log', 'GET /api/workspaces/:id/commands', 'PATCH /api/workspaces/:id',
@@ -656,7 +721,7 @@ if (!state.logsTrimmed) {
 for (const r of state.repos) scanLogo(r)
 
 // The aiguilleur, and Telegram once set up in Settings (lib/remote.js).
-R.start({ port: PORT, changed, send: (ws, text, paths, opts) => sendTo(ws, text, attached(ws, paths), opts) })
+R.start({ port: PORT, changed, afterTurn: scanOverlaps, send: (ws, text, paths, opts) => sendTo(ws, text, attached(ws, paths), opts) })
 
 // Plan usage in the sidebar: now, every 3 min, and after each agent turn (lib/agent.js).
 A.refreshUsage(); setInterval(A.refreshUsage, 3 * 60_000).unref()
