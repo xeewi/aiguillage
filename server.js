@@ -216,17 +216,18 @@ async function unarchive(ws) {
 }
 
 // With a check script, a merge wants a green check on exactly what is merged. 'failed' | 'stale' | null; refused unless forced.
+// Same tree and same command (a check edited since says nothing about these files).
 async function gate(ws, body) {
-  if (ws.free || !config(ws).check) return null
-  const c = ws.check, same = c?.tree === (await G.snapshot(ws.path)).tree
+  const command = !ws.free && config(ws).check
+  if (!command) return null
+  const c = ws.check, same = Rv.fresh(c, (await G.snapshot(ws.path)).tree, command)
   const st = c?.ok && same ? null : c && !c.ok && same ? 'failed' : 'stale'
   if (st && !body?.force) throw fail('errors.checkNotGreen', { context: st })
   return st
 }
 
-async function merge(ws, body) {
-  if (await G.status(ws.path)) throw fail('errors.uncommittedWorkspace')
-  await gate(ws, body)
+// The merge route checked first: no uncommitted changes, then the gate.
+async function merge(ws) {
   const repo = state.repos.find(r => r.id === ws.repoId)
   const cur = (await G.git(repo.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
   const tip = () => G.git(repo.path, ['rev-parse', ws.base]).then(s => s.trim(), () => null)
@@ -458,9 +459,9 @@ const routes = {
   },
   'POST /api/sessions': createSession,
   'GET /api/workspaces/:id/log': ({ ws }) => readLog(ws.id),
-  // checkFresh: the saved check ran on exactly these files (the page shows « out of date » otherwise).
+  // checkFresh: the saved check ran on exactly these files, with the check as it is now (the page shows « out of date » otherwise).
   'GET /api/workspaces/:id/diff': async ({ ws }) => ({ diff: (await G.diff(ws.path, ws.baseRef || ws.base)).slice(0, 3_000_000), status: await G.status(ws.path),
-    checkFresh: !!ws.check && ws.check.tree === (await G.snapshot(ws.path)).tree }),
+    checkFresh: Rv.fresh(ws.check, (await G.snapshot(ws.path)).tree, !ws.free && config(ws).check) }),
   'PATCH /api/workspaces/:id': ({ ws, body }) => {
     // Rename. Empty: back to the city name, and the next message names it again.
     if (typeof body.title === 'string') ws.title = body.title.replace(/\s+/g, ' ').trim().slice(0, 80)
@@ -523,12 +524,14 @@ const routes = {
   },
   'POST /api/workspaces/:id/merge': async ctx => {
     // The page: refused now unless it sends force. The aiguilleur never picks force: the user's click does, on a label
-    // that says the check isn't green; it is forced only if it wasn't green when asked.
-    const { ws } = ctx, aig = ctx.caller === 'aiguilleur', body = aig ? { force: false } : ctx.body
-    const forced = await gate(ws, aig ? { force: true } : body)
-    if (aig) body.force = !!forced
-    return guard(ctx, 'confirm.merge' + (forced ? '_' + forced : ''), { branch: ws.branch, base: ws.base }, async () => {
-      try { const r = await merge(ws, body); metric('merge', { ws: ws.id, ok: true, conflict: false, ...forced && { forced: true } }); return r }
+    // that says the check isn't green; it is forced only if it wasn't green when asked (the body kept for the click says
+    // so; at the click the route runs again with it: stale meanwhile is refused).
+    const { ws } = ctx, aig = ctx.caller === 'aiguilleur' && !ctx.confirmed
+    // Uncommitted changes first: no « merge anyway? » about a check for what can't merge at all.
+    if (await G.status(ws.path)) throw fail('errors.uncommittedWorkspace')
+    const forced = await gate(ws, aig ? { force: true } : ctx.body)
+    return guard({ ...ctx, body: aig ? { force: !!forced } : ctx.body }, 'confirm.merge' + (forced ? '_' + forced : ''), { branch: ws.branch, base: ws.base }, async () => {
+      try { const r = await merge(ws); metric('merge', { ws: ws.id, ok: true, conflict: false, ...forced && { forced: true } }); return r }
       catch (e) { metric('merge', { ws: ws.id, ok: false, conflict: e.key === 'errors.mergeConflict' }); throw e }
     })
   },
@@ -819,6 +822,7 @@ export const ready = new Promise((ok, fail) => {
 })
 if (!process.versions.electron) ready.catch(e => { console.error(`[aiguillage] ${e.message}`); process.exit(1) })
 export function shutdown() {
+  Rv.killChecks() // a check is detached (its own process group): it would outlive the app
   for (const w of state.workspaces) A.stop(w)
   if (state.aiguilleur) A.stop(state.aiguilleur)
   for (const t of terms.values()) if (t.alive) t.p.kill()

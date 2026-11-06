@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { makeRepo, git } from './helpers.mjs'
+import { makeRepo, git, waitFor, tmp } from './helpers.mjs'
 import { snapshot } from '../lib/git.js'
-import { testFiles, inspect, runCheck, changedFiles, overlaps, inScope, DEFAULT_TEST_GLOBS } from '../lib/review.js'
+import { testFiles, inspect, runCheck, killChecks, changedFiles, overlaps, inScope, DEFAULT_TEST_GLOBS } from '../lib/review.js'
 
 const put = (repo, f, s) => { mkdirSync(join(repo, f, '..'), { recursive: true }); writeFileSync(join(repo, f), s) }
 
@@ -42,6 +42,36 @@ test('runCheck: a check that exits 0 but leaves a background child passes at onc
   const r = await runCheck(ws, 'sleep 3 & echo hi; exit 0', process.env, { timeout: 1500 })
   assert.deepEqual([r.ok, r.code], [true, 0])
   assert.ok(Date.now() - t0 < 1400, `took ${Date.now() - t0} ms`)
+})
+
+const gone = pid => { try { process.kill(pid, 0); return false } catch (e) { return e.code === 'ESRCH' } }
+
+test('runCheck: the background child is really killed, its pid gone once the check returns', async () => {
+  const ws = { path: makeRepo({ 'a.txt': 'a' }) }, pidFile = join(tmp(), 'pid')
+  const r = await runCheck(ws, `sleep 30 & echo $! > ${pidFile}; exit 0`, process.env)
+  assert.equal(r.ok, true)
+  const pid = Number(readFileSync(pidFile, 'utf8'))
+  await waitFor(() => gone(pid), { timeout: 2000, what: `pid ${pid} gone` })
+})
+
+test("runCheck: the shell's exit settles the verdict; the timeout can't fire while the output pipe drains", async () => {
+  const ws = { path: makeRepo({ 'a.txt': 'a' }) }
+  // A child in a process group of its own (given time to leave the shell's) holds the pipe open past the kill: 'close'
+  // never comes, the 1 s fallback ends it, after the timeout's moment.
+  const r = await runCheck(ws, `perl -e 'setpgrp(0, 0); sleep 3' & sleep 0.3; exit 0`, process.env, { timeout: 600 })
+  assert.deepEqual([r.ok, r.code], [true, 0])
+})
+
+test('killChecks: the checks still running when Aiguillage quits are killed, their process group with them', async () => {
+  const ws = { path: makeRepo({ 'a.txt': 'a' }) }, pidFile = join(tmp(), 'pid')
+  const t0 = Date.now()
+  const p = runCheck(ws, `sleep 30 & echo $! > ${pidFile}; wait`, process.env)
+  const pid = await waitFor(() => Number(readFileSync(pidFile, 'utf8')), { what: 'the check started' })
+  killChecks()
+  const r = await p
+  assert.equal(r.ok, false)
+  assert.ok(Date.now() - t0 < 5000)
+  await waitFor(() => gone(pid), { timeout: 2000, what: `pid ${pid} gone` })
 })
 
 test('overlaps: one pair per couple with the files they share, sorted', () => {

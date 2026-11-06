@@ -248,15 +248,16 @@ test("digest: each text escaped exactly once, Aiguillage's words and the agent's
   assert.equal(b, '**✅ app / z** did \\*it\\*')
 })
 
-test('the board: 🧪❌ only while the stored check is red, on the current files, with a check still configured', () => {
-  const red = { check: { ok: false } }
-  assert.equal(redCheck(red, () => true), true)
-  assert.equal(redCheck({ ...red, checkStale: true }, () => true), false, 'the files changed since')
-  assert.equal(redCheck(red, () => false), false, 'no check configured any more')
-  assert.equal(redCheck({ check: { ok: true } }, () => true), false)
-  assert.equal(redCheck({}, () => true), false)
+test('the board: 🧪❌ only while the stored check is red, on the current files, with the same check still configured', () => {
+  const red = { check: { ok: false, command: 'npm test' } }, cmd = () => 'npm test'
+  assert.equal(redCheck(red, cmd), true)
+  assert.equal(redCheck({ ...red, checkStale: true }, cmd), false, 'the files changed since')
+  assert.equal(redCheck(red, () => undefined), false, 'no check configured any more')
+  assert.equal(redCheck(red, () => 'npm run lint'), false, 'another command now: that result says nothing about it')
+  assert.equal(redCheck({ check: { ok: true, command: 'npm test' } }, cmd), false)
+  assert.equal(redCheck({}, cmd), false)
   const t = (k, v) => i18n.t(k, v)
-  assert.equal(boardText([{ repo: 'a', title: 'x', red: redCheck(red, () => true) }, { repo: 'a', title: 'y', red: redCheck({ ...red, checkStale: true }, () => true) }], { t }),
+  assert.equal(boardText([{ repo: 'a', title: 'x', red: redCheck(red, cmd) }, { repo: 'a', title: 'y', red: redCheck({ ...red, checkStale: true }, cmd) }], { t }),
     '💤 2 idle\n\n▸ a\n💤 x 🧪❌ · y')
 })
 
