@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
 import pty from 'node-pty'
 import { state, save, readLog, writeLog, newId, HOME, WORKTREES, runLogPath, ATTACHMENTS, attachDir, fileName } from './lib/store.js'
+import * as Rv from './lib/review.js'
 import { config as readConfig, defaultRun } from './lib/config.js'
 import * as G from './lib/git.js'
 import * as A from './lib/agent.js'
@@ -38,13 +39,14 @@ const view = () => ({
   update: U.info(),
   usage: A.usageNow(),
   workspaces: state.workspaces.map(w => ({ ...w, ...A.runtime(w.id), scriptRunning: terms.get(w.id + ':script')?.alive ? terms.get(w.id + ':script').label : null,
-    claudeTerm: !!terms.get(w.id + ':claude')?.alive })),
+    claudeTerm: !!terms.get(w.id + ':claude')?.alive, checking: Rv.checking.has(w.id) })),
   telegram: R.info(),
   aiguilleur: state.aiguilleur && { ...state.aiguilleur, ...A.runtime('aiguilleur'), aiguilleur: true, brief: undefined },
 })
 let pendingState = null
 const changed = () => { pendingState ??= setTimeout(() => { pendingState = null; broadcast({ t: 'state', ...view() }); R.sync() }, 30) }
 A.wire(m => { broadcast(m); R.onEvent(m) }, changed)
+Rv.wire(changed)
 
 // ---------- project logos (lib/git.js findLogo), shown beside the repo name ----------
 // ponytail: scanned at startup and when a repo is added; a logo added later shows after a restart.
@@ -207,8 +209,18 @@ async function unarchive(ws) {
   save(); changed()
 }
 
-async function merge(ws) {
+// With a check script, a merge wants a green check on exactly what is merged. 'failed' | 'stale' | null; refused unless forced.
+async function gate(ws, body) {
+  if (ws.free || !config(ws).check) return null
+  const c = ws.check, same = c?.tree === (await G.snapshot(ws.path)).tree
+  const st = c?.ok && same ? null : c && !c.ok && same ? 'failed' : 'stale'
+  if (st && !body?.force) throw fail('errors.checkNotGreen', { context: st })
+  return st
+}
+
+async function merge(ws, body) {
   if (await G.status(ws.path)) throw fail('errors.uncommittedWorkspace')
+  await gate(ws, body)
   const repo = state.repos.find(r => r.id === ws.repoId)
   const cur = (await G.git(repo.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
   if (cur === ws.base) {
@@ -411,7 +423,7 @@ const routes = {
     rmSync(attachDir(ws.id), { recursive: true, force: true })
     state.workspaces = state.workspaces.filter(w => w !== ws); save(); changed(); return {}
   }),
-  'GET /api/workspaces/:id/scripts': ({ ws }) => { const c = config(ws); return { run: c.run, default: defaultRun(c) } },
+  'GET /api/workspaces/:id/scripts': ({ ws }) => { const c = config(ws); return { run: c.run, default: defaultRun(c), check: !!c.check } },
   'POST /api/workspaces/:id/run': ({ ws, body }) => {
     const c = config(ws), id = body.id && Object.hasOwn(c.run, body.id) ? body.id : defaultRun(c)
     if (!id) throw fail('errors.noRunScript')
@@ -431,10 +443,18 @@ const routes = {
       return notice('messages.committed')
     })
   },
-  'POST /api/workspaces/:id/merge': ctx => { const { ws } = ctx; return guard(ctx, 'confirm.merge', { branch: ws.branch, base: ws.base }, async () => {
-    try { const r = await merge(ws); metric('merge', { ws: ws.id, ok: true, conflict: false }); return r }
-    catch (e) { metric('merge', { ws: ws.id, ok: false, conflict: e.key === 'errors.mergeConflict' }); throw e }
-  }) },
+  'POST /api/workspaces/:id/merge': async ctx => {
+    const { ws, body } = ctx, forced = await gate(ws, body) // refused now rather than after the user's click
+    return guard(ctx, 'confirm.merge' + (forced ? '_' + forced : ''), { branch: ws.branch, base: ws.base }, async () => {
+      try { const r = await merge(ws, body); metric('merge', { ws: ws.id, ok: true, conflict: false, ...forced && { forced: true } }); return r }
+      catch (e) { metric('merge', { ws: ws.id, ok: false, conflict: e.key === 'errors.mergeConflict' }); throw e }
+    })
+  },
+  'POST /api/workspaces/:id/check': ({ ws }) => {
+    const command = !ws.free && config(ws).check
+    if (!command) throw fail('errors.noCheck')
+    return Rv.runSaved(ws, command)
+  },
   'POST /api/workspaces/:id/pr': ctx => { const { ws } = ctx; return guard(ctx, 'confirm.pr', { branch: ws.branch, base: ws.base }, async () => {
     try {
       await G.git(ws.path, ['push', '-u', 'origin', ws.branch])

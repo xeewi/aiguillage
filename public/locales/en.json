@@ -70,6 +70,7 @@
     "merge": "Merge",
     "mergeTitle": "Merge into the base branch, locally",
     "confirmMerge": "Merge {{branch}} into {{base}} (main repo)?",
+    "confirmMergeRed": "The check is not green (failed or out of date). Merge {{branch}} into {{base}} anyway?",
     "pr": "Create PR",
     "prTitle": "Push + gh pr create",
     "archive": "Archive",
@@ -119,7 +120,9 @@
     "sessionReady": "A session tied to no project, in <code>{{path}}</code>. Give the agent its task."
   },
   "report": {
-    "testsTouched": "⚠️ Test files changed this turn: {{files}}"
+    "testsTouched": "⚠️ Test files changed this turn: {{files}}",
+    "checkPassed": "🧪 check passed ({{s}} s)",
+    "checkFailed": "🧪 check failed (exit {{code}})"
   },
   "notify": {
     "done": "{{name}} finished",
@@ -139,11 +142,20 @@
     "create": "New workspace in {{repo}}: {{name}}",
     "commit": "Commit in {{name}}: {{message}}",
     "merge": "Merge {{branch}} into {{base}}",
+    "merge_failed": "Merge {{branch}} into {{base}} — check ❌",
+    "merge_stale": "Merge {{branch}} into {{base}} — check out of date",
     "pr": "Open a PR from {{branch}} to {{base}}",
     "archive": "Archive {{name}}",
     "delete": "Delete {{name}} (its worktree and branch)",
     "denied": "You declined: {{action}}",
     "waiting": "Waiting for the user to confirm."
+  },
+  "check": {
+    "run": "Run check",
+    "running": "🧪 check running…",
+    "passed": "🧪 check passed",
+    "failed": "🧪 check failed",
+    "stale": "🧪 check out of date"
   },
   "panel": {
     "diff": "Diff",
@@ -224,6 +236,9 @@
     "archiveWorkspacesFirst": "Archive its workspaces first.",
     "uncommittedWorkspace": "The workspace has uncommitted changes. Commit first (Commit button, or ask the agent).",
     "uncommittedMain": "The main repo ({{base}}) has uncommitted changes.",
+    "checkNotGreen_failed": "The check failed. Fix it, or merge anyway with force.",
+    "checkNotGreen_stale": "The check is out of date or was never run. Run it, or merge anyway with force.",
+    "noCheck": "No check script: set [scripts] check in .aiguillage/settings.toml.",
     "mergeConflict": "Conflict: merge aborted, {{base}} is untouched. Ask the agent to rebase on {{base}}.\n{{detail}}",
     "noRunScript": "No run script found: the project type wasn't recognized. Click \"Ask the agent\" to have it set one up, or create .aiguillage/settings.toml at the repo root (see the README).",
     "interruptFirst": "Interrupt the agent before going back.",

@@ -70,6 +70,7 @@
     "merge": "Merge",
     "mergeTitle": "Fusionner dans la branche de base, en local",
     "confirmMerge": "Fusionner {{branch}} dans {{base}} (repo principal) ?",
+    "confirmMergeRed": "Le check n'est pas au vert (en échec ou périmé). Fusionner {{branch}} dans {{base}} quand même ?",
     "pr": "Créer la PR",
     "prTitle": "Push + gh pr create",
     "archive": "Archiver",
@@ -119,7 +120,9 @@
     "sessionReady": "Une session rattachée à aucun projet, dans <code>{{path}}</code>. Donne sa tâche à l'agent."
   },
   "report": {
-    "testsTouched": "⚠️ Fichiers de test modifiés pendant ce tour : {{files}}"
+    "testsTouched": "⚠️ Fichiers de test modifiés pendant ce tour : {{files}}",
+    "checkPassed": "🧪 check réussi ({{s}} s)",
+    "checkFailed": "🧪 check en échec (code {{code}})"
   },
   "notify": {
     "done": "{{name}} a terminé",
@@ -139,11 +142,20 @@
     "create": "Nouveau workspace dans {{repo}} : {{name}}",
     "commit": "Commit dans {{name}} : {{message}}",
     "merge": "Fusionner {{branch}} dans {{base}}",
+    "merge_failed": "Fusionner {{branch}} dans {{base}} — check ❌",
+    "merge_stale": "Fusionner {{branch}} dans {{base}} — check périmé",
     "pr": "Ouvrir une PR de {{branch}} vers {{base}}",
     "archive": "Archiver {{name}}",
     "delete": "Supprimer {{name}} (son worktree et sa branche)",
     "denied": "Vous avez refusé : {{action}}",
     "waiting": "En attente de la confirmation de l'utilisateur."
+  },
+  "check": {
+    "run": "Lancer le check",
+    "running": "🧪 check en cours…",
+    "passed": "🧪 check réussi",
+    "failed": "🧪 check en échec",
+    "stale": "🧪 check périmé"
   },
   "panel": {
     "diff": "Diff",
@@ -224,6 +236,9 @@
     "archiveWorkspacesFirst": "Archive d'abord ses workspaces.",
     "uncommittedWorkspace": "Le workspace a des changements non commités. Commite d'abord (bouton Commit ou demande à l'agent).",
     "uncommittedMain": "Le repo principal ({{base}}) a des changements non commités.",
+    "checkNotGreen_failed": "Le check a échoué. Corrige, ou fusionne quand même avec force.",
+    "checkNotGreen_stale": "Le check est périmé ou n'a jamais tourné. Lance-le, ou fusionne quand même avec force.",
+    "noCheck": "Aucun script check : renseigne [scripts] check dans .aiguillage/settings.toml.",
     "mergeConflict": "Conflit : merge annulé, {{base}} est intact. Demande à l'agent de rebaser sur {{base}}.\n{{detail}}",
     "noRunScript": "Aucun script run trouvé : le type de projet n'a pas été reconnu. Clique sur « Demander à l'agent » pour qu'il le configure, ou crée .aiguillage/settings.toml à la racine du repo (voir le README).",
     "interruptFirst": "Interromps l'agent avant de revenir en arrière.",

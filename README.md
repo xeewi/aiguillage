@@ -169,6 +169,7 @@ Nothing recognized? **Ask the agent** in the Run tab: it works out the command a
 ```toml
 [scripts]
 setup = "pnpm install"
+check = "pnpm test"          # verification gate, see below
 run_mode = "concurrent"      # "nonconcurrent": only one workspace of the repo runs its script at a time
 
 [scripts.run.dev]
@@ -178,6 +179,8 @@ default = true
 [scripts.run.test]
 command = "pnpm test --watch"
 ```
+
+**`check`**: a command that verifies the work (tests, lint, build), run in the worktree through your login shell (10 minutes at most, `AIGUILLAGE_CHECK_TIMEOUT_MS` to change). It runs by itself when an agent's turn ended and the files differ from the last check; the result (and, when red, the end of its output) comes with the agent's report, and 🧪❌ marks the workspace on the Telegram board. The Diff tab shows the verdict and a **Run check** button. Merging asks for confirmation when the check is red or out of date (the aiguilleur must pass `force: true`, and your click then says so). No `check`, or a free session: nothing runs and merge is unchanged.
 
 <details>
 <summary>JSON format</summary>

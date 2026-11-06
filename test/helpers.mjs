@@ -58,7 +58,7 @@ export async function startServer({ home = tmp('cghome-'), env = {} } = {}) {
   const call = (headers = {}) => async (method, path, body) => {
     const r = await fetch(base + '/api' + path, { method, headers: { 'content-type': 'application/json', ...headers }, body: body && JSON.stringify(body) })
     const j = await r.json().catch(() => ({}))
-    if (!r.ok) { const e = new Error(j.error || r.statusText); e.status = r.status; throw e }
+    if (!r.ok) { const e = new Error(j.error || r.statusText); Object.assign(e, { status: r.status, key: j.key, vars: j.vars }); throw e }
     return j
   }
   const api = call({ 'sec-fetch-site': 'same-origin' }) // what the page's browser sends

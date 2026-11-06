@@ -71,7 +71,7 @@ async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'content-type': 'application/json' }, body: body && JSON.stringify(body) })
   const j = await r.json().catch(() => ({}))
   // Server errors and notices come with a translation key; the English text is the fallback.
-  if (!r.ok) throw Object.assign(new Error(j.key ? t(j.key, j.vars) : j.error || r.statusText), { key: j.key })
+  if (!r.ok) throw Object.assign(new Error(j.key ? t(j.key, j.vars) : j.error || r.statusText), { key: j.key, vars: j.vars })
   if (j.key) j.message = t(j.key, j.vars)
   return j
 }
@@ -92,7 +92,7 @@ const send = m => sock?.readyState === 1 && sock.send(JSON.stringify(m))
 
 function onMsg(m) {
   if (m.t === 'state') {
-    S = m; renderSide(); renderHead(); renderPerms(); renderTasks(); renderSettings(); renderUpdate(); renderUsage()
+    S = m; renderSide(); renderHead(); renderCheck(); renderPerms(); renderTasks(); renderSettings(); renderUpdate(); renderUsage()
     if (tab === 'term' && wsById(active) && !solo(wsById(active)) && termShown !== termKey()) showTab('term') // the terminal Claude Code started or quit
   }
   else if (m.t === 'ev') {
@@ -488,6 +488,7 @@ function select(id) {
   renderSide(); renderHead(); renderPerms(); renderAtts(); loadThread()
   if (solo(wsById(id))) return
   showTab(tab)
+  loadScripts() // the Run check button depends on the repo's config
   if (tab !== 'diff') loadDiff() // the Diff tab's counts and the git bar, whatever tab is open
 }
 
@@ -547,9 +548,22 @@ async function wsAct(w, act, app) {
   if (act === 'archive' && !confirm(t(w.free ? 'head.confirmArchiveSession' : 'head.confirmArchive', { name: w.name, branch: w.branch }))) return
   if (act === 'merge' && !confirm(t('head.confirmMerge', { branch: w.branch, base: w.base }))) return
   if (act === 'commit') { const m = await ask(t('head.commit'), t('head.commitPrompt'), w.title || ''); if (m == null) return; body = { message: m } }
-  const r = await api('POST', `/workspaces/${w.id}/${act}`, body)
+  const r = await api('POST', `/workspaces/${w.id}/${act}`, body).catch(e => {
+    // A red or out-of-date check: the user decides whether to merge anyway.
+    if (act !== 'merge' || e.key !== 'errors.checkNotGreen' || !confirm(t('head.confirmMergeRed', { branch: w.branch, base: w.base }))) throw e
+    return api('POST', `/workspaces/${w.id}/merge`, { force: true })
+  })
   if (r.message) toast(r.message)
   if (act === 'archive') { if (w.id === active) active = null; renderSide(); renderHead() } else if (w.id === active) loadDiff()
+}
+// The check's verdict next to the Diff bar's buttons; « out of date » once the files moved on (the server compares trees on merge).
+let hasCheck = false
+function renderCheck() {
+  const w = wsById(active), has = hasCheck && !w?.free
+  $('#gitBar [data-act="check"]').hidden = !has; $('#gitBar [data-act="check"]').disabled = !!w?.checking
+  const b = $('#checkBadge'), c = w?.check
+  b.hidden = !has || !(c || w.checking)
+  if (!b.hidden) { b.textContent = t(w.checking ? 'check.running' : c.ok ? 'check.passed' : 'check.failed'); b.title = c?.out ?? ''; b.className = w.checking ? '' : c.ok ? 'ok' : 'bad' }
 }
 const onAct = guard(async e => {
   const b = e.target.closest('button[data-act]'); if (!b) return
@@ -891,7 +905,8 @@ $('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) sho
 $('#refresh').onclick = () => loadDiff()
 $('#runStart').onclick = guard(() => api('POST', `/workspaces/${active}/run`, { id: $('#runScript').value }))
 async function loadScripts() {
-  const { run, default: def } = await api('GET', `/workspaces/${active}/scripts`).catch(() => ({ run: {} }))
+  const { run, default: def, check } = await api('GET', `/workspaces/${active}/scripts`).catch(() => ({ run: {} }))
+  hasCheck = !!check; renderCheck()
   const sel = $('#runScript')
   sel.replaceChildren(...Object.entries(run).map(([id, r]) => { const o = h('option', null, id); o.value = id; o.title = r.command; o.selected = id === def; return o }))
   sel.hidden = !sel.options.length

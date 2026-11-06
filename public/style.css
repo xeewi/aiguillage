@@ -347,6 +347,8 @@ img.media { border: 1px solid var(--line); cursor: zoom-in; }
 #termView, #runView, #diffTab { display: flex; flex-direction: column; overflow: hidden; }
 #diffView { flex: 1; min-height: 0; overflow: auto; }
 #gitBar { flex-wrap: wrap; font-size: 13px; }
+#checkBadge.ok { color: var(--ok); }
+#checkBadge.bad { color: var(--del); }
 #diffStat b { color: var(--fg); }
 #diffCount { margin-left: 6px; font-size: 12px; font-weight: 500; }
 #runTerm { flex: 1; min-height: 0; }
