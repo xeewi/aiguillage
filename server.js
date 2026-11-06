@@ -218,7 +218,7 @@ async function archiveNow(ws) {
   const repo = state.repos.find(r => r.id === ws.repoId)
   // Uncommitted work survives archiving: pinned now, put back on unarchive.
   if (existsSync(ws.path) && await G.status(ws.path)) {
-    ws.archiveCp = await G.snapshot(ws.path)
+    ws.archiveCp = await G.snapshot(ws.path, { timeout: 0 }) // no time limit: a huge worktree must not make the archive fail
     await G.pin(ws.path, `refs/aiguillage/${ws.id}/archive`, ws.archiveCp)
   }
   await G.removeWorktree(repo.path, ws.path)

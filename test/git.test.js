@@ -200,3 +200,17 @@ test('git() with a timeout kills a call that hangs and rejects at once', async (
   assert.ok(Date.now() - t0 < 2000, `took ${Date.now() - t0} ms`)
   rmSync(dir, { recursive: true, force: true })
 })
+
+test("snapshot's per-call git timeout: { timeout } bounds it, 0 lifts it (archive)", async () => {
+  const repo = realpathSync(mkdtempSync(join(tmpdir(), 'cgslow-')))
+  await git(repo, ['init', '-q', '-b', 'main'])
+  await git(repo, ['config', 'user.email', 't@t'])
+  await git(repo, ['config', 'user.name', 't'])
+  await git(repo, ['commit', '-q', '--allow-empty', '-m', 'init'])
+  // A clean filter that takes a second: `git add` waits for it.
+  await git(repo, ['config', 'filter.slow.clean', 'sleep 1; cat'])
+  writeFileSync(join(repo, '.gitattributes'), '*.txt filter=slow\n')
+  writeFileSync(join(repo, 'a.txt'), 'a\n')
+  await assert.rejects(snapshot(repo, { timeout: 300 }), e => e.killed, 'killed past its timeout')
+  assert.match((await snapshot(repo, { timeout: 0 })).tree, /^[0-9a-f]{40}$/)
+})
