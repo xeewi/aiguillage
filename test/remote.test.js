@@ -61,6 +61,8 @@ test("media shown: an agent's paths made absolute in its report; on Telegram, a 
   assert.equal(s.text, 'Done: 📎 home page, 📎 demo, [docs](https://x.dev/a.png), 📎 s.gif and [notes](notes.md)')
   assert.deepEqual(s.files.map(f => [f.path.replace(process.env.HOME, '~'), f.caption]), [['/wt/shots/home.png', 'home page'], ['/tmp/a b.mp4', 'demo'], ['~/s.gif', '']])
   assert.deepEqual(forTelegram('![x](out%20dir/x.png)', '/aig').files, [{ path: '/aig/out dir/x.png', caption: 'x' }], "the aiguilleur's own paths, from its folder")
+  const ics = forTelegram('![Rappel](/aig/rappels/r.ics), [notes](notes.md)', '/aig')
+  assert.deepEqual([ics.text, ics.files], ['📎 Rappel, [notes](notes.md)', [{ path: '/aig/rappels/r.ics', caption: 'Rappel' }]], 'an embed shares any file; a plain link, only media')
 })
 
 test('buttons: Allow / Deny of a permission request', () => {

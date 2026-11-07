@@ -19,7 +19,10 @@ function localMedia(ref) {
 }
 function embedMedia(frag) {
   for (const n of frag.querySelectorAll('img[src], a[href]')) {
-    const p = localMedia(n.getAttribute(n.tagName === 'IMG' ? 'src' : 'href')); if (!p) continue
+    const ref = n.getAttribute(n.tagName === 'IMG' ? 'src' : 'href'), p = localMedia(ref)
+    // Another file embedded (![reminder](/x/a.ics), for Telegram): its name, not a broken image.
+    if (!p && n.tagName === 'IMG' && !/^[a-z][\w+.-]*:|^\/attachments\/|^#/i.test(ref)) { const s = h('span', null, '📎 ' + (n.alt || ref.split('/').pop())); s.title = ref; n.replaceWith(s) }
+    if (!p) continue
     const m = h(VIDEO.test(p) ? 'video' : AUDIO.test(p) ? 'audio' : 'img', 'media')
     m.src = mediaUrl(p)
     if (m.tagName === 'IMG') { m.alt = n.alt || n.textContent; m.title = p } else { m.controls = true; m.preload = 'metadata' }

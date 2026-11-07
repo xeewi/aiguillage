@@ -224,7 +224,7 @@ test('media: local images, videos and sounds in a reply show in the chat; web im
   // 1×1 PNG, committed in the repo so the worktree has it.
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
   await open({ 'shots/home.png': png })
-  await say(page, '![home](shots/home.png) [demo](out/demo.mp4) [voice](./a.mp3) [readme](README.md) ![web](https://example.com/x.png)')
+  await say(page, '![home](shots/home.png) [demo](out/demo.mp4) [voice](./a.mp3) [readme](README.md) ![web](https://example.com/x.png) ![reminder](/tmp/r.ics)')
   const reply = page.locator('#thread .msg.ai').last()
   await expect(reply.locator('img.media')).toHaveJSProperty('naturalWidth', 1)
   await expect(reply.locator('img.media')).toHaveAttribute('alt', 'home')
@@ -232,6 +232,7 @@ test('media: local images, videos and sounds in a reply show in the chat; web im
   await expect(reply.locator('audio.media')).toHaveAttribute('controls', '')
   await expect(reply.locator('a[href="README.md"]')).toHaveText('readme')
   await expect(reply.locator('img:not(.media)')).toHaveAttribute('src', 'https://example.com/x.png') // CSP keeps it off the network
+  await expect(reply.locator('span[title="/tmp/r.ics"]')).toHaveText('📎 reminder') // another file embedded: its name, no broken image
 })
 
 test('media: a chat image opens full size on click; a click or Escape closes it', async ({ open, page }) => {
