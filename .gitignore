@@ -7,3 +7,4 @@ playwright-report
 .impeccable/hook.cache.json
 dist/
 .claude/scheduled_tasks.lock
+.DS_Store
