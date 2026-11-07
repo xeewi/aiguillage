@@ -109,7 +109,6 @@ test("the aiguilleur's API is deny-by-default: what isn't on its list answers 40
     ['POST', '/repos', { path: '/nonexistent' }],
     ['PATCH', `/repos/${repo.id}`, { base: 'other' }],
     ['DELETE', `/repos/${repo.id}`],
-    ['POST', '/sessions', {}],
     ['GET', '/suggest'],
     ['GET', `/repos/${repo.id}/branches`],
     ['DELETE', `/workspaces/${w.id}/queued/x`],
@@ -124,6 +123,9 @@ test("the aiguilleur's API is deny-by-default: what isn't on its list answers 40
   for (const p of ['log', 'diff', 'scripts', 'commands']) await srv.asAiguilleur('GET', `/workspaces/${w.id}/${p}`)
   await srv.asAiguilleur('GET', '/workspaces/aiguilleur/log')
   await srv.asAiguilleur('GET', '/metrics')
+  // A free session: made at once, no confirmation.
+  const s = await srv.asAiguilleur('POST', '/sessions', {})
+  assert.ok(s.free && !s.pending && (await srv.state()).workspaces.some(x => x.id === s.id))
   await srv.asAiguilleur('PATCH', `/workspaces/${w.id}`, { title: 'Renamed' })
   assert.equal((await srv.ws(w.id)).title, 'Renamed')
   await assert.rejects(srv.asAiguilleur('POST', `/workspaces/${w.id}/check`), e => e.key === 'errors.noCheck', 'reaches the route')

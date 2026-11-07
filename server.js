@@ -751,7 +751,8 @@ const AIGUILLEUR_ROUTES = new Set(['GET /api/workspaces/:id/log', 'GET /api/work
 
 // What the aiguilleur may call; anything else answers 403 (permission answers, modes, revert, Settings, Telegram…).
 // Irreversible ones wait for the user's click (guard()). A rename only: model, effort and mode are the user's.
-const FOR_AIGUILLEUR = new Set(['GET /api/state', 'GET /api/metrics', 'POST /api/workspaces', 'DELETE /api/workspaces/:id', 'PATCH /api/workspaces/:id',
+// A free session goes at once: an empty folder of its own, no branch, no setup script, gone with an archive.
+const FOR_AIGUILLEUR = new Set(['GET /api/state', 'GET /api/metrics', 'POST /api/workspaces', 'POST /api/sessions', 'DELETE /api/workspaces/:id', 'PATCH /api/workspaces/:id',
   ...['log', 'diff', 'commands', 'scripts'].map(a => `GET /api/workspaces/:id/${a}`),
   ...['send', 'upload', 'interrupt', 'stop-task', 'check', 'brief', 'commit', 'merge', 'pr', 'archive'].map(a => `POST /api/workspaces/:id/${a}`)])
 const forAiguilleur = (key, { ws, body }) => FOR_AIGUILLEUR.has(key)
