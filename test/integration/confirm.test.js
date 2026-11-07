@@ -87,6 +87,17 @@ test('commit, PR, archive and delete wait too; the aiguilleur cannot confirm its
   assert.ok(!asked.some(id => left.some(x => x.id === id)))
 })
 
+test('the same request asked again while it waits: one confirmation, its id answered again', async () => {
+  const { w } = await setup(srv)
+  const a = await srv.asAiguilleur('DELETE', `/workspaces/${w.id}`, {})
+  const b = await srv.asAiguilleur('DELETE', `/workspaces/${w.id}`, {})
+  assert.equal(b.pending, a.pending)
+  const c = await srv.asAiguilleur('POST', `/workspaces/${w.id}/commit`, { message: 'other' })
+  assert.notEqual(c.pending, a.pending, 'another request is its own')
+  assert.equal((await waiting()).filter(x => x.about === w.id).length, 2)
+  for (const id of [a.pending, c.pending]) await answer(id, false)
+})
+
 test("the aiguilleur's API is deny-by-default: what isn't on its list answers 403", async () => {
   const { repo, w } = await setup(srv)
   await srv.api('PATCH', `/workspaces/${w.id}`, { permissionMode: 'default' })

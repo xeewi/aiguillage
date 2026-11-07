@@ -621,6 +621,9 @@ const GUARDED = new Set(['POST /api/workspaces', 'DELETE /api/workspaces/:id', .
 function guard(ctx, key, vars, run) {
   if (ctx.caller !== 'aiguilleur' || ctx.confirmed) return run()
   if (!GUARDED.has(ctx.route)) throw new Error(`guard: ${ctx.route} is not a guarded route`)
+  // Asked again while it waits (a retry whose answer it didn't read): the same request, one click, not two.
+  const same = state.confirms?.find(x => x.routeKey === ctx.route && x.params.id === ctx.id && JSON.stringify(x.body) === JSON.stringify(ctx.body))
+  if (same) return { pending: same.id, ...notice('confirm.waiting') }
   const c = { id: newId(), wsId: state.aiguilleur.id, routeKey: ctx.route, params: { id: ctx.id }, body: ctx.body, key, vars, at: Date.now(),
     ...ctx.route === 'POST /api/workspaces/:id/merge' && { forced: ctx.forced },
     telegram: R.fromTelegram() } // asked in a turn from Telegram: its buttons go there, even out of remote mode
