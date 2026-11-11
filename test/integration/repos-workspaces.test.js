@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { startServer, setup, makeRepo, waitFor, git, tmp } from '../helpers.mjs'
 
@@ -89,6 +89,18 @@ test('repos: a freshly initialised repo without commits can be added', async () 
   const repo = await addRepo(d)
   assert.equal(repo.base, 'main')
   await assert.rejects(newWs(repo.id), /no commit yet/)
+})
+
+test('workspaces: a worktree that lost its .git (only leftovers) can be archived, unarchived and deleted', async () => {
+  const { repo, w } = await setup(srv)
+  const w2 = await newWs(repo.id)
+  for (const x of [w, w2]) { rmSync(x.path, { recursive: true, force: true }); mkdirSync(join(x.path, '.astro'), { recursive: true }) }
+  await srv.api('POST', `/workspaces/${w.id}/archive`)
+  assert.ok(!existsSync(w.path), 'the leftovers go, as git worktree remove would have')
+  await srv.api('POST', `/workspaces/${w.id}/unarchive`)
+  assert.equal(git(w.path, 'rev-parse', '--abbrev-ref', 'HEAD'), w.branch)
+  await srv.api('DELETE', `/workspaces/${w2.id}`)
+  assert.ok(!(await srv.state()).workspaces.some(x => x.id === w2.id) && !existsSync(w2.path))
 })
 
 test('workspaces: ports unique and spaced by 10, also across archive/unarchive', async () => {
