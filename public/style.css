@@ -207,6 +207,8 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .msg.err { color: var(--del); background: var(--del-bg); padding: 10px 14px; border-radius: 8px; white-space: pre-wrap; font-family: var(--mono); font-size: 12.5px; }
 .msg pre, .msg code { font-family: var(--mono); font-size: 12.5px; background: var(--code); border-radius: 5px; }
 .msg pre { padding: 10px 12px; overflow-x: auto; } .msg code { padding: 1px 5px; } .msg pre code { padding: 0; }
+/* The agent's end-of-turn block (lib/report.js) is for Aiguillage, not the reader: its status shows as the report's icon. */
+.msg pre:has(> code.language-aig-report) { display: none; }
 .msg a { color: var(--fg); text-underline-offset: 3px; }
 .media { display: block; max-width: 100%; max-height: 480px; margin: 8px 0; border-radius: 8px; } audio.media { width: min(100%, 420px); }
 img.media { border: 1px solid var(--line); cursor: zoom-in; }

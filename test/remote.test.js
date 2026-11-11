@@ -241,6 +241,14 @@ test('a turn the user stopped reads ⏹ Stopped, neither ✅ nor ❌', () => {
   assert.equal(urgent(ev), false, 'the user stopped it: nothing to tell them at once')
 })
 
+test('Telegram gets the report without its aig-report block; the aiguilleur model keeps it', () => {
+  const block = '```aig-report\nstatus: done\nchecks: npm test\nunverified: none\nneeds: none\n```'
+  const ev = { type: 'cg_report', ws: 'w', label: 'app / a', ok: true, status: 'done', text: `Fixed.\n\n${block}` }
+  assert.equal(reportMd(ev, 'en'), '**✅ app / a**\n\nFixed.')
+  assert.equal(digestItem({ ...ev, text: block }, 'en').line, '', 'a block alone leaves no line')
+  assert.ok(reportText(ev).includes(block))
+})
+
 test("digest: each text escaped exactly once, Aiguillage's words and the agent's", () => {
   const t = (k, v) => i18n.t(k, { lng: 'en', ...v })
   const server = { type: 'cg_report', ws: 'a', label: 'app / x', ok: true, status: null, key: 'overlap.notified', vars: { branch: 'aig/my_feat', base: 'main', who: 'app / y' }, text: '' }
